@@ -1,14 +1,12 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { TokenBalance, TokenInfo } from '../types/token';
 
-// environment variables for api keys and endpoints
 const JUPITER_API = 'https://lite-api.jup.ag';
 const RPC_ENDPOINTS = [
   process.env.NEXT_PUBLIC_RPC_ENDPOINT_1,
   process.env.NEXT_PUBLIC_RPC_ENDPOINT_2,
 ].filter(Boolean) as string[]; 
 
-// fallback rpc endpoints if environment variables are not set
 const FALLBACK_RPC_ENDPOINTS = [
   'https://api.mainnet-beta.solana.com',
   'https://solana-api.projectserum.com'
@@ -37,7 +35,6 @@ class LoadBalancer {
   private currentIndex = 0;
 
   constructor(private endpoints: string[]) {
-    // use fallback endpoints if no environment endpoints are provided
     if (endpoints.length === 0) {
       this.endpoints = FALLBACK_RPC_ENDPOINTS;
       console.warn('⚠️ using fallback rpc endpoints. please configure RPC_ENDPOINT environment variables for better performance.');
@@ -103,7 +100,6 @@ class LoadBalancer {
   }
 }
 
-// initialize load balancer with environment endpoints
 const rpcLoadBalancer = new LoadBalancer(RPC_ENDPOINTS);
 const jupiterRateLimiter = new RateLimiter();
 

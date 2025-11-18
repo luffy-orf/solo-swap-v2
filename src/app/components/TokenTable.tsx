@@ -14,7 +14,6 @@ interface TokenTableProps {
 type SortField = 'symbol' | 'balance' | 'USD' | 'value';
 type SortDirection = 'asc' | 'desc';
 
-// Move SortIcon component outside of the main component
 interface SortIconProps {
   field: SortField;
   sortField: SortField;
@@ -31,7 +30,6 @@ const SortIcon = ({ field, sortField, sortDirection }: SortIconProps) => {
     : <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 text-purple-400" />;
 };
 
-// Move TokenLogo component outside of the main component
 interface TokenLogoProps {
   token: TokenBalance;
   size?: number;
@@ -47,7 +45,6 @@ const TokenLogo = ({ token, size = 8 }: TokenLogoProps) => {
         alt={token.symbol}
         className={`rounded-full ${logoSize} flex-shrink-0`}
         onError={(e) => {
-          // Fallback to placeholder if image fails to load
           (e.target as HTMLImageElement).style.display = 'none';
         }}
       />
@@ -73,7 +70,6 @@ export function TokenTable({
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Calculate total portfolio value
   const totalPortfolioValue = useMemo(() => {
     return tokens.reduce((total, token) => total + (token.value || 0), 0);
   }, [tokens]);

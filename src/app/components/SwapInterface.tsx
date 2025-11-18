@@ -68,17 +68,14 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
   const [swapResults, setSwapResults] = useState<SwapResult[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Detect if connected wallet is Ledger
   const isLedgerConnected = useMemo(() => {
     return wallet?.adapter?.name?.toLowerCase().includes('ledger');
   }, [wallet]);
 
   const tokenService = new TokenService();
 
-  // Calculate liquidation value based on percentage
   const liquidationValue = (totalSelectedValue * liquidationPercentage) / 100;
 
-  // FIXED: Universal transaction signing that works for all wallets
   const signTransactionUniversal = async (transaction: VersionedTransaction): Promise<VersionedTransaction> => {
     if (!signTransaction) {
       throw new Error('no signTransaction function available');
@@ -87,7 +84,6 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
     try {
       console.log(`🔐 signing transaction with ${isLedgerConnected ? 'ledger' : 'wallet'}...`);
       
-      // For Ledger, provide specific messaging
       if (isLedgerConnected) {
         setCurrentStep('please confirm transaction on your ledger device...');
       }
@@ -102,7 +98,6 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
       
       const errorMessage = error instanceof Error ? error.message : 'unknown error occurred';
       
-      // Provide wallet-specific error messages
       if (isLedgerConnected) {
         if (errorMessage.includes('denied') || errorMessage.includes('rejected')) {
           throw new Error('transaction was rejected on your ledger device.');
@@ -114,30 +109,23 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
           throw new Error('ledger signing failed. please check your device and try again.');
         }
       } else {
-        // Generic error for other wallets
         throw new Error(`transaction signing failed: ${errorMessage}`);
       }
     }
   };
 
-  // FIXED: Proper token amount calculation
   const calculateProRataAmounts = (): ProRataToken[] => {
     return selectedTokens.map(token => {
-      // Calculate what percentage of total value this token represents
       const tokenValue = token.value || 0;
       const tokenPercentageOfTotal = totalSelectedValue > 0 ? tokenValue / totalSelectedValue : 0;
       
-      // Calculate how much value to liquidate from this token
       const tokenLiquidationValue = liquidationValue * tokenPercentageOfTotal;
       
-      // Calculate the actual token amount to swap based on its price
       const tokenPrice = token.price || 1;
       const tokenAmountToSwap = tokenPrice > 0 ? tokenLiquidationValue / tokenPrice : 0;
       
-      // Don't swap more than available balance, and ensure minimum amount
       const finalSwapAmount = Math.min(tokenAmountToSwap, token.uiAmount);
       
-      // DEBUG: Log the calculation
       console.log(`🧮 token ${token.symbol} calculation:`, {
         tokenValue,
         tokenPercentageOfTotal: (tokenPercentageOfTotal * 100).toFixed(2) + '%',
@@ -158,7 +146,6 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
     });
   };
 
-  // Enhanced error logging
   const logError = (context: string, error: unknown, details?: Partial<ErrorDetails>) => {
     console.error(`🚨 ${context}:`, {
       error,
@@ -172,7 +159,6 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
     });
   };
 
-  // Get fresh blockhash to prevent expiration
   const getFreshBlockhash = async () => {
     try {
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
@@ -184,13 +170,11 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
     }
   };
 
-  // IMPROVED: Enhanced quote fetching with better error handling
   const getSwapQuote = async (token: ProRataToken): Promise<JupiterQuoteResponse> => {
     try {
       const slippageBps = Math.floor(slippage * 100);
       const rawAmount = Math.floor(token.swapAmount * Math.pow(10, token.decimals));
 
-      // Validate amount
       if (rawAmount <= 0) {
         throw new Error(`invalid amount for ${token.symbol}: ${rawAmount}`);
       }
@@ -237,7 +221,6 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
     }
   };
 
-  // IMPROVED: Execute swaps with better error handling and retry logic
   const executeSequentialSwaps = async (tokens: ProRataToken[]): Promise<SwapResult[]> => {
     const results: SwapResult[] = [];
     
@@ -259,10 +242,8 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
             walletType: wallet?.adapter?.name
           });
 
-          // Get quote with retry logic
           const quoteData = await getSwapQuote(token);
 
-          // Build swap transaction - ensure versioned transactions for all wallets
           const swapResponse = await fetch('https://lite-api.jup.ag/swap/v1/swap', {
             method: 'POST',
             headers: {
@@ -280,7 +261,7 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
                 }
               },
               wrapAndUnwrapSol: true,
-              asLegacyTransaction: false, // Use versioned transactions for all wallets
+              asLegacyTransaction: false,
               useSharedAccounts: true
             })
           });
@@ -296,7 +277,6 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
             throw new Error('no swap transaction returned from jupiter');
           }
 
-          // Send transaction
           const transaction = VersionedTransaction.deserialize(
             Buffer.from(swapData.swapTransaction, 'base64')
           );
@@ -305,7 +285,6 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
           const newTransaction = new VersionedTransaction(transaction.message);
           newTransaction.message.recentBlockhash = blockhash;
 
-          // Use universal signing that works for all wallets
           setCurrentStep(`confirm ${token.symbol} swap...`);
           const signedTransaction = await signTransactionUniversal(newTransaction);
           
@@ -320,7 +299,6 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
             throw new Error('failed to send transaction - no signature returned');
           }
 
-          // Wait for confirmation
           setCurrentStep(`confirming ${token.symbol} transaction...`);
           const confirmation = await connection.confirmTransaction({
             signature,
@@ -345,7 +323,6 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
           console.log(`✅ successfully swapped ${token.symbol}:`, result);
           success = true;
 
-          // Update results in real-time
           setSwapResults([...results]);
 
         } catch (err) {
@@ -364,7 +341,6 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
             setSwapResults([...results]);
           } else {
             console.warn(`⚠️ retrying ${token.symbol} (attempt ${retryCount + 1})...`);
-            // Wait before retry
             await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
           }
         }
@@ -374,7 +350,6 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
     return results;
   };
 
-  // Main swap execution function
   const executeLiquidation = async () => {
     if (!publicKey || !signTransaction || !sendTransaction || selectedTokens.length === 0) {
       setError('please connect wallet and select tokens');
@@ -394,7 +369,6 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
     try {
       const proRataTokens = calculateProRataAmounts();
       
-      // Filter out tokens with zero or very small amounts
       const validTokens = proRataTokens.filter(token => 
         token.swapAmount > 0.000001 && token.liquidationAmount > 0.01
       );
@@ -412,13 +386,11 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
         throw new Error('no valid tokens with sufficient balance to liquidate');
       }
 
-      // Execute swaps sequentially
       const results = await executeSequentialSwaps(validTokens);
 
       const successfulSwaps = results.filter(result => !result.error);
       const failedSwaps = results.filter(result => result.error);
 
-      // Show detailed results
       if (successfulSwaps.length > 0) {
         const totalSwapped = successfulSwaps.reduce((sum, swap) => sum + (swap.amount || 0), 0);
         const totalSwappedPercentage = totalSelectedValue > 0 ? (totalSwapped / totalSelectedValue * 100).toFixed(1) : '0';

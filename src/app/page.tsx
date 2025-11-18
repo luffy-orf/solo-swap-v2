@@ -69,10 +69,9 @@ export default function Home() {
 
   const handleSwapComplete = () => {
     console.log('✅ Swap completed, refreshing balances...');
-    fetchTokenBalances(); // Refresh token balances after swap
+    fetchTokenBalances(); 
   };
 
-  // Add this inside your Home component, before the return statement
   useEffect(() => {
     const debugRpc = async () => {
       console.log('=== RPC DEBUG INFO ===');
@@ -88,7 +87,6 @@ export default function Home() {
     }
   }, [connected]);
 
-  // Debug selected tokens
   useEffect(() => {
     console.log('🎯 Selected tokens updated:', {
       count: selectedTokens.length,
@@ -105,7 +103,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white p-3 sm:p-4">
       <div className="max-w-7xl mx-auto">
-        {/* Header - HIGHER Z-INDEX */}
         <header className="flex justify-between items-center mb-6 sm:mb-8 p-3 sm:p-4 bg-gray-800/50 rounded-lg backdrop-blur-sm relative z-30">
           <div className="flex items-center space-x-3 sm:space-x-4">
             <div className="flex items-center space-x-2">
