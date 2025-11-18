@@ -8,7 +8,7 @@ import { TokenService } from './lib/api';
 import { TokenTable } from './components/TokenTable';
 import { SwapInterface } from './components/SwapInterface';
 import { SettingsPanel } from './components/SettingsPannel';
-import { Settings2, Wallet } from 'lucide-react';
+import { Settings2, Wallet, Menu, X } from 'lucide-react';
 import { RpcStatus } from './components/RpcStatus';
 import Image from 'next/image';
 
@@ -20,6 +20,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [showSettings, setShowSettings] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const tokenService = new TokenService();
 
@@ -102,26 +103,27 @@ export default function Home() {
   }, [selectedTokens, totalSelectedValue]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white p-3 sm:p-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <header className="flex justify-between items-center mb-8 p-4 bg-gray-800/50 rounded-lg backdrop-blur-sm">
-          <div className="flex items-center space-x-4">
+        <header className="flex justify-between items-center mb-6 sm:mb-8 p-3 sm:p-4 bg-gray-800/50 rounded-lg backdrop-blur-sm">
+          <div className="flex items-center space-x-3 sm:space-x-4">
             <div className="flex items-center space-x-2">
               <Image
                 src={"/soloswap.png"}
                 alt="SoloSwap Logo"
                 width={32}
                 height={32}
-                className="h-8 w-auto" 
+                className="h-7 w-auto sm:h-8" 
               />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                 solo swap
               </h1>
             </div>
           </div>
           
-          <div className="flex items-center space-x-4">
+          {/* Desktop Actions */}
+          <div className="hidden sm:flex items-center space-x-4">
             <RpcStatus />
             <button
               onClick={() => setShowSettings(!showSettings)}
@@ -129,38 +131,72 @@ export default function Home() {
             >
               <Settings2 className="h-5 w-5" />
             </button>
-            <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors" />
+            <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm" />
+          </div>
+
+          {/* Mobile Menu Button */}
+          <div className="sm:hidden flex items-center space-x-2">
+            <RpcStatus />
+            <button
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              {showMobileMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
         </header>
 
+        {/* Mobile Menu */}
+        {showMobileMenu && (
+          <div className="sm:hidden mb-4 p-4 bg-gray-800/80 rounded-lg backdrop-blur-sm border border-gray-700">
+            <div className="flex flex-col space-y-3">
+              <button
+                onClick={() => {
+                  setShowSettings(true);
+                  setShowMobileMenu(false);
+                }}
+                className="flex items-center space-x-2 p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <Settings2 className="h-4 w-4" />
+                <span>Settings</span>
+              </button>
+              <div className="flex justify-center">
+                <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm !py-2 !px-4" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Token Table */}
-          <div className="lg:col-span-2">
-            <div className="bg-gray-800/50 rounded-xl p-6 backdrop-blur-sm border border-gray-700">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold flex items-center space-x-2">
-                  <Wallet className="h-5 w-5" />
+          <div className="lg:col-span-2 order-2 lg:order-1">
+            <div className="bg-gray-800/50 rounded-xl p-4 sm:p-6 backdrop-blur-sm border border-gray-700">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 space-y-3 sm:space-y-0">
+                <h2 className="text-lg sm:text-xl font-semibold flex items-center space-x-2">
+                  <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />
                   <span>tokens</span>
                 </h2>
                 
-                <div className="flex items-center space-x-4">
-                  <button
-                    onClick={() => handleSelectAll(true)}
-                    className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
-                  >
-                    select all
-                  </button>
-                  <button
-                    onClick={() => handleSelectAll(false)}
-                    className="text-sm text-gray-400 hover:text-gray-300 transition-colors"
-                  >
-                    clear all
-                  </button>
+                <div className="flex items-center justify-between sm:justify-end space-x-2 sm:space-x-4">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleSelectAll(true)}
+                      className="text-xs sm:text-sm text-purple-400 hover:text-purple-300 transition-colors px-2 py-1"
+                    >
+                      select all
+                    </button>
+                    <button
+                      onClick={() => handleSelectAll(false)}
+                      className="text-xs sm:text-sm text-gray-400 hover:text-gray-300 transition-colors px-2 py-1"
+                    >
+                      clear all
+                    </button>
+                  </div>
                   <button
                     onClick={fetchTokenBalances}
                     disabled={loading}
-                    className="text-sm bg-purple-600 hover:bg-purple-700 px-3 py-1 rounded transition-colors disabled:opacity-50"
+                    className="text-xs sm:text-sm bg-purple-600 hover:bg-purple-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
                   >
                     {loading ? 'refreshing...' : 'refresh'}
                   </button>
@@ -168,7 +204,7 @@ export default function Home() {
               </div>
 
               {error && (
-                <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg text-red-200">
+                <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg text-red-200 text-sm">
                   {error}
                 </div>
               )}
@@ -184,13 +220,15 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Unified Swap Interface */}
-          <div className="lg:col-span-1">
-            <SwapInterface
-              selectedTokens={selectedTokens}
-              totalSelectedValue={totalSelectedValue}
-              onSwapComplete={handleSwapComplete}
-            />
+          {/* Unified Swap Interface - Sticky on mobile */}
+          <div className="lg:col-span-1 order-1 lg:order-2 mb-4 sm:mb-0">
+            <div className="sticky top-4">
+              <SwapInterface
+                selectedTokens={selectedTokens}
+                totalSelectedValue={totalSelectedValue}
+                onSwapComplete={handleSwapComplete}
+              />
+            </div>
           </div>
         </div>
 
@@ -199,9 +237,9 @@ export default function Home() {
         )}
 
         {/* Debug Panel */}
-        <div className="mt-6 p-4 bg-gray-800/30 rounded-lg border border-gray-700">
-          <h3 className="text-sm font-medium mb-2 text-gray-400">debug</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+        <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-800/30 rounded-lg border border-gray-700">
+          <h3 className="text-xs sm:text-sm font-medium mb-2 text-gray-400">debug</h3>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 text-xs">
             <div>
               <div className="text-gray-400">wallet connected</div>
               <div className={connected ? 'text-green-400' : 'text-red-400'}>

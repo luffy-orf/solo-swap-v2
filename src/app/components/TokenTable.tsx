@@ -204,7 +204,7 @@ export function TokenTable({
                 onClick={() => handleSort('symbol')}
               >
                 <div className="flex items-center space-x-1">
-                  <span>Symbol</span>
+                  <span>symbol</span>
                   <SortIcon field="symbol" sortField={sortField} />
                 </div>
               </th>
@@ -213,7 +213,7 @@ export function TokenTable({
                 onClick={() => handleSort('balance')}
               >
                 <div className="flex items-center justify-end space-x-1">
-                  <span>Quantity</span>
+                  <span>quantity</span>
                   <SortIcon field="balance" sortField={sortField} />
                 </div>
               </th>
@@ -222,7 +222,7 @@ export function TokenTable({
                 onClick={() => handleSort('USD')}
               >
                 <div className="flex items-center justify-end space-x-1">
-                  <span>Price</span>
+                  <span>price</span>
                   <SortIcon field="USD" sortField={sortField} />
                 </div>
               </th>
@@ -231,7 +231,7 @@ export function TokenTable({
                 onClick={() => handleSort('value')}
               >
                 <div className="flex items-center justify-end space-x-1">
-                  <span>Value</span>
+                  <span>value</span>
                   <SortIcon field="value" sortField={sortField} />
                 </div>
               </th>
