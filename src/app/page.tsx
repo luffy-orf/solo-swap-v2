@@ -124,7 +124,7 @@ export default function Home() {
           
           {/* Desktop Actions */}
           <div className="hidden sm:flex items-center space-x-4">
-            <RpcStatus />
+            {/* <RpcStatus /> */}
             <button
               onClick={() => setShowSettings(!showSettings)}
               className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
@@ -138,7 +138,7 @@ export default function Home() {
 
           {/* Mobile Menu Button */}
           <div className="sm:hidden flex items-center space-x-2">
-            <RpcStatus />
+            {/* <RpcStatus /> */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
               className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
@@ -239,7 +239,7 @@ export default function Home() {
         )}
 
         {/* Debug Panel */}
-        <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-800/30 rounded-lg border border-gray-700 relative z-10">
+        {/* <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-800/30 rounded-lg border border-gray-700 relative z-10">
           <h3 className="text-xs sm:text-sm font-medium mb-2 text-gray-400">debug</h3>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 text-xs">
             <div>
@@ -261,7 +261,7 @@ export default function Home() {
               <div>${totalSelectedValue.toFixed(2)}</div>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );
