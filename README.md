@@ -1,36 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 Solo Swap
 
-## Getting Started
+**Batch Token Liquidation for Solana Portfolios**
 
-First, run the development server:
+Solo Swap enables users to efficiently liquidate multiple Solana tokens in a single operation while maintaining portfolio allocation percentages. Built for traders, DeFi enthusiasts, and portfolio managers who need to quickly convert diverse token holdings into preferred stablecoins or SOL without disrupting their investment strategy.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+**Never miss your moon shot** - Liquidate profits while keeping your core positions intact.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## ✨ Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 🎯 Current Features
+- **Portfolio-Preserving Liquidation**: Liquidate tokens without impacting your allocation percentages through intelligent pro-rata calculations
+- **Batch Token Selection**: Select multiple tokens from your wallet for simultaneous liquidation
+- **Pro-Rata Calculations**: Automatically calculates proportional amounts based on token values to maintain portfolio balance
+- **Multi-RPC Load Balancing**: Intelligent RPC endpoint management with failover support
+- **Real-Time Price Feeds**: Live pricing via Jupiter API for accurate value calculations
+- **Customizable Liquidation**: Set liquidation percentages from 0-100% with precision controls
+- **Wallet Integration**: Full support for Phantom, Solflare, and Ledger hardware wallets
+- **Transaction Tracking**: Real-time swap progress with detailed success/failure reporting
+- **Slippage Control**: Configurable slippage tolerance (0.5% - 10%)
+- **Output Token Selection**: Convert to USDC, USDT, or SOL
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 🔄 Advanced RPC Management
+- **Load Balancing**: Automatic distribution across multiple RPC endpoints
+- **Rate Limiting**: Smart request throttling to avoid API limits
+- **Failover Recovery**: Seamless switching between endpoints during failures
+- **Health Monitoring**: Real-time RPC endpoint status tracking
 
-## Learn More
+### 👛 Wallet Support
+- **Phantom Wallet**
+- **Solflare Wallet** 
+- **Ledger Hardware Wallet** (with physical confirmation support)
+- **Auto-Connect** capabilities
+- **Secure Transaction Signing**
 
-To learn more about Next.js, take a look at the following resources:
+## 🚧 Planned Features
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 🔥 Transaction Bundling (Coming Soon)
+- **Atomic Multi-Token Swaps**: Bundle multiple token swaps into single transactions
+- **Gas Optimization**: Reduced network fees through transaction compression
+- **Partial Failover Protection**: Individual token swap failure doesn't block entire operation
+- **Batch Confirmation**: Single confirmation for multiple swaps
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 🔐 Ledger Enhancements (Coming Soon)
+- **Enhanced Error Handling**: Better user feedback for Ledger-specific issues
+- **Transaction Previews**: Preview transaction details on Ledger device
+- **Multi-Signature Support**: Advanced transaction signing workflows
+- **Device Compatibility**: Expanded support for Ledger Nano models
 
-## Deploy on Vercel
+### 📈 Advanced Features (Roadmap)
+- **Portfolio Analytics**: Historical performance tracking and insights
+- **Limit Orders**: Time-based and price-triggered liquidation orders
+- **Cross-Chain Support**: Ethereum and other chain integrations
+- **API Access**: Developer API for programmatic portfolio management
+- **Mobile Optimization**: Dedicated mobile experience
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🛠️ Local Development
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Prerequisites
+- Node.js 18+ 
+- npm, yarn, pnpm, or bun
+- Solana wallet (Phantom recommended)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd solana-token-swapper
+   ```
+
+2. Install dependencies
+
+    ```bash
+    npm install
+    # or
+    yarn install
+    # or
+    pnpm install
+    ```
+
+Environment Configuration
+
+3. Create a .env.local file in the root directory:
+    ```bash
+    NEXT_PUBLIC_RPC_ENDPOINT_1=https://your-quiknode-endpoint.com/your-api-key
+    NEXT_PUBLIC_RPC_ENDPOINT_2=https://your-helius-endpoint.com/your-api-key
+    ```
+
+4. Run Development Server
+
+    ```bash
+    npm run dev
+    # or
+    yarn dev
+    # or
+    pnpm dev
+    # or
+    bun dev
+    ```
+
+5. Open Application
+
+    Navigate to http://localhost:3000 in your browser
