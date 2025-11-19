@@ -1,5 +1,9 @@
 # 🚀 Solo Swap
 
+# if you clone it, pls fork it
+
+fr if you're making this better, i want in. let's build together.
+
 **Batch Token Liquidation for Solana Portfolios**
 
 Solo Swap enables users to efficiently liquidate multiple Solana tokens in a single operation while maintaining portfolio allocation percentages. Built for traders, DeFi enthusiasts, and portfolio managers who need to quickly convert diverse token holdings into preferred stablecoins or SOL without disrupting their investment strategy.
