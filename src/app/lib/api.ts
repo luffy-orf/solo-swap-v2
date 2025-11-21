@@ -330,11 +330,18 @@ export class TokenService {
     })
   );
 
-  const successfulTokens = results
-    .filter((result): result is PromiseFulfilledResult<TokenBalance> => 
-      result.status === 'fulfilled' && result.value.value > 0
-    )
-    .map(result => result.value);
+  // Fix: Properly handle the type filtering
+  const successfulTokens: TokenBalance[] = [];
+  
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      const token = result.value;
+      // Check if value exists and is greater than 0
+      if (token.value !== undefined && token.value > 0) {
+        successfulTokens.push(token);
+      }
+    }
+  }
 
   const failedTokens = results.filter(result => result.status === 'rejected');
   
