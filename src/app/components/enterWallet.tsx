@@ -440,7 +440,7 @@ useEffect(() => {
     }
   };
 
-  const analyzeWallet = async (walletAddress: string, nickname?: string, isDomain: boolean = false) => {
+  const analyzeWallet = async (walletAddress: string, nickname?: string | null, isDomain: boolean = false) => {
   setAnalyzing(true);
   setError('');
 
@@ -540,7 +540,7 @@ useEffect(() => {
         console.log(`analyzing wallet ${i + 1}/${savedWallets.length}: ${wallet.address}`);
         
         try {
-          await analyzeWallet(wallet.address, wallet.nickname, wallet.isDomain);
+          await analyzeWallet(wallet.address, wallet.nickname || undefined, wallet.isDomain);
           successfulAnalyses++;
         } catch (err) {
           console.error(`failed to analyze wallet ${wallet.address}:`, err);
