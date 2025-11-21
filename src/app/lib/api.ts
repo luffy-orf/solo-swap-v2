@@ -37,14 +37,14 @@ class LoadBalancer {
   constructor(private endpoints: string[]) {
     if (endpoints.length === 0) {
       this.endpoints = FALLBACK_RPC_ENDPOINTS;
-      console.warn('⚠️ using fallback rpc endpoints. please configure RPC_ENDPOINT environment variables for better performance.');
+      console.warn('using fallback rpc endpoints. please configure RPC_ENDPOINT environment variables for better performance.');
     }
     
     this.endpoints.forEach(endpoint => {
       this.rpcLimiters.set(endpoint, new RateLimiter());
     });
     
-    console.log(`🔄 loadbalancer initialized with ${this.endpoints.length} endpoints`);
+    console.log(`loadbalancer initialized with ${this.endpoints.length} endpoints`);
   }
 
   async getNextEndpoint(): Promise<{ endpoint: string; limiter: RateLimiter }> {
@@ -67,17 +67,17 @@ class LoadBalancer {
       const { endpoint } = await this.getNextEndpoint();
       
       try {
-        console.log(`🔁 attempt ${attempt + 1} with ${this.getEndpointName(endpoint)}`);
+        console.log(`attempt ${attempt + 1} with ${this.getEndpointName(endpoint)}`);
         const result = await operation(endpoint);
-        console.log(`✅ success with ${this.getEndpointName(endpoint)}`);
+        console.log(`success with ${this.getEndpointName(endpoint)}`);
         return result;
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'unknown error occurred';
         lastError = new Error(errorMessage);
-        console.warn(`❌ attempt ${attempt + 1} failed with ${this.getEndpointName(endpoint)}:`, errorMessage);
+        console.warn(`attempt ${attempt + 1} failed with ${this.getEndpointName(endpoint)}:`, errorMessage);
         
         if (errorMessage.includes('403') || errorMessage.includes('429') || errorMessage.includes('401')) {
-          console.log(`🚫 skipping ${this.getEndpointName(endpoint)} due to auth/rate limit`);
+          console.log(`skipping ${this.getEndpointName(endpoint)} due to auth/rate limit`);
           continue;
         }
       }
@@ -138,7 +138,7 @@ export class TokenService {
 
     for (const source of tokenListSources) {
       try {
-        console.log(`🔄 loading token list from: ${source}`);
+        console.log(`loading token list from: ${source}`);
         const response = await fetch(source, {
           method: 'GET',
           headers: {
@@ -165,18 +165,18 @@ export class TokenService {
             }
           });
           
-          console.log(`✅ loaded ${tokens.length} tokens from ${source}`);
+          console.log(`loaded ${tokens.length} tokens from ${source}`);
           this.tokenListLoaded = true;
           return;
         }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'unknown error';
-        console.warn(`❌ failed to load from ${source}:`, errorMessage);
+        console.warn(`failed to load from ${source}:`, errorMessage);
         continue;
       }
     }
 
-    console.warn('⚠️ using minimal fallback token list');
+    console.warn('using minimal fallback token list');
     this.loadFallbackTokenList();
     this.tokenListLoaded = true;
   }
@@ -223,7 +223,7 @@ export class TokenService {
   async getTokenBalances(walletAddress: string): Promise<TokenBalance[]> {
     await this.ensureTokenListLoaded();
     
-    console.log('🔄 fetching token balances for:', walletAddress);
+    console.log('fetching token balances for:', walletAddress);
 
     return await rpcLoadBalancer.executeWithRetry(async (endpoint) => {
       const connection = this.createConnection(endpoint);
@@ -234,7 +234,7 @@ export class TokenService {
         { programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') }
       );
 
-      console.log(`📊 found ${tokenAccounts.value.length} token accounts`);
+      console.log(`found ${tokenAccounts.value.length} token accounts`);
 
       const tokens: TokenBalance[] = [];
 
@@ -262,30 +262,29 @@ export class TokenService {
           }
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : 'unknown error';
-          console.warn('⚠️ error processing token account:', errorMessage);
+          console.warn('error processing token account:', errorMessage);
         }
       }
 
-      console.log(`🎯 processed ${tokens.length} tokens with balance`);
+      console.log(`processed ${tokens.length} tokens with balance`);
       return tokens;
     });
   }
 
   async getTokenPrices(tokens: TokenBalance[]): Promise<TokenBalance[]> {
-  console.log(`🔄 Fetching prices for ${tokens.length} tokens...`);
+  console.log(`fetching prices for ${tokens.length} tokens...`);
   
   const results = await Promise.allSettled(
     tokens.map(async (token) => {
       try {
         // Skip tokens with very small amounts that might cause API errors
         if (token.uiAmount < 0.000001) {
-          console.log(`🔍 Skipping tiny amount for ${token.symbol}: ${token.uiAmount}`);
+          console.log(`skipping tiny amount for ${token.symbol}: ${token.uiAmount}`);
           return { ...token, value: 0, price: 0 };
         }
 
-        // Skip known problematic tokens or set reasonable minimum amounts
-        const MIN_AMOUNT = 1000; // Minimum amount in base units to avoid API errors
-        const amount = Math.max(token.amount, MIN_AMOUNT);
+        const MIN_AMOUNT = 1000; 
+        const amount = Math.max(token.balance, MIN_AMOUNT);
 
         const url = `https://lite-api.jup.ag/swap/v1/quote?inputMint=${token.mint}&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=${amount}`;
         
