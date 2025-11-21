@@ -12,6 +12,31 @@ import { MultisigAnalyzer } from './components/enterWallet';
 import { Settings2, Wallet, Menu, X, Calculator } from 'lucide-react';
 import { RpcStatus } from './components/RpcStatus';
 import Image from 'next/image';
+import { WalletMultiButtonWrapper } from './components/WalletMultiButtonWrapper';
+
+const ClientWalletMultiButton = ({ className }: { className?: string }) => {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) {
+    return (
+      <div className={className}>
+        <button 
+          className="bg-purple-600 hover:bg-purple-700 transition-colors text-sm px-4 py-2 rounded-lg opacity-50 cursor-not-allowed"
+          disabled
+        >
+          Loading...
+        </button>
+      </div>
+    );
+  }
+
+  return <WalletMultiButton className={className} />;
+};
 
 export default function Home() {
   const { connection } = useConnection();
@@ -23,38 +48,57 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [currentView, setCurrentView] = useState<'main' | 'multisig'>('main');
+  const [isMultisigActive, setIsMultisigActive] = useState(false);
 
   const tokenService = new TokenService();
 
+  const handleViewChange = (view: 'main' | 'multisig') => {
+    if (view === 'multisig') {
+      setIsMultisigActive(true);
+      console.log('pausing token table rpc calls - multisig active');
+    } else {
+      setIsMultisigActive(false);
+      console.log('resuming token table RPC calls - multisig inactive');
+      if (connected && !isMultisigActive) {
+        fetchTokenBalances();
+      }
+    }
+    setCurrentView(view);
+  };
+
   const fetchTokenBalances = useCallback(async () => {
+    if (isMultisigActive) {
+      console.log('token fetch paused - multisig tool active');
+      return;
+    }
+    
     if (!publicKey) return;
     
     setLoading(true);
     setError('');
     
     try {
-      console.log('🔄 Fetching token balances for:', publicKey.toString());
+      console.log('fetching token balances for:', publicKey.toString());
       let tokenBalances = await tokenService.getTokenBalances(publicKey.toString());
-      console.log('📊 Raw token balances:', tokenBalances);
+      console.log('raw token balances:', tokenBalances);
       
       tokenBalances = await tokenService.getTokenPrices(tokenBalances);
-      console.log('💰 Token balances with prices:', tokenBalances);
+      console.log('token balances with prices:', tokenBalances);
       
       setTokens(tokenBalances);
     } catch (err) {
-      console.error('❌ Error fetching tokens:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch tokens');
+      console.error('error fetching tokens:', err);
+      setError(err instanceof Error ? err.message : 'failed to fetch tokens');
     } finally {
       setLoading(false);
     }
-  }, [publicKey]);
+  }, [publicKey, isMultisigActive]);
 
-  
   useEffect(() => {
     if (connected) {
       fetchTokenBalances();
     }
-  }, [connected, fetchTokenBalances]);
+  }, [connected, publicKey]);
 
   const handleTokenSelect = (mint: string, selected: boolean) => {
     setTokens(prev => prev.map(token => 
@@ -70,13 +114,15 @@ export default function Home() {
   const totalSelectedValue = selectedTokens.reduce((sum, token) => sum + (token.value || 0), 0);
 
   const handleSwapComplete = () => {
-    console.log('✅ Swap completed, refreshing balances...');
-    fetchTokenBalances(); 
+    console.log('swap completed, refreshing balances...');
+    if (!isMultisigActive) {
+      fetchTokenBalances();
+    }
   };
 
   useEffect(() => {
     const debugRpc = async () => {
-      console.log('=== RPC DEBUG INFO ===');
+      console.log('=== rpc debug info ===');
       console.log('NEXT_PUBLIC_HELIUS_API_KEY exists:', !!process.env.NEXT_PUBLIC_HELIUS_API_KEY);
       console.log('NEXT_PUBLIC_SOLANA_RPC_URL:', process.env.NEXT_PUBLIC_SOLANA_RPC_URL);
       
@@ -84,13 +130,13 @@ export default function Home() {
       await testService.getTokenBalances(publicKey?.toString() || 'Cj1jScR4V73qLmvWJiGiWs9jtcwCXEZsmS5cevWt9jNc');
     };
 
-    if (connected) {
+    if (connected && !isMultisigActive) {
       debugRpc();
     }
   }, [connected]);
 
   useEffect(() => {
-    console.log('🎯 Selected tokens updated:', {
+    console.log('selected tokens updated:', {
       count: selectedTokens.length,
       tokens: selectedTokens.map(t => ({
         symbol: t.symbol,
@@ -101,6 +147,15 @@ export default function Home() {
       totalValue: totalSelectedValue
     });
   }, [selectedTokens, totalSelectedValue]);
+
+  useEffect(() => {
+    console.log('rpc state:', {
+      isMultisigActive,
+      currentView,
+      connected,
+      shouldFetch: connected && !isMultisigActive
+    });
+  }, [isMultisigActive, currentView, connected]);
 
   const renderMainView = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 relative z-10">
@@ -130,7 +185,7 @@ export default function Home() {
               </div>
               <button
                 onClick={fetchTokenBalances}
-                disabled={loading}
+                disabled={loading || isMultisigActive}
                 className="text-xs sm:text-sm bg-purple-600 hover:bg-purple-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
               >
                 {loading ? 'refreshing...' : 'refresh'}
@@ -189,12 +244,17 @@ export default function Home() {
           
           {/* Desktop Actions */}
           <div className="hidden sm:flex items-center space-x-4">
-            {/* <RpcStatus /> */}
+            {/* RPC Status Indicator */}
+            {isMultisigActive && (
+              <div className="flex items-center space-x-1 text-xs text-yellow-400 bg-yellow-400/20 px-2 py-1 rounded">
+                <span>⏸ rpc paused</span>
+              </div>
+            )}
             
-            {/* Multisig Tools Button - Only show in main view */}
+            {/* View Toggle Buttons */}
             {currentView === 'main' && (
               <button
-                onClick={() => setCurrentView('multisig')}
+                onClick={() => handleViewChange('multisig')}
                 className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg transition-colors text-sm"
               >
                 <Calculator className="h-4 w-4" />
@@ -202,10 +262,9 @@ export default function Home() {
               </button>
             )}
             
-            {/* Back Button - Only show in multisig view */}
             {currentView === 'multisig' && (
               <button
-                onClick={() => setCurrentView('main')}
+                onClick={() => handleViewChange('main')}
                 className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg transition-colors text-sm"
               >
                 <span>← back to swap</span>
@@ -219,18 +278,20 @@ export default function Home() {
               <Settings2 className="h-5 w-5" />
             </button>
             <div className="relative z-40">
-              <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm" />
+              <ClientWalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm" />
             </div>
           </div>
 
-          {/* Mobile Menu Button */}
           <div className="sm:hidden flex items-center space-x-2">
-            {/* <RpcStatus /> */}
+            {isMultisigActive && (
+              <div className="flex items-center space-x-1 text-xs text-yellow-400 bg-yellow-400/20 px-2 py-1 rounded">
+                <span>⏸️</span>
+              </div>
+            )}
             
-            {/* Mobile View Toggle */}
             {currentView === 'main' ? (
               <button
-                onClick={() => setCurrentView('multisig')}
+                onClick={() => handleViewChange('multisig')}
                 className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded-lg transition-colors text-xs"
               >
                 <Calculator className="h-3 w-3" />
@@ -238,10 +299,10 @@ export default function Home() {
               </button>
             ) : (
               <button
-                onClick={() => setCurrentView('main')}
+                onClick={() => handleViewChange('main')}
                 className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded-lg transition-colors text-xs"
               >
-                <span>← Back</span>
+                <span>← back</span>
               </button>
             )}
 
@@ -266,10 +327,11 @@ export default function Home() {
                 className="flex items-center space-x-2 p-2 hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <Settings2 className="h-4 w-4" />
-                <span>ettings</span>
+                <span>settings</span>
               </button>
               <div className="flex justify-center relative z-40">
-                <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm !py-2 !px-4" />
+                {/* Also update the mobile wallet button */}
+                <ClientWalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm" />
               </div>
             </div>
           </div>
@@ -277,7 +339,7 @@ export default function Home() {
 
         {/* Main Content */}
         {currentView === 'main' ? renderMainView() : (
-          <MultisigAnalyzer onBack={() => setCurrentView('main')} />
+          <MultisigAnalyzer onBack={() => handleViewChange('main')} />
         )}
 
         {/* Settings Panel */}

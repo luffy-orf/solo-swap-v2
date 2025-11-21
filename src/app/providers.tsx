@@ -16,10 +16,9 @@ import '@solana/wallet-adapter-react-ui/styles.css';
 
 export function Providers({ children }: { children: ReactNode }) {
   const endpoint = useMemo(() => {
-    // Use environment variable with fallbacks
     return process.env.NEXT_PUBLIC_RPC_ENDPOINT_1 || 
            process.env.NEXT_PUBLIC_RPC_ENDPOINT_2 ||
-           'https://api.mainnet-beta.solana.com'; // Public fallback
+           'https://api.mainnet-beta.solana.com'; 
   }, []);
 
   const wallets = useMemo(
@@ -36,9 +35,7 @@ export function Providers({ children }: { children: ReactNode }) {
       <ConnectionProvider endpoint={endpoint}>
         <WalletProvider wallets={wallets} autoConnect>
           <WalletModalProvider>
-            {/* Global CSS overrides for wallet adapter */}
             <style jsx global>{`
-              /* Ensure wallet dropdown appears above everything */
               .wallet-adapter-modal-wrapper {
                 z-index: 10000 !important;
               }
@@ -136,13 +133,11 @@ export function Providers({ children }: { children: ReactNode }) {
                 }
               }
               
-              /* Ensure dropdown appears above cart and other components */
               .wallet-adapter-dropdown-list {
                 z-index: 10050 !important;
                 position: fixed !important;
               }
               
-              /* Mobile dropdown positioning */
               @media (max-width: 768px) {
                 .wallet-adapter-dropdown {
                   position: relative !important;
@@ -157,7 +152,6 @@ export function Providers({ children }: { children: ReactNode }) {
                 }
               }
               
-              /* Improve touch targets on mobile */
               .wallet-adapter-modal-button {
                 min-height: 60px !important;
                 padding: 1rem !important;

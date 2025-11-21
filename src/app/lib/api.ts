@@ -272,94 +272,80 @@ export class TokenService {
   }
 
   async getTokenPrices(tokens: TokenBalance[]): Promise<TokenBalance[]> {
-    if (tokens.length === 0) return tokens;
-
-    console.log(`💰 fetching prices for ${tokens.length} tokens in usd`);
-    
-    const enhancedTokens: TokenBalance[] = [];
-    
-    for (const token of tokens) {
-      if (token.uiAmount <= 0) {
-        continue;
-      }
-
-      const stablecoinMints = [
-        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'
-      ];
-      
-      if (stablecoinMints.includes(token.mint)) {
-        enhancedTokens.push({
-          ...token,
-          price: 1,
-          value: token.uiAmount
-        });
-        continue;
-      }
-
-      if (token.mint === 'So11111111111111111111111111111111111111112') {
-        try {
-          await jupiterRateLimiter.wait();
-          const solAmount = Math.floor(token.balance);
-          const quoteResponse = await fetch(
-            `${JUPITER_API}/swap/v1/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=${solAmount}`
-          );
-          
-          if (quoteResponse.ok) {
-            const quote: JupiterQuoteResponse = await quoteResponse.json();
-            const usdAmount = parseFloat(quote.outAmount) / 1e6;
-            const price = token.uiAmount > 0 ? usdAmount / token.uiAmount : 0;
-            const value = usdAmount;
-            
-            enhancedTokens.push({
-              ...token,
-              price,
-              value,
-            });
-            console.log(`✅ price for SOL: $${price.toFixed(6)} usd`);
-          } else {
-            console.log(`🔄 SOL price failed, skipping`);
-          }
-        } catch (error: unknown) {
-          const errorMessage = error instanceof Error ? error.message : 'unknown error';
-          console.log(`🔄 SOL price error, skipping:`, errorMessage);
-        }
-        continue;
-      }
-
+  console.log(`🔄 Fetching prices for ${tokens.length} tokens...`);
+  
+  const results = await Promise.allSettled(
+    tokens.map(async (token) => {
       try {
-        await jupiterRateLimiter.wait();
-        
-        const amount = Math.floor(token.balance);
-        
-        const quoteResponse = await fetch(
-          `${JUPITER_API}/swap/v1/quote?inputMint=${token.mint}&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=${amount}`
-        );
-        
-        if (quoteResponse.ok) {
-          const quote: JupiterQuoteResponse = await quoteResponse.json();
-          const usdAmount = parseFloat(quote.outAmount) / 1e6;
-          const price = token.uiAmount > 0 ? usdAmount / token.uiAmount : 0;
-          const value = usdAmount;
-          
-          enhancedTokens.push({
-            ...token,
-            price,
-            value,
-          });
-          console.log(`✅ price for ${token.symbol}: $${price.toFixed(6)} usd`);
-        } else {
-          console.log(`🔄 skipping untradable token: ${token.symbol}`);
+        // Skip tokens with very small amounts that might cause API errors
+        if (token.uiAmount < 0.000001) {
+          console.log(`🔍 Skipping tiny amount for ${token.symbol}: ${token.uiAmount}`);
+          return { ...token, value: 0, price: 0 };
         }
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'unknown error';
-        console.log(`🔄 skipping ${token.symbol} due to error:`, errorMessage);
-      }
-    }
 
-    console.log(`🎯 final list: ${enhancedTokens.length} tradable tokens with prices`);
-    return enhancedTokens;
+        // Skip known problematic tokens or set reasonable minimum amounts
+        const MIN_AMOUNT = 1000; // Minimum amount in base units to avoid API errors
+        const amount = Math.max(token.amount, MIN_AMOUNT);
+
+        const url = `https://lite-api.jup.ag/swap/v1/quote?inputMint=${token.mint}&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=${amount}`;
+        
+        console.log(`🔍 Getting quote for ${token.symbol}: ${url}`);
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 400) {
+            console.log(`🔍 Skipping untradable token: ${token.symbol}`);
+            return { ...token, value: 0, price: 0 };
+          }
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const quoteData = await response.json();
+        
+        if (!quoteData || !quoteData.outAmount) {
+          console.log(`🔍 No quote data for ${token.symbol}`);
+          return { ...token, value: 0, price: 0 };
+        }
+
+        const usdcValue = parseInt(quoteData.outAmount) / 1_000_000; // USDC has 6 decimals
+        const price = usdcValue / token.uiAmount;
+        const value = usdcValue;
+
+        console.log(`✅ ${token.symbol}: ${token.uiAmount} → $${value} ($${price}/token)`);
+        
+        return {
+          ...token,
+          value,
+          price,
+        };
+      } catch (error) {
+        console.error(`❌ Failed to get price for ${token.symbol}:`, error);
+        return { ...token, value: 0, price: 0 };
+      }
+    })
+  );
+
+  const successfulTokens = results
+    .filter((result): result is PromiseFulfilledResult<TokenBalance> => 
+      result.status === 'fulfilled' && result.value.value > 0
+    )
+    .map(result => result.value);
+
+  const failedTokens = results.filter(result => result.status === 'rejected');
+  
+  if (failedTokens.length > 0) {
+    console.log(`⚠️ ${failedTokens.length} tokens failed price fetching`);
   }
+
+  console.log(`🎯 Final list: ${successfulTokens.length} tradable tokens with prices`);
+  return successfulTokens;
+}
 
   async getSwapQuote(inputMint: string, outputMint: string, amount: number): Promise<JupiterQuoteResponse> {
     await jupiterRateLimiter.wait();

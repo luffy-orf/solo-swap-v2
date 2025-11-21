@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import { TokenBalance } from '../types/token';
@@ -55,7 +55,44 @@ interface ErrorDetails {
   isLedgerConnected: boolean;
 }
 
-export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComplete }: SwapInterfaceProps) {
+// Client-only wrapper to prevent hydration errors
+const ClientSwapInterface = ({ 
+  selectedTokens, 
+  totalSelectedValue, 
+  onSwapComplete 
+}: SwapInterfaceProps) => {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) {
+    // Render a skeleton/loading state for SSR
+    return (
+      <div className="bg-gray-800/50 rounded-xl p-4 sm:p-6 backdrop-blur-sm border border-gray-700 h-fit mobile-optimized relative z-10">
+        <div className="animate-pulse">
+          <div className="h-6 bg-gray-700 rounded w-1/2 mb-4"></div>
+          <div className="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
+          <div className="h-4 bg-gray-700 rounded w-1/2 mb-6"></div>
+          <div className="h-10 bg-gray-700 rounded mb-4"></div>
+          <div className="h-10 bg-gray-700 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <SwapInterfaceContent 
+      selectedTokens={selectedTokens}
+      totalSelectedValue={totalSelectedValue}
+      onSwapComplete={onSwapComplete}
+    />
+  );
+};
+
+// Main component logic
+const SwapInterfaceContent = ({ selectedTokens, totalSelectedValue, onSwapComplete }: SwapInterfaceProps) => {
   const { connection } = useConnection();
   const { publicKey, signTransaction, sendTransaction, wallet } = useWallet();
   
@@ -76,25 +113,27 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
 
   const liquidationValue = (totalSelectedValue * liquidationPercentage) / 100;
 
-  const signTransactionUniversal = async (transaction: VersionedTransaction): Promise<VersionedTransaction> => {
+  const signTransactionUniversal = useCallback(async (transaction: VersionedTransaction, tokenSymbol: string): Promise<VersionedTransaction> => {
     if (!signTransaction) {
-      throw new Error('no signTransaction function available');
+      throw new Error('no signtransaction function available');
     }
 
     try {
-      console.log(`🔐 signing transaction with ${isLedgerConnected ? 'ledger' : 'wallet'}...`);
+      console.log(`signing ${tokenSymbol} transaction with ${isLedgerConnected ? 'ledger' : 'wallet'}...`);
       
-      if (isLedgerConnected) {
-        setCurrentStep('please confirm transaction on your ledger device...');
-      }
+      // Set current step before signing
+      setCurrentStep(isLedgerConnected 
+        ? `please confirm ${tokenSymbol} transaction on your ledger device...` 
+        : `confirm ${tokenSymbol} swap...`
+      );
       
       const signedTransaction = await signTransaction(transaction);
       
-      console.log('✅ transaction signed successfully');
+      console.log('transaction signed successfully');
       return signedTransaction;
       
     } catch (error: unknown) {
-      console.error('❌ transaction signing failed:', error);
+      console.error('transaction signing failed:', error);
       
       const errorMessage = error instanceof Error ? error.message : 'unknown error occurred';
       
@@ -112,7 +151,7 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
         throw new Error(`transaction signing failed: ${errorMessage}`);
       }
     }
-  };
+  }, [signTransaction, isLedgerConnected]);
 
   const calculateProRataAmounts = (): ProRataToken[] => {
     return selectedTokens.map(token => {
@@ -126,7 +165,7 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
       
       const finalSwapAmount = Math.min(tokenAmountToSwap, token.uiAmount);
       
-      console.log(`🧮 token ${token.symbol} calculation:`, {
+      console.log(`token ${token.symbol} calculation:`, {
         tokenValue,
         tokenPercentageOfTotal: (tokenPercentageOfTotal * 100).toFixed(2) + '%',
         tokenLiquidationValue,
@@ -162,7 +201,7 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
   const getFreshBlockhash = async () => {
     try {
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-      console.log('🔄 fresh blockhash obtained:', { blockhash, lastValidBlockHeight });
+      console.log('fresh blockhash obtained:', { blockhash, lastValidBlockHeight });
       return { blockhash, lastValidBlockHeight };
     } catch (err) {
       console.error('failed to get fresh blockhash:', err);
@@ -187,7 +226,7 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
         swapMode: 'ExactIn'
       });
 
-      console.log(`📊 getting quote for ${token.symbol}:`, {
+      console.log(`getting quote for ${token.symbol}:`, {
         inputMint: token.mint,
         outputMint: outputToken,
         amount: rawAmount,
@@ -216,7 +255,7 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
       return quoteData;
 
     } catch (err) {
-      console.error(`❌ quote failed for ${token.symbol}:`, err);
+      console.error(`quote failed for ${token.symbol}:`, err);
       throw err;
     }
   };
@@ -233,7 +272,7 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
         try {
           setCurrentStep(`swapping ${token.symbol} (${token.swapAmount.toFixed(6)})...`);
           
-          console.log(`🔄 processing ${token.symbol} (attempt ${retryCount + 1}):`, {
+          console.log(`processing ${token.symbol} (attempt ${retryCount + 1}):`, {
             inputAmount: token.swapAmount,
             originalBalance: token.originalAmount,
             percentageOfBalance: ((token.swapAmount / token.originalAmount) * 100).toFixed(1) + '%',
@@ -286,9 +325,7 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
             Buffer.from(swapData.swapTransaction, 'base64')
           );
 
-          setCurrentStep(`confirm ${token.symbol} swap...`);
-          
-          const signedTransaction = await signTransactionUniversal(transaction);
+          const signedTransaction = await signTransactionUniversal(transaction, token.symbol);
           
           setCurrentStep(`sending ${token.symbol} transaction...`);
           
@@ -305,7 +342,7 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
             throw new Error('failed to send transaction - no signature returned');
           }
 
-          console.log(`📤 transaction sent with signature: ${signature}`);
+          console.log(`transaction sent with signature: ${signature}`);
 
           setCurrentStep(`confirming ${token.symbol} transaction...`);
           const confirmation = await connection.confirmTransaction({
@@ -328,16 +365,16 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
           };
 
           results.push(result);
-          console.log(`✅ successfully swapped ${token.symbol}:`, result);
+          console.log(`successfully swapped ${token.symbol}:`, result);
           success = true;
 
-          setSwapResults([...results]);
+          setSwapResults(prev => [...prev, result]);
 
         } catch (err) {
           retryCount++;
           
           if (retryCount > maxRetries) {
-            console.error(`❌ failed to swap ${token.symbol} after ${maxRetries} attempts:`, err);
+            console.error(`failed to swap ${token.symbol} after ${maxRetries} attempts:`, err);
             const errorResult: SwapResult = {
               symbol: token.symbol,
               amount: token.liquidationAmount,
@@ -346,7 +383,7 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
               retryCount
             };
             results.push(errorResult);
-            setSwapResults([...results]);
+            setSwapResults(prev => [...prev, errorResult]);
           } else {
             console.warn(`⚠️ retrying ${token.symbol} (attempt ${retryCount + 1})...`);
             await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
@@ -403,9 +440,9 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
         const totalSwapped = successfulSwaps.reduce((sum, swap) => sum + (swap.amount || 0), 0);
         const totalSwappedPercentage = totalSelectedValue > 0 ? (totalSwapped / totalSelectedValue * 100).toFixed(1) : '0';
         
-        console.log('✅ successful liquidations:', successfulSwaps);
+        console.log('successful liquidations:', successfulSwaps);
         
-        setCurrentStep(`✅ successfully liquidated ${successfulSwaps.length} tokens (${totalSwappedPercentage}% of selection)`);
+        setCurrentStep(`successfully liquidated ${successfulSwaps.length} tokens (${totalSwappedPercentage}% of selection)`);
         
         setTimeout(() => setCurrentStep(''), 5000);
         onSwapComplete();
@@ -413,7 +450,7 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
       
       if (failedSwaps.length > 0) {
         const errorMsg = `${failedSwaps.length} liquidations failed. ${successfulSwaps.length > 0 ? 'partial success.' : ''}`;
-        console.error('❌ failed liquidations:', failedSwaps);
+        console.error('failed liquidations:', failedSwaps);
         setError(errorMsg);
       }
 
@@ -712,4 +749,7 @@ export function SwapInterface({ selectedTokens, totalSelectedValue, onSwapComple
       )}
     </div>
   );
-}
+};
+
+// Export the client-wrapped component
+export { ClientSwapInterface as SwapInterface };
