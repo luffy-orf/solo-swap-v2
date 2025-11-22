@@ -656,7 +656,7 @@ useEffect(() => {
     }
   };
 
-  const analyzeWallet = async (walletAddress: string, nickname?: string | null, isDomain: boolean = false) => {
+  const analyzeWallet = async (walletAddress: string, nickname?: string | null, isDomain: boolean = false): Promise<AnalysisResult | null> => {
   setAnalyzing(true);
   setError('');
 
@@ -741,6 +741,8 @@ useEffect(() => {
       setError('no valuable tokens found in this wallet (all non-sol tokens < $0.01 value)');
     }
 
+    return result; // Return the result
+
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'failed to analyze wallet';
     console.error('analysis error:', err);
@@ -788,7 +790,7 @@ useEffect(() => {
     // Wait for state to actually clear
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    const newResults: any[] = []; // Temporary storage
+    const newResults: AnalysisResult[] = []; // Temporary storage
 
     for (let i = 0; i < savedWallets.length; i++) {
       const wallet = savedWallets[i];
@@ -854,12 +856,12 @@ useEffect(() => {
     }
 
     const event = new CustomEvent('portfolioAnalysisComplete', {
-    detail: {
+      detail: {
         totalValue: totalPortfolioValue,
         walletCount: newResults.length,
         tokenCount: totalTokens,
         timestamp: new Date()
-    }
+      }
     });
     window.dispatchEvent(event);
 
