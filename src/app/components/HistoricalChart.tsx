@@ -17,7 +17,7 @@ import {
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { TrendingUp, Calendar, Download, RefreshCw } from 'lucide-react';
+import { TrendingUp, Calendar, Download, RefreshCw, AlertCircle } from 'lucide-react';
 
 ChartJS.register(
   CategoryScale,
@@ -40,49 +40,110 @@ interface PortfolioHistory {
 
 interface PortfolioChartProps {
   className?: string;
+  refreshTrigger?: number; 
+  onDataLoaded?: (data: PortfolioHistory[]) => void;
+  portfolioHistory?: PortfolioHistory[]; 
 }
 
 type TimeRange = '7d' | '30d' | '90d' | '1y' | 'all';
 
-export function PortfolioChart({ className = '' }: PortfolioChartProps) {
+export function PortfolioChart({ 
+  className = '', 
+  refreshTrigger = 0, 
+  onDataLoaded, 
+  portfolioHistory: externalPortfolioHistory 
+}: PortfolioChartProps) {
   const { publicKey } = useWallet();
-  const [portfolioHistory, setPortfolioHistory] = useState<PortfolioHistory[]>([]);
+  const [internalPortfolioHistory, setInternalPortfolioHistory] = useState<PortfolioHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
   const [refreshing, setRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [showRefreshStatus, setShowRefreshStatus] = useState(false);
+
+  const portfolioHistory = externalPortfolioHistory || internalPortfolioHistory;
 
   useEffect(() => {
+    if (externalPortfolioHistory) {
+      console.log('using external portfolio history data:', externalPortfolioHistory.length, 'records');
+      setLoading(false);
+      setError('');
+      setLastRefresh(new Date());
+      return;
+    }
+    
     if (!publicKey) return;
     loadPortfolioHistory();
+  }, [publicKey, refreshTrigger, externalPortfolioHistory]);
+
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'portfoliodataupdated' && publicKey) {
+        console.log('portfolio data updated detected, refreshing chart...');
+        loadPortfolioHistory();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [publicKey]);
+
+  useEffect(() => {
+    const handlePortfolioUpdate = () => {
+      if (publicKey) {
+        console.log('portfolio update event received, refreshing chart...');
+        loadPortfolioHistory();
+      }
+    };
+
+    window.addEventListener('portfolioUpdated', handlePortfolioUpdate);
+    return () => window.removeEventListener('portfolioUpdated', handlePortfolioUpdate);
   }, [publicKey]);
 
   const loadPortfolioHistory = async () => {
     if (!publicKey) return;
 
+    if (externalPortfolioHistory) {
+      console.log('📊 Skipping load - using external portfolio data');
+      return;
+    }
+
     setLoading(true);
+    setError('');
     try {
+      console.log('🔄 Loading portfolio history for chart...');
       const historyQuery = query(
         collection(db, 'solo-users', publicKey.toString(), 'portfolioHistory'),
         orderBy('timestamp', 'asc')
       );
       const querySnapshot = await getDocs(historyQuery);
       
+      console.log(`📊 Found ${querySnapshot.docs.length} raw records from Firestore`);
+      
       const history = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        return {
+        const record = {
           timestamp: data.timestamp?.toDate() || new Date(),
           totalValue: data.totalValue || 0,
           walletCount: data.walletCount || 0,
           tokenCount: data.tokenCount || 0
         };
-      }) as PortfolioHistory[];
+        console.log('📝 Record:', record);
+        return record;
+      }).filter(record => record.totalValue > 0) as PortfolioHistory[];
       
-      setPortfolioHistory(history);
-      console.log('loaded portfolio history for chart:', history.length, 'records');
+      setInternalPortfolioHistory(history);
+      setLastRefresh(new Date());
+      
+      console.log('✅ Loaded portfolio history for chart:', history.length, 'records');
+      
+      if (onDataLoaded) {
+        onDataLoaded(history);
+      }
     } catch (err) {
-      console.error('failed to load portfolio history:', err);
-      setError('failed to load portfolio history');
+      console.error('❌ Failed to load portfolio history:', err);
+      setError('Failed to load portfolio history. Check console for details.');
     } finally {
       setLoading(false);
     }
@@ -90,9 +151,32 @@ export function PortfolioChart({ className = '' }: PortfolioChartProps) {
 
   const refreshData = async () => {
     setRefreshing(true);
-    await loadPortfolioHistory();
-    setRefreshing(false);
+    setShowRefreshStatus(true);
+    console.log('🔄 Manual refresh initiated...');
+    
+    try {
+      await loadPortfolioHistory();
+      console.log('✅ Manual refresh completed');
+    } catch (error) {
+      console.error('❌ Manual refresh failed:', error);
+    } finally {
+      setRefreshing(false);
+      // Hide status after 3 seconds
+      setTimeout(() => setShowRefreshStatus(false), 3000);
+    }
   };
+
+  const triggerRefresh = () => {
+    console.log('manual refresh triggered for portfolio chart');
+    refreshData();
+  };
+
+  useEffect(() => {
+    (window as any).refreshPortfolioChart = triggerRefresh;
+    return () => {
+      delete (window as any).refreshPortfolioChart;
+    };
+  }, []);
 
   const filterDataByTimeRange = (data: PortfolioHistory[]): PortfolioHistory[] => {
     const now = new Date();
@@ -148,7 +232,7 @@ export function PortfolioChart({ className = '' }: PortfolioChartProps) {
     
     if (filteredData.length === 0) {
       return {
-        labels: ['no data'],
+        labels: ['no data available'],
         datasets: [
           {
             label: 'total portfolio value',
@@ -270,7 +354,7 @@ export function PortfolioChart({ className = '' }: PortfolioChartProps) {
 
   const downloadChartData = () => {
     const csvContent = [
-      ['date', 'total Value', 'wallet count', 'token count'],
+      ['date', 'total value', 'wallet count', 'token count'],
       ...portfolioHistory.map(item => [
         item.timestamp.toISOString(),
         item.totalValue.toString(),
@@ -292,6 +376,15 @@ export function PortfolioChart({ className = '' }: PortfolioChartProps) {
 
   const performanceStats = getPerformanceStats();
 
+  // Add debug information
+  const debugInfo = {
+    totalRecords: portfolioHistory.length,
+    filteredRecords: filterDataByTimeRange(portfolioHistory).length,
+    publicKey: publicKey?.toString(),
+    usingExternalData: !!externalPortfolioHistory,
+    lastRefresh: lastRefresh.toISOString()
+  };
+
   if (!publicKey) {
     return (
       <div className={`bg-gray-800/50 rounded-xl p-6 border border-gray-700 ${className}`}>
@@ -305,7 +398,7 @@ export function PortfolioChart({ className = '' }: PortfolioChartProps) {
     );
   }
 
-  if (loading) {
+  if (loading && !externalPortfolioHistory) {
     return (
       <div className={`bg-gray-800/50 rounded-xl p-6 border border-gray-700 ${className}`}>
         <div className="flex items-center justify-center h-64">
@@ -318,11 +411,30 @@ export function PortfolioChart({ className = '' }: PortfolioChartProps) {
     );
   }
 
+  useEffect(() => {
+  const handleAnalysisComplete = (event: CustomEvent) => {
+    const { totalValue, walletCount, tokenCount, timestamp } = event.detail;
+    const newRecord = {
+      timestamp: new Date(timestamp),
+      totalValue,
+      walletCount,
+      tokenCount
+    };
+    
+    setInternalPortfolioHistory(prev => [...prev, newRecord]);
+    console.log('immediate chart update with new analysis data');
+  };
+
+  window.addEventListener('portfolioAnalysisComplete', handleAnalysisComplete as EventListener);
+  return () => window.removeEventListener('portfolioAnalysisComplete', handleAnalysisComplete as EventListener);
+}, []);
+
   if (error) {
     return (
       <div className={`bg-gray-800/50 rounded-xl p-6 border border-gray-700 ${className}`}>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-3" />
             <p className="text-red-400 mb-3">{error}</p>
             <button
               onClick={refreshData}
@@ -348,6 +460,14 @@ export function PortfolioChart({ className = '' }: PortfolioChartProps) {
             <h2 className="text-lg font-semibold">portfolio performance</h2>
             <p className="text-sm text-gray-400">
               {portfolioHistory.length} records • {filterDataByTimeRange(portfolioHistory).length} shown
+              {lastRefresh && (
+                <span className="ml-2 text-gray-500 lowercase">
+                  • updated: {lastRefresh.toLocaleTimeString()}
+                </span>
+              )}
+              {externalPortfolioHistory && (
+                <span className="ml-2 text-green-500 lowercase">• live data</span>
+              )}
             </p>
           </div>
         </div>
@@ -383,17 +503,80 @@ export function PortfolioChart({ className = '' }: PortfolioChartProps) {
             </button>
           )}
 
-          {/* Refresh Button */}
-          <button
-            onClick={refreshData}
-            disabled={refreshing}
-            className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
-            title="Refresh data"
-          >
-            <RefreshCw className={`h-4 w-4 text-gray-300 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
+          {/* Refresh Button - Enhanced */}
+          {!externalPortfolioHistory && (
+            <button
+              onClick={refreshData}
+              disabled={refreshing}
+              className="flex items-center space-x-2 p-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-50"
+              title="Refresh chart data"
+            >
+              <RefreshCw className={`h-4 w-4 text-white ${refreshing ? 'animate-spin' : ''}`} />
+              <span className="text-sm text-white hidden sm:inline">
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Refresh Status Banner */}
+      {showRefreshStatus && (
+        <div className={`mb-4 p-3 rounded-lg border ${
+          refreshing 
+            ? 'bg-blue-500/20 border-blue-500 text-blue-300' 
+            : 'bg-green-500/20 border-green-500 text-green-300'
+        }`}>
+          <div className="flex items-center space-x-2">
+            {refreshing ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Refreshing portfolio data...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                <span className="text-sm">Portfolio data refreshed successfully!</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Enhanced Refresh Section */}
+      {!externalPortfolioHistory && portfolioHistory.length > 0 && (
+        <div className="mb-6 p-4 bg-gray-700/30 rounded-lg border border-gray-600">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-3 sm:space-y-0">
+            <div className="flex items-center space-x-3">
+              <RefreshCw className="h-5 w-5 text-purple-400" />
+              <div>
+                <h3 className="text-sm font-medium">data refresh</h3>
+                <p className="text-xs text-gray-400">
+                  Last refresh: {lastRefresh.toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={refreshData}
+                disabled={refreshing}
+                className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 px-4 py-2 rounded-lg transition-colors"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <span>{refreshing ? 'Refreshing...' : 'Refresh Data'}</span>
+              </button>
+              <button
+                onClick={() => console.log('Debug Info:', debugInfo)}
+                className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg transition-colors"
+                title="View debug info in console"
+              >
+                <AlertCircle className="h-4 w-4" />
+                <span>Debug</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Time Range Selector */}
       <div className="flex space-x-2 mb-6">
@@ -427,6 +610,14 @@ export function PortfolioChart({ className = '' }: PortfolioChartProps) {
               <p className="text-sm text-gray-500 mt-1">
                 analyze your wallets to start tracking performance
               </p>
+              {!externalPortfolioHistory && (
+                <button
+                  onClick={refreshData}
+                  className="mt-4 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors"
+                >
+                  Check for Data
+                </button>
+              )}
             </div>
           </div>
         )}

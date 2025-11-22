@@ -2,7 +2,7 @@ export interface TokenBalance {
   mint: string;
   symbol: string;
   name: string;
-  balance: number;
+  balance?: number;
   decimals: number;
   uiAmount: number;
   price?: number;
@@ -61,4 +61,10 @@ export interface ProRataSwap {
   totalValue: number;
   outputToken: string;
   quotes: SwapQuote[];
+}
+
+export interface PriceProgress {
+  current: number;
+  total: number;
+  currentToken?: string;
 }

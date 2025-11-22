@@ -72,9 +72,199 @@ const SortIcon = ({ field, sortField, sortDirection }: SortIconProps) => {
     : <ChevronDown className="h-3 w-3 text-purple-400" />;
 };
 
+interface LoadingBarProps {
+  totalItems: number;
+  currentProcessed: number;
+  itemType?: string;
+  durationPerItem?: number;
+  className?: string;
+}
+
+export function LoadingBar({ 
+  totalItems, 
+  currentProcessed, 
+  itemType = 'tokens',
+  durationPerItem = 1100,
+  className = '' 
+}: LoadingBarProps) {
+  const [progress, setProgress] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const previousProcessedRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (totalItems === 0) return;
+
+    if (!startTimeRef.current) {
+      startTimeRef.current = Date.now();
+    }
+
+    const updateProgress = () => {
+      if (!startTimeRef.current) return;
+
+      const currentTime = Date.now();
+      const elapsed = currentTime - startTimeRef.current;
+      const totalDuration = totalItems * durationPerItem;
+      
+      const actualProgress = totalItems > 0 ? (currentProcessed / totalItems) * 100 : 0;
+      const timeBasedProgress = totalDuration > 0 ? Math.min((elapsed / totalDuration) * 100, 100) : 0;
+      
+      const displayProgress = Math.max(actualProgress, timeBasedProgress);
+      setProgress(Math.min(displayProgress, 100));
+
+      if (actualProgress > 0 && actualProgress < 100) {
+        const estimatedTotalTime = (elapsed / actualProgress) * 100;
+        const remaining = estimatedTotalTime - elapsed;
+        setTimeRemaining(Math.max(0, remaining));
+      } else if (timeBasedProgress > 0 && timeBasedProgress < 100) {
+        const remaining = totalDuration - elapsed;
+        setTimeRemaining(Math.max(0, remaining));
+      } else {
+        setTimeRemaining(0);
+      }
+
+      if (displayProgress < 100) {
+        animationFrameRef.current = requestAnimationFrame(updateProgress);
+      } else {
+        setProgress(100);
+        setTimeRemaining(0);
+      }
+    };
+
+    animationFrameRef.current = requestAnimationFrame(updateProgress);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [totalItems, currentProcessed, durationPerItem]);
+
+  useEffect(() => {
+    console.log('loadingbar reset - totalitems:', totalItems, 'currentprocessed:', currentProcessed);
+    
+    startTimeRef.current = Date.now();
+    previousProcessedRef.current = 0;
+    setProgress(0);
+    setTimeRemaining(0);
+
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  }, [totalItems]);
+
+  useEffect(() => {
+    if (currentProcessed > previousProcessedRef.current) {
+      console.log('progress update:', {
+        currentProcessed,
+        totalItems,
+        progress: (currentProcessed / totalItems) * 100
+      });
+      previousProcessedRef.current = currentProcessed;
+    }
+
+    if (totalItems > 0 && currentProcessed >= totalItems) {
+      const timer = setTimeout(() => {
+        setProgress(100);
+        setTimeRemaining(0);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentProcessed, totalItems]);
+
+  const formatTimeRemaining = (ms: number): string => {
+    const seconds = Math.ceil(ms / 1000);
+    if (seconds < 60) {
+      return `${seconds}s`;
+    }
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  };
+
+  const itemsRemaining = totalItems - currentProcessed;
+  const isComplete = progress >= 100 || (totalItems > 0 && currentProcessed >= totalItems);
+
+  return (
+    <div className={`w-full ${className}`}>
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-sm text-gray-300 font-medium">
+          {totalItems} {itemType} detected
+        </span>
+        <span className="text-sm text-gray-400">
+          {isComplete ? 'complete!' : timeRemaining > 0 ? `${formatTimeRemaining(timeRemaining)} remaining` : 'starting...'}
+        </span>
+      </div>
+
+      <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+        <div 
+          className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-300 ease-out relative"
+          style={{ width: `${progress}%` }}
+        >
+          {!isComplete && (
+            <div 
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+              style={{
+                animation: 'shimmer 2s infinite'
+              }}
+            />
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center mt-2">
+        <span className="text-xs text-gray-400">
+          {currentProcessed} of {totalItems} processed
+        </span>
+        <span className="text-xs text-gray-400">
+          {Math.round(progress)}% complete
+        </span>
+      </div>
+
+      {itemsRemaining > 0 && !isComplete && (
+        <div className="flex items-center justify-center mt-3 space-x-2">
+          <div className="flex space-x-1">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"
+                style={{ animationDelay: `${i * 0.2}s` }}
+              />
+            ))}
+          </div>
+          <span className="text-xs text-purple-300">
+            fetching {itemType}...
+          </span>
+        </div>
+      )}
+
+      {isComplete && (
+        <div className="flex items-center justify-center mt-3 space-x-2">
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-ping" />
+          <span className="text-xs text-green-300">
+            all {itemType} fetched successfully!
+          </span>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   const { connection } = useConnection();
   const { publicKey } = useWallet();
+  const tokenService = useMemo(() => new TokenService(), []);
   const [walletInput, setWalletInput] = useState('');
   const [walletNickname, setWalletNickname] = useState<string>(''); 
   const [analyzing, setAnalyzing] = useState(false);
@@ -94,6 +284,18 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   const [lastLoadedPortfolioValue, setLastLoadedPortfolioValue] = useState<number>(0);
   const [loadingLastValue, setLoadingLastValue] = useState<boolean>(false);
   const [chartDataLoaded, setChartDataLoaded] = useState(false);
+
+  const [loadingProgress, setLoadingProgress] = useState({
+    totalItems: 0,
+    currentProcessed: 0,
+    itemType: 'wallets' as const,
+    isActive: false
+  });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  const SNS_DOMAINS = ['.sol', '.bonk', '.poor', '.ser', '.abc', '.backpack', '.crown', '.gogo', '.hodl', '.meme', '.monke', '.oon', '.ponke', '.pump', '.shark', '.snipe', '.turtle', '.wallet', '.whale', '.worker', '.00', '.inv', '.ux', '.ray', '.luv'];
 
   useEffect(() => {
   if (!publicKey) return;
@@ -118,22 +320,15 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
       history.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
       setPortfolioHistory(history);
       setChartDataLoaded(true);
-      console.log('📊 Loaded portfolio history:', history.length, 'records (filtered out', querySnapshot.docs.length - history.length, 'zero-value records)');
+      console.log('loaded portfolio history:', history.length, 'records (filtered out', querySnapshot.docs.length - history.length, 'zero-value records)');
     } catch (err) {
-      console.error('❌ Failed to load portfolio history:', err);
+      console.error('failed to load portfolio history:', err);
       setChartDataLoaded(true);
     }
   };
 
   loadPortfolioHistory();
 }, [publicKey]);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const selectAllRef = useRef<HTMLInputElement>(null);
-
-  const tokenService = new TokenService();
-
-  const SNS_DOMAINS = ['.sol', '.bonk', '.poor', '.ser', '.abc', '.backpack', '.crown', '.gogo', '.hodl', '.meme', '.monke', '.oon', '.ponke', '.pump', '.shark', '.snipe', '.turtle', '.wallet', '.whale', '.worker', '.00', '.inv', '.ux', '.ray', '.luv'];
 
   useEffect(() => {
     if (!publicKey) return;
@@ -227,7 +422,10 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   };
 
   const savePortfolioHistory = async (totalValue: number, walletCount: number, tokenCount: number) => {
-  if (!publicKey) return;
+  if (!publicKey) {
+    console.error('no public key - cannot save portfolio history');
+    return;
+  }
 
   if (totalValue <= 0) {
     console.log('skipping portfolio history save: totalValue is 0');
@@ -237,23 +435,41 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   try {
     const historyData = {
       timestamp: new Date(),
-      totalValue,
-      walletCount,
-      tokenCount
+      totalValue: totalValue,
+      walletCount: walletCount,
+      tokenCount: tokenCount
     };
 
+    console.log('saving portfolio history:', {
+      user: publicKey.toString(),
+      data: historyData
+    });
+
     const historyRef = doc(collection(db, 'solo-users', publicKey.toString(), 'portfolioHistory'));
+    
+    console.log('firestore path:', historyRef.path);
+    
     await setDoc(historyRef, historyData);
     
-    console.log('saved portfolio history:', historyData);
+    console.log('successfully saved portfolio history');
     
+    // Update local state immediately
     setPortfolioHistory(prev => {
       const newHistory = [...prev, historyData];
       newHistory.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      console.log('updated portfolio history state:', newHistory.length, 'records');
       return newHistory;
     });
+
   } catch (error) {
     console.error('failed to save portfolio history:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        message: error.message,
+        code: (error as any).code,
+        user: publicKey.toString()
+      });
+    }
   }
 };
 
@@ -447,6 +663,8 @@ useEffect(() => {
   try {
     console.log('analyzing wallet:', walletAddress);
 
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     let tokenBalances = await tokenService.getTokenBalances(walletAddress);
     
     if (tokenBalances.length === 0) {
@@ -454,17 +672,39 @@ useEffect(() => {
       tokenBalances = [];
     }
 
-    if (tokenBalances.length > 0) {
-      tokenBalances = await tokenService.getTokenPrices(tokenBalances);
-    }
-
-    const valuableTokens = tokenBalances.filter(token => {
+    const potentiallyValuableTokens = tokenBalances.filter(token => {
       const isSol = token.symbol.toLowerCase() === 'sol' || token.name.toLowerCase().includes('solana');
-      const hasValue = (token.value || 0) > 0.01;
       const hasBalance = token.uiAmount > 0;
       
-      return (isSol && hasBalance) || (!isSol && hasValue && hasBalance);
+      return (isSol && hasBalance) || (!isSol && hasBalance);
     });
+
+    console.log(`filtered to ${potentiallyValuableTokens.length} potentially valuable tokens`);
+
+    let valuableTokens: TokenBalance[] = [];
+    
+    if (potentiallyValuableTokens.length > 0) {
+      try {
+        valuableTokens = await tokenService.getTokenPrices(potentiallyValuableTokens);
+        
+        valuableTokens = valuableTokens.filter(token => {
+          const isSol = token.symbol.toLowerCase() === 'sol' || token.name.toLowerCase().includes('solana');
+          const hasValue = (token.value || 0) > 0.01;
+          const hasBalance = token.uiAmount > 0;
+          
+          return (isSol && hasBalance) || (!isSol && hasValue && hasBalance);
+        });
+        
+        console.log(`final valuable tokens: ${valuableTokens.length}`);
+      } catch (priceError) {
+        console.error('price fetching failed:', priceError);
+        valuableTokens = potentiallyValuableTokens.map(token => ({
+          ...token,
+          value: 0,
+          price: 0
+        }));
+      }
+    }
 
     const totalValue = valuableTokens.reduce((sum, token) => sum + (token.value || 0), 0);
 
@@ -487,7 +727,7 @@ useEffect(() => {
       return [...prev, result];
     });
 
-    await updateWalletLastAnalyzed(walletAddress);
+    await updateWalletLastAnalyzed(walletAddress, totalValue);
 
     console.log('analysis complete:', {
       wallet: walletAddress,
@@ -498,7 +738,7 @@ useEffect(() => {
     });
 
     if (valuableTokens.length === 0) {
-    setError('no valuable tokens found in this wallet (all non-SOL tokens < $0.01 value)');
+      setError('no valuable tokens found in this wallet (all non-sol tokens < $0.01 value)');
     }
 
   } catch (err) {
@@ -520,58 +760,134 @@ useEffect(() => {
 };
 
   const analyzeAllWallets = async () => {
-    if (savedWallets.length === 0) {
-      setError('no saved wallets to analyze');
-      return;
-    }
+  if (savedWallets.length === 0) {
+    setError('no saved wallets to analyze');
+    return;
+  }
 
-    setAnalyzing(true);
-    setError('');
+  setAnalyzing(true);
+  setError('');
+  
+  setLoadingProgress({
+    totalItems: savedWallets.length,
+    currentProcessed: 0,
+    itemType: 'wallets',
+    isActive: true
+  });
 
-    try {
-      console.log(`starting sequential analysis of ${savedWallets.length} wallets...`);
+  try {
+    console.log(`starting sequential analysis of ${savedWallets.length} wallets...`);
+    
+    const analysisStartTime = Date.now();
+    let successfulAnalyses = 0;
+    let failedAnalyses = 0;
+
+    // Clear previous results PROPERLY
+    setResults([]);
+    
+    // Wait for state to actually clear
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    const newResults: any[] = []; // Temporary storage
+
+    for (let i = 0; i < savedWallets.length; i++) {
+      const wallet = savedWallets[i];
+      console.log(`analyzing wallet ${i + 1}/${savedWallets.length}: ${wallet.address}`);
       
-      const analysisStartTime = Date.now();
-      let successfulAnalyses = 0;
-      let failedAnalyses = 0;
-
-      for (let i = 0; i < savedWallets.length; i++) {
-        const wallet = savedWallets[i];
-        console.log(`analyzing wallet ${i + 1}/${savedWallets.length}: ${wallet.address}`);
-        
-        try {
-          await analyzeWallet(wallet.address, wallet.nickname || undefined, wallet.isDomain);
-          successfulAnalyses++;
-        } catch (err) {
-          console.error(`failed to analyze wallet ${wallet.address}:`, err);
-          failedAnalyses++;
+      setLoadingProgress(prev => ({
+        ...prev,
+        currentProcessed: i
+      }));
+      
+      try {
+        // Analyze wallet and capture result
+        const result = await analyzeWallet(wallet.address, wallet.nickname || undefined, wallet.isDomain);
+        if (result) {
+          newResults.push(result);
         }
+        successfulAnalyses++;
+      } catch (err) {
+        console.error(`failed to analyze wallet ${wallet.address}:`, err);
+        failedAnalyses++;
         
-        if (i < savedWallets.length - 1) {
-          console.log(`waiting 1000ms before next wallet analysis...`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
+        if (err instanceof Error && (err.message.includes('rate limit') || err.message.includes('429'))) {
+          console.log('rate limit detected, waiting 10 seconds...');
+          await new Promise(resolve => setTimeout(resolve, 10000));
         }
       }
-
-      const totalPortfolioValue = results.reduce((sum, result) => sum + result.totalValue, 0);
-      const totalTokens = results.reduce((sum, result) => sum + result.tokens.length, 0);
       
-      await savePortfolioHistory(totalPortfolioValue, results.length, totalTokens);
-
-      const analysisTime = Date.now() - analysisStartTime;
-      console.log(`completed analysis of ${successfulAnalyses}/${savedWallets.length} wallets in ${analysisTime}ms`);
-      
-      if (failedAnalyses > 0) {
-        setError(`completed with ${failedAnalyses} failed analyses. check console for details.`);
+      if (i < savedWallets.length - 1) {
+        console.log(`waiting 3 seconds before next wallet analysis...`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
-      
-    } catch (err) {
-      console.error('error analyzing all wallets:', err);
-      setError(`failed to analyze some wallets: ${err instanceof Error ? err.message : 'unknown error'}`);
-    } finally {
-      setAnalyzing(false);
     }
-  };
+
+    // SET RESULTS ALL AT ONCE
+    setResults(newResults);
+
+    setLoadingProgress(prev => ({
+      ...prev,
+      currentProcessed: savedWallets.length
+    }));
+
+    // Wait for React state to update
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Calculate portfolio values from the NEW results
+    const totalPortfolioValue = newResults.reduce((sum, result) => sum + result.totalValue, 0);
+    const totalTokens = newResults.reduce((sum, result) => sum + result.tokens.length, 0);
+    
+    console.log('🎯 Final portfolio summary for saving:', {
+      totalValue: totalPortfolioValue,
+      walletCount: newResults.length,
+      tokenCount: totalTokens,
+      resultsCount: newResults.length,
+      results: newResults.map(r => ({ wallet: r.walletAddress, value: r.totalValue }))
+    });
+
+    // Save portfolio history
+    if (totalPortfolioValue > 0 && newResults.length > 0) {
+      await savePortfolioHistory(totalPortfolioValue, newResults.length, totalTokens);
+      console.log('✅ Portfolio history saved successfully');
+    } else {
+      console.log('⚠️ Skipping portfolio history save: total value is 0 or no results');
+    }
+
+    const event = new CustomEvent('portfolioAnalysisComplete', {
+    detail: {
+        totalValue: totalPortfolioValue,
+        walletCount: newResults.length,
+        tokenCount: totalTokens,
+        timestamp: new Date()
+    }
+    });
+    window.dispatchEvent(event);
+
+    if (typeof (window as any).refreshPortfolioChart === 'function') {
+      console.log('triggering portfolio chart refresh');
+      (window as any).refreshPortfolioChart();
+    }
+
+    window.dispatchEvent(new CustomEvent('portfolioUpdated'));
+    localStorage.setItem('portfolioDataUpdated', Date.now().toString());
+
+    const analysisTime = Date.now() - analysisStartTime;
+    console.log(`completed analysis of ${successfulAnalyses}/${savedWallets.length} wallets in ${analysisTime}ms`);
+    
+    if (failedAnalyses > 0) {
+      setError(`completed with ${failedAnalyses} failed analyses. check console for details.`);
+    }
+    
+  } catch (err) {
+    console.error('error analyzing all wallets:', err);
+    setError(`failed to analyze some wallets: ${err instanceof Error ? err.message : 'unknown error'}`);
+  } finally {
+    setAnalyzing(false);
+    setTimeout(() => {
+      setLoadingProgress(prev => ({ ...prev, isActive: false }));
+    }, 2000);
+  }
+};
 
   const downloadCsvTemplate = () => {
     const template = `address,nickname
@@ -994,6 +1310,30 @@ useEffect(() => {
           <div className="w-20"></div>
         </div>
 
+       {loadingProgress.isActive && (
+  <div className="mb-6 bg-gray-800/50 rounded-xl p-6 backdrop-blur-sm border border-gray-700">
+    <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-500"></div>
+      <span>analyzing wallets...</span>
+    </h3>
+    <LoadingBar
+      totalItems={loadingProgress.totalItems}
+      currentProcessed={loadingProgress.currentProcessed}
+      itemType={loadingProgress.itemType}
+      durationPerItem={3000}
+      className="mt-4"
+    />
+    <div className="mt-3 text-sm text-gray-400 text-center">
+      processing wallet {Math.min(loadingProgress.currentProcessed + 1, loadingProgress.totalItems)} of {loadingProgress.totalItems}
+      {loadingProgress.currentProcessed > 0 && (
+        <span className="ml-2 text-purple-400">
+          ({Math.round((loadingProgress.currentProcessed / loadingProgress.totalItems) * 100)}%)
+        </span>
+      )}
+    </div>
+  </div>
+)}
+
         {/* Help Section */}
         <div className="bg-gray-800/50 rounded-lg p-4 mb-6 border border-gray-700 relative">
           <div className="flex items-start justify-between">
@@ -1062,10 +1402,10 @@ useEffect(() => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <input
                   type="text"
-                  placeholder="Enter wallet (e.g., 7aEY...f9Xq) or domain (e.g., your-domain.sol)"
+                  placeholder="enter wallet (e.g., 7aEY...f9Xq)"
                   value={walletInput}
                   onChange={(e) => setWalletInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addWallet()}
+                  onKeyPress={(e) => e.key === 'enter' && addWallet()}
                   className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>
@@ -1117,11 +1457,20 @@ useEffect(() => {
 
             <button
               onClick={analyzeAllWallets}
-              disabled={analyzing || savedWallets.length === 0}
+              disabled={analyzing || savedWallets.length === 0 || loadingProgress.isActive}
               className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 px-4 py-2 rounded-lg transition-colors"
             >
-              <Calculator className="h-4 w-4" />
-              <span>analyze all ({savedWallets.length})</span>
+              {loadingProgress.isActive ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>analyzing... ({loadingProgress.currentProcessed}/{savedWallets.length})</span>
+                </>
+              ) : (
+                <>
+                  <Calculator className="h-4 w-4" />
+                  <span>analyze all ({savedWallets.length})</span>
+                </>
+              )}
             </button>
 
             <button
@@ -1217,8 +1566,12 @@ useEffect(() => {
         </div>
 
         {results.length > 0 && (
-          <div className="space-y-6">
-            <PortfolioChart className="w-full" />
+        <div className="space-y-6">
+            {/* <PortfolioChart 
+            className="w-full" 
+            portfolioHistory={portfolioHistory}
+            refreshTrigger={portfolioHistory.length}
+            /> */}
             
             <div className="bg-gray-800/50 rounded-xl p-6 backdrop-blur-sm border border-gray-700">
               <div className="flex justify-between items-start mb-6">
@@ -1264,6 +1617,8 @@ useEffect(() => {
                   </div>
                 </div>
               )}
+
+              
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 {results

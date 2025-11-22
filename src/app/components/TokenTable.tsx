@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react';
-import { TokenBalance } from '../types/token';
+import { useState, useMemo, useEffect } from 'react';
+import { TokenBalance, PriceProgress } from '../types/token';
+import { TokenService } from '../lib/api';
 import { ArrowUpDown, Search, Image, ChevronDown, ChevronUp } from 'lucide-react';
+import { LoadingBar } from './LoadingBar';
 
 interface TokenTableProps {
   tokens: TokenBalance[];
@@ -9,6 +11,9 @@ interface TokenTableProps {
   onSelectAll: (selected: boolean) => void;
   selectedTokens: TokenBalance[];
   totalSelectedValue: number;
+  onRefreshPrices?: () => void;
+  processingProgress: number; 
+  totalToProcess: number; 
 }
 
 type SortField = 'symbol' | 'balance' | 'USD' | 'value';
@@ -59,16 +64,33 @@ const TokenLogo = ({ token, size = 8 }: TokenLogoProps) => {
 };
 
 export function TokenTable({ 
-  tokens, 
+  tokens,
   loading, 
   onTokenSelect, 
   onSelectAll,
   selectedTokens, 
-  totalSelectedValue 
+  totalSelectedValue,
+  onRefreshPrices,
+  processingProgress,
+  totalToProcess
 }: TokenTableProps) {
   const [sortField, setSortField] = useState<SortField>('value');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [searchTerm, setSearchTerm] = useState('');
+  const [retryLoading, setRetryLoading] = useState(false);
+  const [retryProgress, setRetryProgress] = useState({ current: 0, total: 0 });
+
+  const tokenService = useMemo(() => new TokenService(), []);
+
+  useEffect(() => {
+    console.log('tokentable debug:', {
+      loading,
+      processingProgress,
+      totalToProcess,
+      tokensCount: tokens.length,
+      tokensWithBalance: tokens.filter(t => t.uiAmount > 0).length
+    });
+  }, [loading, processingProgress, totalToProcess, tokens]);
 
   const totalPortfolioValue = useMemo(() => {
     return tokens.reduce((total, token) => total + (token.value || 0), 0);
@@ -129,10 +151,72 @@ export function TokenTable({
   const allSelected = tokens.length > 0 && selectedTokens.length === tokens.length;
   const someSelected = selectedTokens.length > 0 && selectedTokens.length < tokens.length;
 
-  if (loading) {
+  const failedTokens = useMemo(() => 
+    tokens.filter(token => token.value === 0 && token.uiAmount > 0),
+    [tokens]
+  );
+
+  const handleRetryFailedTokens = async () => {
+    if (failedTokens.length === 0 || retryLoading) return;
+    
+    setRetryLoading(true);
+    setRetryProgress({ current: 0, total: failedTokens.length });
+    
+    try {
+      console.log(`retrying ${failedTokens.length} failed tokens...`);
+      
+      const retriedTokens = await tokenService.retryFailedTokens(
+        failedTokens,
+        (progress: PriceProgress) => {
+          setRetryProgress({
+            current: progress.current,
+            total: progress.total
+          });
+          console.log(`retry Progress: ${progress.current}/${progress.total} - ${progress.currentToken}`);
+        }
+      );
+      
+      if (onRefreshPrices) {
+        onRefreshPrices();
+      }
+    } catch (error) {
+      console.error('failed to retry tokens:', error);
+    } finally {
+      setRetryLoading(false);
+      setRetryProgress({ current: 0, total: 0 });
+    }
+  };
+
+  const isRetryLoading = retryLoading && retryProgress.total > 0;
+
+  if (loading || isRetryLoading) {
+    const currentProgress = isRetryLoading ? retryProgress.current : processingProgress;
+    const currentTotal = isRetryLoading ? retryProgress.total : totalToProcess;
+    const loadingText = isRetryLoading ? 'retrying failed tokens...' : 'fetching prices from jupiter...';
+
+    console.log('rendering loading state:', {
+      currentProgress,
+      currentTotal,
+      progressPercentage: currentTotal > 0 ? (currentProgress / currentTotal) * 100 : 0,
+      isRetryLoading
+    });
+
     return (
-      <div className="flex justify-center items-center py-8 sm:py-12">
-        <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-purple-400"></div>
+      <div className="flex flex-col items-center justify-center py-12 space-y-6">
+        <div className="w-full max-w-md">
+          <LoadingBar 
+            totalItems={currentTotal}
+            currentProcessed={currentProgress}
+            itemType="tokens"
+            durationPerItem={1100}
+            className="mb-4"
+          />
+        </div>
+        <div className="text-center text-gray-400 text-sm">
+          {loadingText}
+          {currentTotal > 0 && ` (${currentProgress}/${currentTotal})`}
+          {currentTotal === 0 && ' (calculating...)'}
+        </div>
       </div>
     );
   }
@@ -149,6 +233,7 @@ export function TokenTable({
             </div>
             <div className="text-xs text-gray-400 mt-1">
               {tokens.length} tokens • {filteredAndSortedTokens.length} visible
+              {failedTokens.length > 0 && ` • ${failedTokens.length} failed`}
             </div>
           </div>
           <div className="text-right">
@@ -160,16 +245,34 @@ export function TokenTable({
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-        <input
-          type="text"
-          placeholder="search tokens..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base"
-        />
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <input
+            type="text"
+            placeholder="search tokens..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base"
+          />
+        </div>
+        
+        {failedTokens.length > 0 && (
+          <button
+            onClick={handleRetryFailedTokens}
+            disabled={retryLoading}
+            className="px-4 py-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg hover:bg-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium text-yellow-200"
+          >
+            {retryLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-400"></div>
+                retrying...
+              </div>
+            ) : (
+              `retry ${failedTokens.length} failed`
+            )}
+          </button>
+        )}
       </div>
 
       {/* Selected Summary */}
@@ -178,6 +281,24 @@ export function TokenTable({
           <div className="flex justify-between text-xs sm:text-sm">
             <span>selected: {selectedTokens.length} tokens</span>
             <span>total value: ${totalSelectedValue.toFixed(2)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Failed Tokens Alert */}
+      {failedTokens.length > 0 && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+          <div className="flex justify-between items-center text-xs sm:text-sm">
+            <span className="text-yellow-200">
+              {failedTokens.length} tokens failed to load prices
+            </span>
+            <button
+              onClick={handleRetryFailedTokens}
+              disabled={retryLoading}
+              className="text-yellow-300 hover:text-yellow-200 disabled:opacity-50 text-xs"
+            >
+              {retryLoading ? 'retrying...' : 'retry now'}
+            </button>
           </div>
         </div>
       )}
@@ -242,7 +363,9 @@ export function TokenTable({
             {filteredAndSortedTokens.map((token) => (
               <tr 
                 key={token.mint} 
-                className="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors"
+                className={`border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors ${
+                  token.value === 0 && token.uiAmount > 0 ? 'opacity-60' : ''
+                }`}
               >
                 <td className="py-2 sm:py-3 px-1 sm:px-2">
                   <input
@@ -256,7 +379,12 @@ export function TokenTable({
                   <div className="flex items-center space-x-2 sm:space-x-3 lowercase">
                     <TokenLogo token={token} size={8} />
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium text-sm sm:text-base truncate">{token.symbol}</div>
+                      <div className="font-medium text-sm sm:text-base truncate">
+                        {token.symbol}
+                        {token.value === 0 && token.uiAmount > 0 && (
+                          <span className="ml-1 text-yellow-500 text-xs"></span>
+                        )}
+                      </div>
                       <div className="text-xs text-gray-400 truncate">{token.name}</div>
                     </div>
                   </div>

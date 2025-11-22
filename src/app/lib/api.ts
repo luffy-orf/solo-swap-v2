@@ -1,7 +1,7 @@
 import { Connection, PublicKey } from '@solana/web3.js';
-import { TokenBalance, TokenInfo } from '../types/token';
+import { TokenBalance, TokenInfo, PriceProgress } from '../types/token';
 
-const JUPITER_API = 'https://lite-api.jup.ag';
+const JUPITER_LITE_API = 'https://lite-api.jup.ag';
 const RPC_ENDPOINTS = [
   process.env.NEXT_PUBLIC_RPC_ENDPOINT_1,
   process.env.NEXT_PUBLIC_RPC_ENDPOINT_2,
@@ -101,17 +101,7 @@ class LoadBalancer {
 }
 
 const rpcLoadBalancer = new LoadBalancer(RPC_ENDPOINTS);
-const jupiterRateLimiter = new RateLimiter();
-
-interface JupiterQuoteResponse {
-  outAmount: string;
-  [key: string]: unknown;
-}
-
-interface JupiterSwapResponse {
-  swapTransaction: string;
-  [key: string]: unknown;
-}
+const jupiterLimiter = new RateLimiter();
 
 export class TokenService {
   private tokenMap: Map<string, TokenInfo> = new Map();
@@ -119,8 +109,6 @@ export class TokenService {
 
   constructor() {
     this.loadTokenList();
-    this.createConnection = this.createConnection.bind(this);
-    this.getTokenBalances = this.getTokenBalances.bind(this);
   }
 
   private createConnection(endpoint: string): Connection {
@@ -130,63 +118,31 @@ export class TokenService {
   private async loadTokenList(): Promise<void> {
     if (this.tokenListLoaded) return;
 
-    const tokenListSources = [
-      'https://cache.jup.ag/tokens',
-      'https://raw.githubusercontent.com/solana-labs/token-list/main/src/tokens/solana.tokenlist.json',
-      'https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json',
-    ];
-
-    for (const source of tokenListSources) {
-      try {
-        console.log(`loading token list from: ${source}`);
-        const response = await fetch(source, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          
-          let tokens: TokenInfo[] = [];
-          if (Array.isArray(data)) {
-            tokens = data;
-          } else if (data.tokens && Array.isArray(data.tokens)) {
-            tokens = data.tokens;
-          } else {
-            tokens = data;
+    try {
+      const response = await fetch('https://cache.jup.ag/tokens');
+      
+      if (response.ok) {
+        const tokens = await response.json();
+        
+        tokens.forEach((token: TokenInfo) => {
+          if (token.address) {
+            this.tokenMap.set(token.address, token);
           }
-
-          tokens.forEach((token: TokenInfo) => {
-            const mintAddress = token.address;
-            if (mintAddress) {
-              this.tokenMap.set(mintAddress, token);
-            }
-          });
-          
-          console.log(`loaded ${tokens.length} tokens from ${source}`);
-          this.tokenListLoaded = true;
-          return;
-        }
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'unknown error';
-        console.warn(`failed to load from ${source}:`, errorMessage);
-        continue;
+        });
+        
+        console.log(`loaded ${tokens.length} tokens`);
+        this.tokenListLoaded = true;
+        return;
       }
+    } catch (error) {
+      console.warn('failed to load token list:', error);
     }
 
-    console.warn('using minimal fallback token list');
-    this.loadFallbackTokenList();
-    this.tokenListLoaded = true;
-  }
-
-  private loadFallbackTokenList(): void {
-    const fallbackTokens: TokenInfo[] = [
+    const fallbackTokens = [
       {
         address: 'So11111111111111111111111111111111111111112',
         symbol: 'SOL',
-        name: 'Solana',
+        name: 'Wrapped Solana',
         decimals: 9,
         logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
         chainId: 101
@@ -212,6 +168,9 @@ export class TokenService {
     fallbackTokens.forEach(token => {
       this.tokenMap.set(token.address, token);
     });
+    
+    this.tokenListLoaded = true;
+    console.log('using fallback token list');
   }
 
   async ensureTokenListLoaded(): Promise<void> {
@@ -229,14 +188,34 @@ export class TokenService {
       const connection = this.createConnection(endpoint);
       const publicKey = new PublicKey(walletAddress);
       
-      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
-        publicKey,
-        { programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') }
-      );
+      const [tokenAccounts, solBalance] = await Promise.all([
+        connection.getParsedTokenAccountsByOwner(
+          publicKey,
+          { programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') }
+        ),
+        connection.getBalance(publicKey)
+      ]);
 
-      console.log(`found ${tokenAccounts.value.length} token accounts`);
+      console.log(`found ${tokenAccounts.value.length} token accounts and ${solBalance} lamports sol`);
 
       const tokens: TokenBalance[] = [];
+
+      // Add native SOL balance
+      if (solBalance > 0) {
+        const solAmount = solBalance / 1e9;
+        tokens.push({
+          mint: 'So11111111111111111111111111111111111111112',
+          symbol: 'SOL',
+          name: 'Solana',
+          balance: solBalance,
+          decimals: 9,
+          uiAmount: solAmount,
+          price: 0,
+          value: 0,
+          selected: false,
+          logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png'
+        });
+      }
 
       for (const account of tokenAccounts.value) {
         try {
@@ -250,7 +229,7 @@ export class TokenService {
             tokens.push({
               mint: mint,
               symbol: tokenInfo?.symbol || 'UNKNOWN',
-              name: tokenInfo?.name || 'unknown token',
+              name: tokenInfo?.name || 'Unknown Token',
               balance: Number(tokenAmount.amount),
               decimals: tokenAmount.decimals,
               uiAmount: tokenAmount.uiAmount,
@@ -260,9 +239,8 @@ export class TokenService {
               logoURI: tokenInfo?.logoURI || null
             });
           }
-        } catch (error: unknown) {
-          const errorMessage = error instanceof Error ? error.message : 'unknown error';
-          console.warn('error processing token account:', errorMessage);
+        } catch (error) {
+          console.warn('error processing token account:', error);
         }
       }
 
@@ -271,136 +249,121 @@ export class TokenService {
     });
   }
 
-  async getTokenPrices(tokens: TokenBalance[]): Promise<TokenBalance[]> {
-  console.log(`fetching prices for ${tokens.length} tokens...`);
-  
-  const results = await Promise.allSettled(
-    tokens.map(async (token) => {
+  async getTokenPrices(
+    tokens: TokenBalance[], 
+    onProgress?: (progress: PriceProgress) => void
+  ): Promise<TokenBalance[]> {
+    console.log(`fetching prices for ${tokens.length} tokens...`);
+    
+    const results: TokenBalance[] = [];
+    
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      
+      if (onProgress) {
+        onProgress({
+          current: i + 1,
+          total: tokens.length,
+          currentToken: token.symbol
+        });
+      }
+      
       try {
-        // Skip tokens with very small amounts that might cause API errors
-        if (token.uiAmount < 0.000001) {
-          console.log(`skipping tiny amount for ${token.symbol}: ${token.uiAmount}`);
-          return { ...token, value: 0, price: 0 };
+        if (token.mint === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') {
+          results.push({
+            ...token,
+            price: 1,
+            value: token.uiAmount
+          });
+          console.log(`✅ USDC: ${token.uiAmount} → $${token.uiAmount.toFixed(6)} ($1.00/token)`);
+          continue;
         }
 
-        const MIN_AMOUNT = 1090; 
-        const amount = Math.max(token.uiAmount, MIN_AMOUNT);
+        await jupiterLimiter.wait();
+        
+        const rawAmount = Math.max(
+          Math.floor(token.uiAmount * Math.pow(10, token.decimals)),
+          1000
+        );
 
-        const url = `https://lite-api.jup.ag/swap/v1/quote?inputMint=${token.mint}&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=${amount}`;
+        const url = `${JUPITER_LITE_API}/swap/v1/quote?inputMint=${token.mint}&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=${rawAmount}`;
         
-        console.log(`🔍 Getting quote for ${token.symbol}: ${url}`);
+        console.log(`🔍 Getting quote for ${token.symbol}: ${token.uiAmount} (raw: ${rawAmount})`);
         
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        const response = await fetch(url);
 
         if (!response.ok) {
           if (response.status === 400) {
-            console.log(`🔍 Skipping untradable token: ${token.symbol}`);
-            return { ...token, value: 0, price: 0 };
+            console.log(`${token.symbol} is not tradable`);
+            results.push({ ...token, value: 0, price: 0 });
+            continue;
           }
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          throw new Error(`http ${response.status}`);
         }
 
         const quoteData = await response.json();
         
-        if (!quoteData || !quoteData.outAmount) {
-          console.log(`🔍 No quote data for ${token.symbol}`);
-          return { ...token, value: 0, price: 0 };
+        if (!quoteData?.outAmount) {
+          console.log(`no quote data for ${token.symbol}`);
+          results.push({ ...token, value: 0, price: 0 });
+          continue;
         }
 
-        const usdcValue = parseInt(quoteData.outAmount) / 1_000_000; // USDC has 6 decimals
-        const price = usdcValue / token.uiAmount;
+        const usdcValue = parseInt(quoteData.outAmount) / 1_000_000;
+        const price = token.uiAmount > 0 ? usdcValue / token.uiAmount : 0;
         const value = usdcValue;
 
-        console.log(`✅ ${token.symbol}: ${token.uiAmount} → $${value} ($${price}/token)`);
+        console.log(`✅ ${token.symbol}: ${token.uiAmount} → $${value.toFixed(6)} ($${price.toFixed(6)}/token)`);
         
-        return {
+        results.push({
           ...token,
           value,
           price,
-        };
+        });
+        
       } catch (error) {
-        console.error(`❌ Failed to get price for ${token.symbol}:`, error);
-        return { ...token, value: 0, price: 0 };
+        console.error(`failed to get price for ${token.symbol}:`, error);
+        results.push({ ...token, value: 0, price: 0 });
+        
+        if (error instanceof Error && error.message.includes('429')) {
+          console.log('rate limited, waiting 2 secs...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
-    })
-  );
 
-  // Fix: Properly handle the type filtering
-  const successfulTokens: TokenBalance[] = [];
-  
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      const token = result.value;
-      // Check if value exists and is greater than 0
-      if (token.value !== undefined && token.value > 0) {
-        successfulTokens.push(token);
+      if (i < tokens.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
-  }
 
-  const failedTokens = results.filter(result => result.status === 'rejected');
-  
-  if (failedTokens.length > 0) {
-    console.log(`⚠️ ${failedTokens.length} tokens failed price fetching`);
-  }
+    if (onProgress) {
+      onProgress({
+        current: tokens.length,
+        total: tokens.length,
+        currentToken: 'complete'
+      });
+    }
 
-  console.log(`🎯 Final list: ${successfulTokens.length} tradable tokens with prices`);
-  return successfulTokens;
-}
-
-  async getSwapQuote(inputMint: string, outputMint: string, amount: number): Promise<JupiterQuoteResponse> {
-    await jupiterRateLimiter.wait();
+    const successfulTokens = results.filter(token => token.value > 0);
     
-    try {
-      const response = await fetch(
-        `${JUPITER_API}/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}`
-      );
-      
-      if (!response.ok) {
-        throw new Error(`jupiter api error: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'unknown error';
-      console.error('error getting swap quote:', errorMessage);
-      throw error;
+    console.log(`final results: ${successfulTokens.length} priced, ${results.length - successfulTokens.length} failed`);
+    
+    return results;
+  }
+
+  async retryFailedTokens(
+    failedTokens: TokenBalance[], 
+    onProgress?: (progress: PriceProgress) => void
+  ): Promise<TokenBalance[]> {
+    if (failedTokens.length === 0) {
+      return [];
     }
+
+    console.log(`🔄 Retrying ${failedTokens.length} failed tokens...`);
+    return await this.getTokenPrices(failedTokens, onProgress);
   }
 
   getTokenInfo(mintAddress: string): TokenInfo | undefined {
     return this.tokenMap.get(mintAddress);
-  }
-
-  async refreshTokenList(): Promise<void> {
-    this.tokenListLoaded = false;
-    this.tokenMap.clear();
-    await this.loadTokenList();
-  }
-
-  async testRpcEndpoints(): Promise<{ [key: string]: boolean }> {
-    const results: { [key: string]: boolean } = {};
-    
-    for (const endpoint of rpcLoadBalancer.getEndpoints()) {
-      try {
-        const connection = this.createConnection(endpoint);
-        const version = await connection.getVersion();
-        results[rpcLoadBalancer.getEndpointName(endpoint)] = true;
-        console.log(`✅ ${rpcLoadBalancer.getEndpointName(endpoint)}: working - version ${version['solana-core']}`);
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : 'unknown error';
-        results[rpcLoadBalancer.getEndpointName(endpoint)] = false;
-        console.error(`❌ ${rpcLoadBalancer.getEndpointName(endpoint)}: failed -`, errorMessage);
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    
-    return results;
   }
 }

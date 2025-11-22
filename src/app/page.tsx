@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { TokenBalance } from './types/token';
+import { TokenBalance, PriceProgress } from './types/token';
 import { TokenService } from './lib/api';
 import { TokenTable } from './components/TokenTable';
 import { SwapInterface } from './components/SwapInterface';
@@ -12,31 +12,8 @@ import { MultisigAnalyzer } from './components/enterWallet';
 import { Settings2, Wallet, Menu, X, Calculator } from 'lucide-react';
 import { RpcStatus } from './components/RpcStatus';
 import Image from 'next/image';
-import { WalletMultiButtonWrapper } from './components/WalletMultiButtonWrapper';
 
-const ClientWalletMultiButton = ({ className }: { className?: string }) => {
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsClient(true);
-  }, []);
-
-  if (!isClient) {
-    return (
-      <div className={className}>
-        <button 
-          className="bg-purple-600 hover:bg-purple-700 transition-colors text-sm px-4 py-2 rounded-lg opacity-50 cursor-not-allowed"
-          disabled
-        >
-          Loading...
-        </button>
-      </div>
-    );
-  }
-
-  return <WalletMultiButton className={className} />;
-};
+import '@solana/wallet-adapter-react-ui/styles.css';
 
 export default function Home() {
   const { connection } = useConnection();
@@ -48,57 +25,94 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [currentView, setCurrentView] = useState<'main' | 'multisig'>('main');
-  const [isMultisigActive, setIsMultisigActive] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [totalToProcess, setTotalToProcess] = useState(0);
 
   const tokenService = new TokenService();
 
-  const handleViewChange = (view: 'main' | 'multisig') => {
-    if (view === 'multisig') {
-      setIsMultisigActive(true);
-      console.log('pausing token table rpc calls - multisig active');
-    } else {
-      setIsMultisigActive(false);
-      console.log('resuming token table RPC calls - multisig inactive');
-      if (connected && !isMultisigActive) {
-        fetchTokenBalances();
-      }
-    }
-    setCurrentView(view);
-  };
-
   const fetchTokenBalances = useCallback(async () => {
-    if (isMultisigActive) {
-      console.log('token fetch paused - multisig tool active');
-      return;
-    }
-    
     if (!publicKey) return;
     
     setLoading(true);
     setError('');
+    setProcessingProgress(0);
+    setTotalToProcess(0);
     
     try {
       console.log('fetching token balances for:', publicKey.toString());
-      let tokenBalances = await tokenService.getTokenBalances(publicKey.toString());
+      const tokenBalances = await tokenService.getTokenBalances(publicKey.toString());
       console.log('raw token balances:', tokenBalances);
+
+      const tokensWithBalance = tokenBalances.filter(token => token.uiAmount > 0);
+      setTotalToProcess(tokensWithBalance.length);
       
-      tokenBalances = await tokenService.getTokenPrices(tokenBalances);
-      console.log('token balances with prices:', tokenBalances);
+      const tokensWithPrices = await tokenService.getTokenPrices(
+        tokensWithBalance,
+        (progress: PriceProgress) => {
+          console.log(`progress callback: ${progress.current}/${progress.total} - ${progress.currentToken}`);
+          setProcessingProgress(progress.current);
+          setTotalToProcess(progress.total);
+        }
+      );
       
-      setTokens(tokenBalances);
+      console.log('final tokens with prices:', tokensWithPrices);
+      setTokens(tokensWithPrices);
+      
     } catch (err) {
       console.error('error fetching tokens:', err);
       setError(err instanceof Error ? err.message : 'failed to fetch tokens');
     } finally {
+      console.log('finished loading, resetting loading state');
       setLoading(false);
     }
-  }, [publicKey, isMultisigActive]);
+  }, [publicKey]);
+
+  const handleRefreshPrices = useCallback(async () => {
+    if (!publicKey || tokens.length === 0) return;
+    
+    setLoading(true);
+    setProcessingProgress(0);
+    setError('');
+    
+    try {
+      console.log('refreshing prices for current tokens...');
+      
+      const tokensWithPositiveBalance = tokens.filter(token => token.uiAmount > 0);
+      setTotalToProcess(tokensWithPositiveBalance.length);
+      
+      const refreshedTokens = await tokenService.getTokenPrices(
+        tokensWithPositiveBalance,
+        (progress: PriceProgress) => {
+          console.log(`refresh progress: ${progress.current}/${progress.total}`);
+          setProcessingProgress(progress.current);
+        }
+      );
+      
+      const updatedTokens = tokens.map(token => {
+        const refreshedToken = refreshedTokens.find(t => t.mint === token.mint);
+        return refreshedToken || token;
+      });
+      
+      setTokens(updatedTokens);
+      console.log('prices refreshed successfully');
+    } catch (err) {
+      console.error('error refreshing prices:', err);
+      setError('failed to refresh prices');
+    } finally {
+      setLoading(false);
+    }
+  }, [publicKey, tokens]);
 
   useEffect(() => {
     if (connected) {
       fetchTokenBalances();
+    } else {
+      setTokens([]);
+      setLoading(false);
+      setProcessingProgress(0);
+      setTotalToProcess(0);
     }
-  }, [connected, publicKey]);
+  }, [connected, fetchTokenBalances]);
 
   const handleTokenSelect = (mint: string, selected: boolean) => {
     setTokens(prev => prev.map(token => 
@@ -115,10 +129,14 @@ export default function Home() {
 
   const handleSwapComplete = () => {
     console.log('swap completed, refreshing balances...');
-    if (!isMultisigActive) {
-      fetchTokenBalances();
-    }
+    fetchTokenBalances(); 
   };
+
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     const debugRpc = async () => {
@@ -130,7 +148,7 @@ export default function Home() {
       await testService.getTokenBalances(publicKey?.toString() || 'Cj1jScR4V73qLmvWJiGiWs9jtcwCXEZsmS5cevWt9jNc');
     };
 
-    if (connected && !isMultisigActive) {
+    if (connected) {
       debugRpc();
     }
   }, [connected]);
@@ -149,13 +167,31 @@ export default function Home() {
   }, [selectedTokens, totalSelectedValue]);
 
   useEffect(() => {
-    console.log('rpc state:', {
-      isMultisigActive,
-      currentView,
-      connected,
-      shouldFetch: connected && !isMultisigActive
+    console.log('progress state update:', {
+      processingProgress,
+      totalToProcess,
+      loading,
+      progressPercentage: totalToProcess > 0 ? (processingProgress / totalToProcess) * 100 : 0
     });
-  }, [isMultisigActive, currentView, connected]);
+  }, [processingProgress, totalToProcess, loading]);
+
+  const [currentPortfolioData, setCurrentPortfolioData] = useState<PortfolioHistory[]>([]);
+
+const handleRealTimeData = (results: any[]) => {
+  if (results.length > 0) {
+    const totalValue = results.reduce((sum, result) => sum + result.totalValue, 0);
+    const totalTokens = results.reduce((sum, result) => sum + result.tokens.length, 0);
+    
+    const liveData = [{
+      timestamp: new Date(),
+      totalValue,
+      walletCount: results.length,
+      tokenCount: totalTokens
+    }];
+    
+    setCurrentPortfolioData(liveData);
+  }
+};
 
   const renderMainView = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 relative z-10">
@@ -185,10 +221,17 @@ export default function Home() {
               </div>
               <button
                 onClick={fetchTokenBalances}
-                disabled={loading || isMultisigActive}
+                disabled={loading}
                 className="text-xs sm:text-sm bg-purple-600 hover:bg-purple-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
               >
-                {loading ? 'refreshing...' : 'refresh'}
+                {loading ? 'refreshing...' : 'refresh all'}
+              </button>
+              <button
+                onClick={handleRefreshPrices}
+                disabled={loading}
+                className="text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {loading ? 'refreshing...' : 'refresh prices'}
               </button>
             </div>
           </div>
@@ -206,6 +249,9 @@ export default function Home() {
             onSelectAll={handleSelectAll}
             selectedTokens={selectedTokens}
             totalSelectedValue={totalSelectedValue}
+            onRefreshPrices={handleRefreshPrices}
+            processingProgress={processingProgress}
+            totalToProcess={totalToProcess}
           />
         </div>
       </div>
@@ -244,17 +290,9 @@ export default function Home() {
           
           {/* Desktop Actions */}
           <div className="hidden sm:flex items-center space-x-4">
-            {/* RPC Status Indicator */}
-            {isMultisigActive && (
-              <div className="flex items-center space-x-1 text-xs text-yellow-400 bg-yellow-400/20 px-2 py-1 rounded">
-                <span>⏸ rpc paused</span>
-              </div>
-            )}
-            
-            {/* View Toggle Buttons */}
             {currentView === 'main' && (
               <button
-                onClick={() => handleViewChange('multisig')}
+                onClick={() => setCurrentView('multisig')}
                 className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg transition-colors text-sm"
               >
                 <Calculator className="h-4 w-4" />
@@ -264,7 +302,7 @@ export default function Home() {
             
             {currentView === 'multisig' && (
               <button
-                onClick={() => handleViewChange('main')}
+                onClick={() => setCurrentView('main')}
                 className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg transition-colors text-sm"
               >
                 <span>← back to swap</span>
@@ -278,20 +316,16 @@ export default function Home() {
               <Settings2 className="h-5 w-5" />
             </button>
             <div className="relative z-40">
-              <ClientWalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm" />
+              {isClient && (
+                <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm" />
+              )}
             </div>
           </div>
 
           <div className="sm:hidden flex items-center space-x-2">
-            {isMultisigActive && (
-              <div className="flex items-center space-x-1 text-xs text-yellow-400 bg-yellow-400/20 px-2 py-1 rounded">
-                <span>⏸️</span>
-              </div>
-            )}
-            
             {currentView === 'main' ? (
               <button
-                onClick={() => handleViewChange('multisig')}
+                onClick={() => setCurrentView('multisig')}
                 className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded-lg transition-colors text-xs"
               >
                 <Calculator className="h-3 w-3" />
@@ -299,7 +333,7 @@ export default function Home() {
               </button>
             ) : (
               <button
-                onClick={() => handleViewChange('main')}
+                onClick={() => setCurrentView('main')}
                 className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded-lg transition-colors text-xs"
               >
                 <span>← back</span>
@@ -330,8 +364,9 @@ export default function Home() {
                 <span>settings</span>
               </button>
               <div className="flex justify-center relative z-40">
-                {/* Also update the mobile wallet button */}
-                <ClientWalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm" />
+                {isClient && (
+                  <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm !py-2 !px-4" />
+                )}
               </div>
             </div>
           </div>
@@ -339,7 +374,7 @@ export default function Home() {
 
         {/* Main Content */}
         {currentView === 'main' ? renderMainView() : (
-          <MultisigAnalyzer onBack={() => handleViewChange('main')} />
+          <MultisigAnalyzer onBack={() => setCurrentView('main')} />
         )}
 
         {/* Settings Panel */}

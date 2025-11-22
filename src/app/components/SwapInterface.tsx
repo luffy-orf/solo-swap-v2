@@ -46,53 +46,11 @@ interface JupiterSwapResponse {
   [key: string]: unknown;
 }
 
-interface ErrorDetails {
-  timestamp: string;
-  wallet?: string;
-  walletType?: string;
-  selectedTokens: number;
-  liquidationPercentage: number;
-  isLedgerConnected: boolean;
-}
-
-// Client-only wrapper to prevent hydration errors
-const ClientSwapInterface = ({ 
+export function SwapInterface({ 
   selectedTokens, 
   totalSelectedValue, 
   onSwapComplete 
-}: SwapInterfaceProps) => {
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  if (!isClient) {
-    // Render a skeleton/loading state for SSR
-    return (
-      <div className="bg-gray-800/50 rounded-xl p-4 sm:p-6 backdrop-blur-sm border border-gray-700 h-fit mobile-optimized relative z-10">
-        <div className="animate-pulse">
-          <div className="h-6 bg-gray-700 rounded w-1/2 mb-4"></div>
-          <div className="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
-          <div className="h-4 bg-gray-700 rounded w-1/2 mb-6"></div>
-          <div className="h-10 bg-gray-700 rounded mb-4"></div>
-          <div className="h-10 bg-gray-700 rounded"></div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <SwapInterfaceContent 
-      selectedTokens={selectedTokens}
-      totalSelectedValue={totalSelectedValue}
-      onSwapComplete={onSwapComplete}
-    />
-  );
-};
-
-// Main component logic
-const SwapInterfaceContent = ({ selectedTokens, totalSelectedValue, onSwapComplete }: SwapInterfaceProps) => {
+}: SwapInterfaceProps) {
   const { connection } = useConnection();
   const { publicKey, signTransaction, sendTransaction, wallet } = useWallet();
   
@@ -182,19 +140,6 @@ const SwapInterfaceContent = ({ selectedTokens, totalSelectedValue, onSwapComple
         liquidationAmount: tokenLiquidationValue,
         originalAmount: token.uiAmount
       };
-    });
-  };
-
-  const logError = (context: string, error: unknown, details?: Partial<ErrorDetails>) => {
-    console.error(`🚨 ${context}:`, {
-      error,
-      details,
-      timestamp: new Date().toISOString(),
-      wallet: publicKey?.toString(),
-      walletType: wallet?.adapter?.name,
-      selectedTokens: selectedTokens.length,
-      liquidationPercentage,
-      isLedgerConnected
     });
   };
 
@@ -457,7 +402,7 @@ const SwapInterfaceContent = ({ selectedTokens, totalSelectedValue, onSwapComple
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'liquidation failed';
       setError(errorMsg);
-      logError('liquidation execution error', err);
+      console.error('liquidation execution error:', err);
     } finally {
       setSwapping(false);
     }
@@ -470,10 +415,12 @@ const SwapInterfaceContent = ({ selectedTokens, totalSelectedValue, onSwapComple
   return (
     <div className="bg-gray-800/50 rounded-xl p-4 sm:p-6 backdrop-blur-sm border border-gray-700 h-fit mobile-optimized relative z-10">
       
-      <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex items-center space-x-2 text-optimized">
+      <h2 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex items-center space-x-2">
         <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
         <span>cart</span>
       </h2>
+
+      <div className="max-h-[calc(100vh-200px)] overflow-y-auto mobile-scroll pr-2 -mr-2">
 
       {/* Wallet Status Indicator */}
       {wallet && (
@@ -746,10 +693,9 @@ const SwapInterfaceContent = ({ selectedTokens, totalSelectedValue, onSwapComple
             </div>
           )}
         </>
+        
       )}
+      </div>
     </div>
   );
-};
-
-// Export the client-wrapped component
-export { ClientSwapInterface as SwapInterface };
+}
