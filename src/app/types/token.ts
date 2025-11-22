@@ -6,7 +6,7 @@ export interface TokenBalance {
   decimals: number;
   uiAmount: number;
   price?: number;
-  value?: number;
+  value: number;
   selected: boolean;
   logoURI?: string | null;
 }

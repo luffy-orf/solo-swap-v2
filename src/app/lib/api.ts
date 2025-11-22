@@ -250,106 +250,106 @@ export class TokenService {
   }
 
   async getTokenPrices(
-    tokens: TokenBalance[], 
-    onProgress?: (progress: PriceProgress) => void
-  ): Promise<TokenBalance[]> {
-    console.log(`fetching prices for ${tokens.length} tokens...`);
+  tokens: TokenBalance[], 
+  onProgress?: (progress: PriceProgress) => void
+): Promise<TokenBalance[]> {
+  console.log(`fetching prices for ${tokens.length} tokens...`);
+  
+  const results: TokenBalance[] = [];
+  
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
     
-    const results: TokenBalance[] = [];
+    if (onProgress) {
+      onProgress({
+        current: i + 1,
+        total: tokens.length,
+        currentToken: token.symbol
+      });
+    }
     
-    for (let i = 0; i < tokens.length; i++) {
-      const token = tokens[i];
-      
-      if (onProgress) {
-        onProgress({
-          current: i + 1,
-          total: tokens.length,
-          currentToken: token.symbol
+    try {
+      if (token.mint === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') {
+        results.push({
+          ...token,
+          price: 1,
+          value: token.uiAmount
         });
+        console.log(`usdc: ${token.uiAmount} → $${token.uiAmount.toFixed(6)} ($1.00/token)`);
+        continue;
       }
+
+      await jupiterLimiter.wait();
       
-      try {
-        if (token.mint === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') {
-          results.push({
-            ...token,
-            price: 1,
-            value: token.uiAmount
-          });
-          console.log(`✅ USDC: ${token.uiAmount} → $${token.uiAmount.toFixed(6)} ($1.00/token)`);
-          continue;
-        }
+      const rawAmount = Math.max(
+        Math.floor(token.uiAmount * Math.pow(10, token.decimals)),
+        1000
+      );
 
-        await jupiterLimiter.wait();
-        
-        const rawAmount = Math.max(
-          Math.floor(token.uiAmount * Math.pow(10, token.decimals)),
-          1000
-        );
+      const url = `${JUPITER_LITE_API}/swap/v1/quote?inputMint=${token.mint}&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=${rawAmount}`;
+      
+      console.log(`getting quote for ${token.symbol}: ${token.uiAmount} (raw: ${rawAmount})`);
+      
+      const response = await fetch(url);
 
-        const url = `${JUPITER_LITE_API}/swap/v1/quote?inputMint=${token.mint}&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=${rawAmount}`;
-        
-        console.log(`🔍 Getting quote for ${token.symbol}: ${token.uiAmount} (raw: ${rawAmount})`);
-        
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          if (response.status === 400) {
-            console.log(`${token.symbol} is not tradable`);
-            results.push({ ...token, value: 0, price: 0 });
-            continue;
-          }
-          throw new Error(`http ${response.status}`);
-        }
-
-        const quoteData = await response.json();
-        
-        if (!quoteData?.outAmount) {
-          console.log(`no quote data for ${token.symbol}`);
+      if (!response.ok) {
+        if (response.status === 400) {
+          console.log(`${token.symbol} is not tradable`);
           results.push({ ...token, value: 0, price: 0 });
           continue;
         }
+        throw new Error(`http ${response.status}`);
+      }
 
-        const usdcValue = parseInt(quoteData.outAmount) / 1_000_000;
-        const price = token.uiAmount > 0 ? usdcValue / token.uiAmount : 0;
-        const value = usdcValue;
-
-        console.log(`✅ ${token.symbol}: ${token.uiAmount} → $${value.toFixed(6)} ($${price.toFixed(6)}/token)`);
-        
-        results.push({
-          ...token,
-          value,
-          price,
-        });
-        
-      } catch (error) {
-        console.error(`failed to get price for ${token.symbol}:`, error);
+      const quoteData = await response.json();
+      
+      if (!quoteData?.outAmount) {
+        console.log(`no quote data for ${token.symbol}`);
         results.push({ ...token, value: 0, price: 0 });
-        
-        if (error instanceof Error && error.message.includes('429')) {
-          console.log('rate limited, waiting 2 secs...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
+        continue;
       }
 
-      if (i < tokens.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-    }
+      const usdcValue = parseInt(quoteData.outAmount) / 1_000_000;
+      const price = token.uiAmount > 0 ? usdcValue / token.uiAmount : 0;
+      const value = usdcValue;
 
-    if (onProgress) {
-      onProgress({
-        current: tokens.length,
-        total: tokens.length,
-        currentToken: 'complete'
+      console.log(`${token.symbol}: ${token.uiAmount} → $${value.toFixed(6)} ($${price.toFixed(6)}/token)`);
+      
+      results.push({
+        ...token,
+        value,
+        price,
       });
+      
+    } catch (error) {
+      console.error(`failed to get price for ${token.symbol}:`, error);
+      results.push({ ...token, value: 0, price: 0 });
+      
+      if (error instanceof Error && error.message.includes('429')) {
+        console.log('rate limited, waiting 2 secs...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
     }
 
-    const successfulTokens = results.filter(token => token.value > 0);
-    
-    console.log(`final results: ${successfulTokens.length} priced, ${results.length - successfulTokens.length} failed`);
-    
-    return results;
+    if (i < tokens.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
   }
+
+  if (onProgress) {
+    onProgress({
+      current: tokens.length,
+      total: tokens.length,
+      currentToken: 'complete'
+    });
+  }
+
+  const successfulTokens = results.filter(token => (token.value || 0) > 0);
+  
+  console.log(`final results: ${successfulTokens.length} priced, ${results.length - successfulTokens.length} failed`);
+  
+  return results;
+}
 
   async retryFailedTokens(
     failedTokens: TokenBalance[], 
