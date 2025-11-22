@@ -17,7 +17,7 @@ import {
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { TrendingUp, Calendar, Download, RefreshCw, AlertCircle } from 'lucide-react';
+import { TrendingUp, Calendar, Download, RefreshCw, AlertCircle, CircleCheck } from 'lucide-react';
 
 ChartJS.register(
   CategoryScale,
