@@ -130,7 +130,6 @@ export class TokenService {
           }
         });
         
-        console.log(`loaded ${tokens.length} tokens`);
         this.tokenListLoaded = true;
         return;
       }

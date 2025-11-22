@@ -11,6 +11,8 @@ import { SettingsPanel } from './components/SettingsPannel';
 import { MultisigAnalyzer } from './components/enterWallet';
 import { Settings2, Wallet, Menu, X, Calculator } from 'lucide-react';
 import Image from 'next/image';
+import { collection, doc, setDoc, getDocs, query, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { db } from './lib/firebase';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
 
@@ -37,58 +39,127 @@ export default function Home() {
 
   const tokenService = new TokenService();
 
-  const handleRealTimeData = (results: any[]) => {
-    if (results.length > 0) {
-      const totalValue = results.reduce((sum, result) => sum + result.totalValue, 0);
-      const totalTokens = results.reduce((sum, result) => sum + result.tokens.length, 0);
-      
-      const liveData = [{
-        timestamp: new Date(),
-        totalValue,
-        walletCount: results.length,
-        tokenCount: totalTokens
+  const loadPortfolioHistory = useCallback(async () => {
+  if (!publicKey) return;
+
+  try {
+    const historyQuery = query(
+      collection(db, 'wallet-history', publicKey.toString(), 'records'),
+      orderBy('timestamp', 'asc')
+    );
+    const querySnapshot = await getDocs(historyQuery);
+    
+    const history = querySnapshot.docs
+      .map(doc => {
+        const data = doc.data();
+        return {
+          timestamp: data.timestamp?.toDate() || new Date(),
+          totalValue: data.totalValue || 0,
+          walletCount: data.walletCount || 0,
+          tokenCount: data.tokenCount || 0
+        };
+      })
+      .filter(record => record.totalValue > 0) as PortfolioHistory[];
+    
+    console.log('loaded wallet history:', history.length, 'records');
+    setCurrentPortfolioData(history);
+  } catch (err) {
+    console.error('failed to load wallet history:', err);
+  }
+}, [publicKey]);
+
+const savePortfolioHistory = useCallback(async (totalValue: number, walletCount: number, tokenCount: number) => {
+  if (!publicKey) {
+    console.error('no public key - cannot save wallet history');
+    return;
+  }
+
+  if (totalValue <= 0) {
+    console.log('skipping wallet history save: totalValue is 0');
+    return;
+  }
+
+  try {
+    const historyData = {
+      timestamp: Timestamp.fromDate(new Date()),
+      totalValue: totalValue,
+      walletCount: walletCount,
+      tokenCount: tokenCount,
+      publicKey: publicKey.toString()
+    };
+
+    console.log('saving wallet history:', historyData);
+
+    const historyRef = doc(collection(db, 'wallet-history', publicKey.toString(), 'records'));
+    await setDoc(historyRef, historyData);
+    
+    console.log('successfully saved wallet history');
+    
+    setCurrentPortfolioData(prev => {
+      const newHistory = [...prev, {
+        timestamp: historyData.timestamp.toDate(),
+        totalValue: historyData.totalValue,
+        walletCount: historyData.walletCount,
+        tokenCount: historyData.tokenCount
       }];
-      
-      setCurrentPortfolioData(liveData);
+      return newHistory.slice(-100);
+    });
+
+  } catch (error) {
+    console.error('failed to save wallet history:', error);
+  }
+}, [publicKey]);
+
+  useEffect(() => {
+    if (connected && publicKey) {
+      loadPortfolioHistory();
+    } else {
+      setCurrentPortfolioData([]);
     }
-  };
+  }, [connected, publicKey, loadPortfolioHistory]);
 
   const fetchTokenBalances = useCallback(async () => {
-    if (!publicKey) return;
-    
-    setLoading(true);
-    setError('');
-    setProcessingProgress(0);
-    setTotalToProcess(0);
-    
-    try {
-      console.log('fetching token balances for:', publicKey.toString());
-      const tokenBalances = await tokenService.getTokenBalances(publicKey.toString());
-      console.log('raw token balances:', tokenBalances);
+  if (!publicKey) return;
+  
+  setLoading(true);
+  setError('');
+  setProcessingProgress(0);
+  setTotalToProcess(0);
+  
+  try {
+    console.log('fetching token balances for:', publicKey.toString());
+    const tokenBalances = await tokenService.getTokenBalances(publicKey.toString());
+    console.log('raw token balances:', tokenBalances);
 
-      const tokensWithBalance = tokenBalances.filter(token => token.uiAmount > 0);
-      setTotalToProcess(tokensWithBalance.length);
-      
-      const tokensWithPrices = await tokenService.getTokenPrices(
-        tokensWithBalance,
-        (progress: PriceProgress) => {
-          console.log(`progress callback: ${progress.current}/${progress.total} - ${progress.currentToken}`);
-          setProcessingProgress(progress.current);
-          setTotalToProcess(progress.total);
-        }
-      );
-      
-      console.log('final tokens with prices:', tokensWithPrices);
-      setTokens(tokensWithPrices);
-      
-    } catch (err) {
-      console.error('error fetching tokens:', err);
-      setError(err instanceof Error ? err.message : 'failed to fetch tokens');
-    } finally {
-      console.log('finished loading, resetting loading state');
-      setLoading(false);
+    const tokensWithBalance = tokenBalances.filter(token => token.uiAmount > 0);
+    setTotalToProcess(tokensWithBalance.length);
+    
+    const tokensWithPrices = await tokenService.getTokenPrices(
+      tokensWithBalance,
+      (progress: PriceProgress) => {
+        console.log(`progress callback: ${progress.current}/${progress.total} - ${progress.currentToken}`);
+        setProcessingProgress(progress.current);
+        setTotalToProcess(progress.total);
+      }
+    );
+    
+    console.log('final tokens with prices:', tokensWithPrices);
+    setTokens(tokensWithPrices);
+    
+    const totalValue = tokensWithPrices.reduce((sum, token) => sum + (token.value || 0), 0);
+    
+    if (totalValue > 0) {
+      await savePortfolioHistory(totalValue, 1, tokensWithPrices.length);
     }
-  }, [publicKey]);
+    
+  } catch (err) {
+    console.error('error fetching tokens:', err);
+    setError(err instanceof Error ? err.message : 'failed to fetch tokens');
+  } finally {
+    console.log('finished loading, resetting loading state');
+    setLoading(false);
+  }
+}, [publicKey, savePortfolioHistory]);
 
   const handleRefreshPrices = useCallback(async () => {
     if (!publicKey || tokens.length === 0) return;
@@ -117,6 +188,10 @@ export default function Home() {
       });
       
       setTokens(updatedTokens);
+      
+      const totalValue = updatedTokens.reduce((sum, token) => sum + (token.value || 0), 0);
+      await savePortfolioHistory(totalValue, 1, updatedTokens.length);
+      
       console.log('prices refreshed successfully');
     } catch (err) {
       console.error('error refreshing prices:', err);
@@ -124,7 +199,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [publicKey, tokens]);
+  }, [publicKey, tokens, savePortfolioHistory]);
 
   useEffect(() => {
     if (connected) {
@@ -231,13 +306,13 @@ export default function Home() {
               >
                 {loading ? 'refreshing...' : 'refresh all'}
               </button>
-              <button
+              {/* <button
                 onClick={handleRefreshPrices}
                 disabled={loading}
                 className="text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
               >
                 {loading ? 'refreshing...' : 'refresh prices'}
-              </button>
+              </button> */}
             </div>
           </div>
 
@@ -257,6 +332,7 @@ export default function Home() {
             onRefreshPrices={handleRefreshPrices}
             processingProgress={processingProgress}
             totalToProcess={totalToProcess}
+            portfolioHistory={currentPortfolioData} 
           />
         </div>
       </div>
@@ -282,7 +358,7 @@ export default function Home() {
             <div className="flex items-center space-x-2">
               <Image
                 src={"/soloswap.png"}
-                alt="SoloSwap Logo"
+                alt="soloswap logo"
                 width={32}
                 height={32}
                 className="h-7 w-auto sm:h-8" 

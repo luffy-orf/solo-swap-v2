@@ -175,3 +175,7 @@ body {
 .animate-shimmer {
   animation: shimmer 2s infinite;
 }
+
+.wallet-adapter-modal-title {
+  text-transform: lowercase !important;
+}

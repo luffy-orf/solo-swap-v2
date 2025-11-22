@@ -363,7 +363,7 @@ export function SwapInterface({
         token.swapAmount > 0.000001 && token.liquidationAmount > 0.01
       );
 
-      console.log(`📋 valid tokens for liquidation:`, validTokens.map(t => ({
+      console.log(`valid tokens for liquidation:`, validTokens.map(t => ({
         symbol: t.symbol,
         swapAmount: t.swapAmount,
         liquidationAmount: t.liquidationAmount,

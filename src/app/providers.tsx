@@ -63,6 +63,64 @@ export function Providers({ children }: { children: ReactNode }) {
                 box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
               }
               
+              .wallet-adapter-dropdown-list-item {
+                font-size: 0.875rem !important;
+                padding: 0.75rem 1rem !important;
+                min-height: 44px !important;
+                display: flex !important;
+                align-items: center !important;
+                transition: all 0.2s ease !important;
+                text-transform: lowercase !important;
+              }
+              
+              /* Keep wallet address normal case */
+              .wallet-adapter-button-trigger {
+                text-transform: none !important;
+              }
+              
+              .wallet-adapter-modal-wrapper .wallet-adapter-modal-title,
+              .wallet-adapter-modal-wrapper .wallet-adapter-modal-list li,
+              .wallet-adapter-modal-wrapper .wallet-adapter-modal-list-more {
+                text-transform: lowercase !important;
+              }
+              
+              /* But keep the wallet address in the button normal */
+              .wallet-adapter-modal-wrapper .wallet-adapter-button,
+              .wallet-adapter-button[data-connected="true"] {
+                text-transform: none !important;
+              }
+              
+              .wallet-adapter-button[data-connected="true"] span {
+                text-transform: none !important;
+                font-family: monospace !important;
+              }
+              
+              .wallet-adapter-modal-list .wallet-adapter-modal-button span {
+                text-transform: lowercase !important;
+              }
+              
+              .wallet-adapter-button-trigger span:not(:first-child) {
+                text-transform: none !important;
+                font-family: monospace !important;
+              }
+              
+              .wallet-adapter-dropdown-list-item:not([disabled]):hover {
+                background-color: rgba(139, 92, 246, 0.2) !important;
+                transform: translateX(2px) !important;
+              }
+              
+              .wallet-adapter-button {
+                border-radius: 0.75rem !important;
+                font-size: 0.875rem !important;
+                min-height: 44px !important;
+                padding: 0.5rem 1rem !important;
+                transition: all 0.2s ease !important;
+              }
+              
+              .wallet-adapter-button:not([disabled]):hover {
+                transform: scale(1.02) !important;
+              }
+              
               /* Mobile optimizations */
               @media (max-width: 768px) {
                 .wallet-adapter-modal {
@@ -83,53 +141,6 @@ export function Providers({ children }: { children: ReactNode }) {
                 .wallet-adapter-modal-list-more {
                   font-size: 0.875rem !important;
                   padding: 1rem 1.5rem !important;
-                }
-              }
-              
-              .wallet-adapter-dropdown-list-item {
-                font-size: 0.875rem !important;
-                padding: 0.75rem 1rem !important;
-                min-height: 44px !important;
-                display: flex !important;
-                align-items: center !important;
-                transition: all 0.2s ease !important;
-              }
-              
-              .wallet-adapter-dropdown-list-item:not([disabled]):hover {
-                background-color: rgba(139, 92, 246, 0.2) !important;
-                transform: translateX(2px) !important;
-              }
-              
-              .wallet-adapter-button {
-                border-radius: 0.75rem !important;
-                font-size: 0.875rem !important;
-                min-height: 44px !important;
-                padding: 0.5rem 1rem !important;
-                transition: all 0.2s ease !important;
-              }
-              
-              .wallet-adapter-button:not([disabled]):hover {
-                transform: scale(1.02) !important;
-              }
-              
-              /* Mobile wallet modal improvements */
-              @media (max-width: 768px) {
-                .wallet-adapter-modal-wrapper {
-                  padding: 0.5rem !important;
-                }
-                
-                .wallet-adapter-modal-logo {
-                  width: 32px !important;
-                  height: 32px !important;
-                }
-                
-                .wallet-adapter-modal-title {
-                  font-size: 1.25rem !important;
-                }
-                
-                .wallet-adapter-modal-list-more {
-                  font-size: 0.875rem !important;
-                  text-align: center !important;
                 }
               }
               

@@ -1,79 +1,80 @@
-# 🚀 Solo Swap
+# 🚀 solo swap
 
-# if you clone it, pls fork it
+## if you clone it, pls fork it
 
 fr if you're making this better, i want in. let's build together.
 
-**Batch Token Liquidation for Solana Portfolios**
+**batch token liquidation for solana portfolios**
 
-Solo Swap enables users to efficiently liquidate multiple Solana tokens in a single operation while maintaining portfolio allocation percentages. Built for traders, DeFi enthusiasts, and portfolio managers who need to quickly convert diverse token holdings into preferred stablecoins or SOL without disrupting their investment strategy.
+solo swap enables users to efficiently liquidate multiple solana tokens in a single operation while maintaining portfolio allocation percentages. built for traders, defi enthusiasts, and portfolio managers who need to quickly convert diverse token holdings into preferred stablecoins or sol without disrupting their investment strategy.
 
-**Never miss your moon shot** - Liquidate profits while keeping your core positions intact.
+**never miss your moon shot** - liquidate profits while keeping your core positions intact.
 
-## ✨ Features
+## ✨ features
 
-### 🎯 Current Features
-- **Portfolio-Preserving Liquidation**: Liquidate tokens without impacting your allocation percentages through intelligent pro-rata calculations
-- **Batch Token Selection**: Select multiple tokens from your wallet for simultaneous liquidation
-- **Pro-Rata Calculations**: Automatically calculates proportional amounts based on token values to maintain portfolio balance
-- **Multi-RPC Load Balancing**: Intelligent RPC endpoint management with failover support
-- **Real-Time Price Feeds**: Live pricing via Jupiter API for accurate value calculations
-- **Customizable Liquidation**: Set liquidation percentages from 0-100% with precision controls
-- **Wallet Integration**: Full support for Phantom, Solflare, and Ledger hardware wallets
-- **Transaction Tracking**: Real-time swap progress with detailed success/failure reporting
-- **Slippage Control**: Configurable slippage tolerance (0.5% - 10%)
-- **Output Token Selection**: Convert to USDC, USDT, or SOL
+### 🎯 current features
+- **portfolio-preserving liquidation**: liquidate tokens without impacting your allocation percentages through intelligent pro-rata calculations
+- **batch token selection**: select multiple tokens from your wallet for simultaneous liquidation
+- **pro-rata calculations**: automatically calculates proportional amounts based on token values to maintain portfolio balance
+- **multi-rpc load balancing**: intelligent rpc endpoint management with failover support
+- **real-time price feeds**: live pricing via jupiter api for accurate value calculations
+- **customizable liquidation**: set liquidation percentages from 0-100% with precision controls
+- **wallet integration**: full support for phantom, solflare, and ledger hardware wallets
+- **transaction tracking**: real-time swap progress with detailed success/failure reporting
+- **slippage control**: configurable slippage tolerance (0.5% - 10%)
+- **output token selection**: convert to usdc, usdt, or sol
 
-### 🔄 Advanced RPC Management
-- **Load Balancing**: Automatic distribution across multiple RPC endpoints
-- **Rate Limiting**: Smart request throttling to avoid API limits
-- **Failover Recovery**: Seamless switching between endpoints during failures
-- **Health Monitoring**: Real-time RPC endpoint status tracking
+### 🔄 advanced rpc management
+- **load balancing**: automatic distribution across multiple rpc endpoints
+- **rate limiting**: smart request throttling to avoid api limits
+- **failover recovery**: seamless switching between endpoints during failures
+- **health monitoring**: real-time rpc endpoint status tracking
 
-### 👛 Wallet Support
-- **Phantom Wallet**
-- **Solflare Wallet** 
-- **Ledger Hardware Wallet** (with physical confirmation support)
-- **Auto-Connect** capabilities
-- **Secure Transaction Signing**
+### 👛 wallet support
+- **phantom wallet**
+- **solflare wallet** 
+- **ledger hardware wallet** (with physical confirmation support)
+- **auto-connect** capabilities
+- **secure transaction signing**
 
-## 🚧 Planned Features
+## 🚧 planned features
 
-### 🔥 Transaction Bundling (Coming Soon)
-- **Atomic Multi-Token Swaps**: Bundle multiple token swaps into single transactions
-- **Gas Optimization**: Reduced network fees through transaction compression
-- **Partial Failover Protection**: Individual token swap failure doesn't block entire operation
-- **Batch Confirmation**: Single confirmation for multiple swaps
+### 🔥 transaction bundling (coming soon)
+- **atomic multi-token swaps**: bundle multiple token swaps into single transactions
+- **gas optimization**: reduced network fees through transaction compression
+- **partial failover protection**: individual token swap failure doesn't block entire operation
+- **batch confirmation**: single confirmation for multiple swaps
 
-### 🔐 Ledger Enhancements (Coming Soon)
-- **Enhanced Error Handling**: Better user feedback for Ledger-specific issues
-- **Transaction Previews**: Preview transaction details on Ledger device
-- **Multi-Signature Support**: Advanced transaction signing workflows
-- **Device Compatibility**: Expanded support for Ledger Nano models
+### 🔐 ledger enhancements (coming soon)
+- **enhanced error handling**: better user feedback for ledger-specific issues
+- **transaction previews**: preview transaction details on ledger device
+- **multi-signature support**: advanced transaction signing workflows
+- **device compatibility**: expanded support for ledger nano models
 
-### 📈 Advanced Features (Roadmap)
-- **Portfolio Analytics**: Historical performance tracking and insights
-- **Limit Orders**: Time-based and price-triggered liquidation orders
-- **Cross-Chain Support**: Ethereum and other chain integrations
-- **API Access**: Developer API for programmatic portfolio management
-- **Mobile Optimization**: Dedicated mobile experience
+### 📈 advanced features (roadmap)
+- **portfolio analytics**: historical performance tracking and insights
+- **limit orders**: time-based and price-triggered liquidation orders
+- **cross-chain support**: ethereum and other chain integrations
+- **api access**: developer api for programmatic portfolio management
+- **mobile optimization**: dedicated mobile experience
 
-## 🛠️ Local Development
+## 🛠️ local development
 
-### Prerequisites
-- Node.js 18+ 
+### prerequisites
+- node.js 18+ 
 - npm, yarn, pnpm, or bun
-- Solana wallet (Phantom recommended)
+- solana wallet (phantom recommended)
 
-### Installation
+### installation
 
-1. **Clone the repository**
+1. **clone the repository**
+   
    ```bash
    git clone https://github.com/ilovespectra/solo-swap-v2.git
    cd solana-token-swapper
    ```
 
-2. Install dependencies
+2. install dependencies
 
     ```bash
     npm install
@@ -83,16 +84,16 @@ Solo Swap enables users to efficiently liquidate multiple Solana tokens in a sin
     pnpm install
     ```
 
-Environment Configuration
+environment configuration
 
-3. Create a .env.local file in the root directory:
+3. create a .env.local file in the root directory:
     ```bash
     NEXT_PUBLIC_HELIUS_API_KEY=heliusapikey
     NEXT_PUBLIC_RPC_ENDPOINT_1=https://your-quiknode-endpoint.com/your-api-key
     NEXT_PUBLIC_RPC_ENDPOINT_2=https://your-helius-endpoint.com/your-api-key
     ```
 
-4. Run Development Server
+4. run development server
 
     ```bash
     npm run dev
@@ -104,6 +105,6 @@ Environment Configuration
     bun dev
     ```
 
-5. Open Application
+5. open application
 
-    Navigate to http://localhost:3000 in your browser
+    navigate to http://localhost:3000 in your browser
