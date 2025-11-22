@@ -14,6 +14,13 @@ import Image from 'next/image';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
 
+interface PortfolioHistory {
+  timestamp: Date;
+  totalValue: number;
+  walletCount: number;
+  tokenCount: number;
+}
+
 export default function Home() {
   const { connection } = useConnection();
   const { publicKey, connected } = useWallet();
@@ -26,8 +33,25 @@ export default function Home() {
   const [currentView, setCurrentView] = useState<'main' | 'multisig'>('main');
   const [processingProgress, setProcessingProgress] = useState(0);
   const [totalToProcess, setTotalToProcess] = useState(0);
+  const [currentPortfolioData, setCurrentPortfolioData] = useState<PortfolioHistory[]>([]);
 
   const tokenService = new TokenService();
+
+  const handleRealTimeData = (results: any[]) => {
+    if (results.length > 0) {
+      const totalValue = results.reduce((sum, result) => sum + result.totalValue, 0);
+      const totalTokens = results.reduce((sum, result) => sum + result.tokens.length, 0);
+      
+      const liveData = [{
+        timestamp: new Date(),
+        totalValue,
+        walletCount: results.length,
+        tokenCount: totalTokens
+      }];
+      
+      setCurrentPortfolioData(liveData);
+    }
+  };
 
   const fetchTokenBalances = useCallback(async () => {
     if (!publicKey) return;
@@ -173,24 +197,6 @@ export default function Home() {
       progressPercentage: totalToProcess > 0 ? (processingProgress / totalToProcess) * 100 : 0
     });
   }, [processingProgress, totalToProcess, loading]);
-
-  const [currentPortfolioData, setCurrentPortfolioData] = useState<PortfolioHistory[]>([]);
-
-const handleRealTimeData = (results: any[]) => {
-  if (results.length > 0) {
-    const totalValue = results.reduce((sum, result) => sum + result.totalValue, 0);
-    const totalTokens = results.reduce((sum, result) => sum + result.tokens.length, 0);
-    
-    const liveData = [{
-      timestamp: new Date(),
-      totalValue,
-      walletCount: results.length,
-      tokenCount: totalTokens
-    }];
-    
-    setCurrentPortfolioData(liveData);
-  }
-};
 
   const renderMainView = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 relative z-10">
