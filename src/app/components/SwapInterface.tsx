@@ -54,7 +54,7 @@ export function SwapInterface({
   const { connection } = useConnection();
   const { publicKey, signTransaction, sendTransaction, wallet } = useWallet();
   
-  const [outputToken, setOutputToken] = useState(OUTPUT_TOKENS[1].mint); // Default to USDC
+  const [outputToken, setOutputToken] = useState(OUTPUT_TOKENS[1].mint);
   const [slippage, setSlippage] = useState(1.0);
   const [liquidationPercentage, setLiquidationPercentage] = useState<number>(100);
   const [swapping, setSwapping] = useState(false);
@@ -79,7 +79,6 @@ export function SwapInterface({
     try {
       console.log(`signing ${tokenSymbol} transaction with ${isLedgerConnected ? 'ledger' : 'wallet'}...`);
       
-      // Set current step before signing
       setCurrentStep(isLedgerConnected 
         ? `please confirm ${tokenSymbol} transaction on your ledger device...` 
         : `confirm ${tokenSymbol} swap...`

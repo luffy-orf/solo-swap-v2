@@ -120,7 +120,6 @@ export function PortfolioChart({
       });
     }
 
-    // Convert to lowercase here instead of in the callback
     return formattedDate.toLowerCase();
   };
 
@@ -216,7 +215,6 @@ export function PortfolioChart({
         ticks: {
           color: 'rgb(156, 163, 175)',
           maxTicksLimit: 8,
-          // No callback needed since we handle lowercase in formatDate
         },
       },
       y: {

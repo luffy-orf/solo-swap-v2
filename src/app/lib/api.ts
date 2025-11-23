@@ -199,7 +199,6 @@ export class TokenService {
 
       const tokens: TokenBalance[] = [];
 
-      // Add native SOL balance
       if (solBalance > 0) {
         const solAmount = solBalance / 1e9;
         tokens.push({

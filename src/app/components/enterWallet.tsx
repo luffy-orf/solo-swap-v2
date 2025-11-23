@@ -355,7 +355,6 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   if (!publicKey) return;
 
   try {
-    // Use the nested structure that matches your rules
     const historyQuery = query(
       collection(db, 'solo-users', publicKey.toString(), 'portfolioHistory'),
       orderBy('timestamp', 'asc')
@@ -500,7 +499,6 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
 
     console.log('saving portfolio history to firestore:', historyData);
 
-    // Use the nested structure
     const historyRef = doc(collection(db, 'solo-users', publicKey.toString(), 'portfolioHistory'));
     
     console.log('firestore path:', historyRef.path);
