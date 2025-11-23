@@ -13,6 +13,7 @@ import { Settings2, Wallet, Menu, X, Calculator } from 'lucide-react';
 import Image from 'next/image';
 import { collection, doc, setDoc, getDocs, query, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from './lib/firebase';
+import { encryptionService } from './lib/encryption';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
 
@@ -39,7 +40,31 @@ export default function Home() {
 
   const tokenService = new TokenService();
 
-  const loadPortfolioHistory = useCallback(async () => {
+  const secureLog = {
+  info: (message: string, data?: any) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[INFO] ${message}`, data ? { ...data, sensitive: '[REDACTED]' } : '');
+    }
+  },
+  
+  error: (message: string, error?: any) => {
+    console.error(`[ERROR] ${message}`, error);
+  },
+  
+  wallet: (message: string, publicKey?: string, data?: any) => {
+    if (process.env.NODE_ENV === 'development') {
+      const safeData = data ? {
+        ...data,
+        balances: data.balances ? '[REDACTED]' : undefined,
+        values: data.values ? '[REDACTED]' : undefined,
+        tokens: data.tokens ? `[${Array.isArray(data.tokens) ? data.tokens.length : '?'} tokens]` : undefined
+      } : {};
+      console.log(`[WALLET] ${message}`, { publicKey: publicKey?.slice(0, 8) + '...', ...safeData });
+    }
+  }
+};
+
+const loadPortfolioHistory = useCallback(async () => {
   if (!publicKey) return;
 
   try {
@@ -52,19 +77,39 @@ export default function Home() {
     const history = querySnapshot.docs
       .map(doc => {
         const data = doc.data();
-        return {
-          timestamp: data.timestamp?.toDate() || new Date(),
-          totalValue: data.totalValue || 0,
-          walletCount: data.walletCount || 0,
-          tokenCount: data.tokenCount || 0
-        };
+        
+        if (!data.encryptedData) {
+          console.warn('no encrypted data found for record:', doc.id);
+          return null;
+        }
+
+        try {
+          const decryptedTotalValue = encryptionService.decryptData(data.encryptedData.totalValue, publicKey.toString());
+          const decryptedWalletCount = encryptionService.decryptData(data.encryptedData.walletCount, publicKey.toString());
+          const decryptedTokenCount = encryptionService.decryptData(data.encryptedData.tokenCount, publicKey.toString());
+
+          if (decryptedTotalValue === null || decryptedWalletCount === null || decryptedTokenCount === null) {
+            console.warn('failed to decrypt data for record:', doc.id);
+            return null;
+          }
+
+          return {
+            timestamp: data.timestamp?.toDate() || new Date(),
+            totalValue: decryptedTotalValue,
+            walletCount: decryptedWalletCount,
+            tokenCount: decryptedTokenCount
+          };
+        } catch (decryptError) {
+          console.error('decryption error for record:', doc.id, decryptError);
+          return null;
+        }
       })
-      .filter(record => record.totalValue > 0) as PortfolioHistory[];
+      .filter(record => record !== null && record.totalValue > 0) as PortfolioHistory[];
     
-    console.log('loaded wallet history:', history.length, 'records');
+    console.log('loaded and decrypted wallet history:', history.length, 'records');
     setCurrentPortfolioData(history);
   } catch (err) {
-    console.error('failed to load wallet history:', err);
+    console.error('failed to load encrypted wallet history:', err);
   }
 }, [publicKey]);
 
@@ -80,33 +125,48 @@ const savePortfolioHistory = useCallback(async (totalValue: number, walletCount:
   }
 
   try {
-    const historyData = {
-      timestamp: Timestamp.fromDate(new Date()),
-      totalValue: totalValue,
-      walletCount: walletCount,
-      tokenCount: tokenCount,
-      publicKey: publicKey.toString()
+    const encryptedData = {
+      totalValue: encryptionService.encryptData(totalValue, publicKey.toString()),
+      walletCount: encryptionService.encryptData(walletCount, publicKey.toString()),
+      tokenCount: encryptionService.encryptData(tokenCount, publicKey.toString()),
+      randomField1: encryptionService.generateRandomEncrypted(publicKey.toString()),
+      randomField2: encryptionService.generateRandomEncrypted(publicKey.toString()),
     };
 
-    console.log('saving wallet history:', historyData);
+    const historyData = {
+      timestamp: Timestamp.fromDate(new Date()),
+      publicKey: publicKey.toString(),
+      encryptedData: encryptedData,
+      metadata: {
+        hasData: true,
+        recordCount: tokenCount > 0 ? 1 : 0,
+        version: '1.0'
+      }
+    };
+
+    console.log('saving encrypted wallet history:', {
+      timestamp: historyData.timestamp.toDate(),
+      publicKey: historyData.publicKey,
+      dataEncrypted: true
+    });
 
     const historyRef = doc(collection(db, 'wallet-history', publicKey.toString(), 'records'));
     await setDoc(historyRef, historyData);
     
-    console.log('successfully saved wallet history');
+    console.log('successfully saved encrypted wallet history');
     
     setCurrentPortfolioData(prev => {
       const newHistory = [...prev, {
         timestamp: historyData.timestamp.toDate(),
-        totalValue: historyData.totalValue,
-        walletCount: historyData.walletCount,
-        tokenCount: historyData.tokenCount
+        totalValue: totalValue,
+        walletCount: walletCount,
+        tokenCount: tokenCount
       }];
       return newHistory.slice(-100);
     });
 
   } catch (error) {
-    console.error('failed to save wallet history:', error);
+    console.error('failed to save encrypted wallet history:', error);
   }
 }, [publicKey]);
 
@@ -127,7 +187,15 @@ const savePortfolioHistory = useCallback(async (totalValue: number, walletCount:
   setTotalToProcess(0);
   
   try {
-    console.log('fetching token balances for:', publicKey.toString());
+    secureLog.wallet('fetching token balances', publicKey?.toString(), {
+  tokenCount: tokens.length,
+  totalValue: totalSelectedValue
+});
+
+secureLog.info('portfolio history updated', {
+  recordCount: currentPortfolioData.length,
+  latestTimestamp: currentPortfolioData[currentPortfolioData.length - 1]?.timestamp
+});
     const tokenBalances = await tokenService.getTokenBalances(publicKey.toString());
     console.log('raw token balances:', tokenBalances);
 

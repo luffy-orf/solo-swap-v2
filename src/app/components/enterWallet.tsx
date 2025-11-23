@@ -17,6 +17,7 @@ import {
 import { db } from '../lib/firebase';
 import Papa from 'papaparse';
 import { PortfolioChart } from './HistoricalChart';
+import { encryptionService } from '../lib/encryption';
 
 interface MultisigAnalyzerProps {
   onBack: () => void;
@@ -349,42 +350,76 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   };
 
   useEffect(() => {
-  if (!publicKey) return;
+    if (!publicKey) return;
 
-  const loadPortfolioHistory = async () => {
-  if (!publicKey) return;
+    const loadPortfolioHistory = async () => {
+      try {
+        const historyQuery = query(
+          collection(db, 'solo-users', publicKey.toString(), 'portfolioHistory'),
+          orderBy('timestamp', 'asc')
+        );
+        const querySnapshot = await getDocs(historyQuery);
+        
+        const history: PortfolioHistory[] = [];
+        let decryptionErrors = 0;
+        let successfulDecryptions = 0;
 
-  try {
-    const historyQuery = query(
-      collection(db, 'solo-users', publicKey.toString(), 'portfolioHistory'),
-      orderBy('timestamp', 'asc')
-    );
-    const querySnapshot = await getDocs(historyQuery);
-    
-    const history = querySnapshot.docs
-      .map(doc => {
-        const data = doc.data();
-        return {
-          timestamp: data.timestamp?.toDate() || new Date(),
-          totalValue: data.totalValue || 0,
-          walletCount: data.walletCount || 0,
-          tokenCount: data.tokenCount || 0
-        };
-      })
-      .filter(record => record.totalValue > 0) as PortfolioHistory[];
-    
-    history.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-    setPortfolioHistory(history);
-    setChartDataLoaded(true);
-    console.log('loaded multi-wallet portfolio history:', history.length, 'records');
-  } catch (err) {
-    console.error('failed to load multi-wallet portfolio history:', err);
-    setChartDataLoaded(true);
-  }
-};
+        for (const doc of querySnapshot.docs) {
+          const data = doc.data();
+          
+          if (!data.encryptedData) {
+            console.warn('No encrypted data found for record:', doc.id);
+            continue;
+          }
 
-  loadPortfolioHistory();
-}, [publicKey]);
+          try {
+            const decryptedData = encryptionService.decryptPortfolioHistory(
+              data.encryptedData, 
+              publicKey.toString()
+            );
+
+            if (decryptedData) {
+              history.push({
+                timestamp: decryptedData.timestamp,
+                totalValue: decryptedData.totalValue,
+                walletCount: decryptedData.walletCount,
+                tokenCount: decryptedData.tokenCount
+              });
+              successfulDecryptions++;
+            } else {
+              console.warn('failed to decrypt data for record:', doc.id);
+              decryptionErrors++;
+            }
+          } catch (decryptError) {
+            console.error('decryption error for record:', doc.id, decryptError);
+            decryptionErrors++;
+          }
+        }
+
+        history.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        
+        setPortfolioHistory(history);
+        setChartDataLoaded(true);
+        
+        console.log('loaded encrypted multi-wallet portfolio history:', {
+          totalRecords: querySnapshot.docs.length,
+          successfullyDecrypted: successfulDecryptions,
+          decryptionErrors: decryptionErrors,
+          finalHistoryCount: history.length
+        });
+
+        if (decryptionErrors > 0) {
+          console.warn(`${decryptionErrors} records could not be decrypted and were skipped`);
+        }
+
+      } catch (err) {
+        console.error('failed to load encrypted multi-wallet portfolio history:', err);
+        setChartDataLoaded(true);
+      }
+    };
+
+    loadPortfolioHistory();
+  }, [publicKey]);
 
   useEffect(() => {
     if (!publicKey) return;
@@ -478,54 +513,78 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   };
 
   const savePortfolioHistory = async (totalValue: number, walletCount: number, tokenCount: number) => {
-  if (!publicKey) {
-    console.error('no public key - cannot save portfolio history');
-    return;
-  }
+    if (!publicKey) {
+      console.error('no public key - cannot save portfolio history');
+      return;
+    }
 
-  if (totalValue <= 0) {
-    console.log('skipping portfolio history save: totalValue is 0');
-    return;
-  }
+    if (totalValue <= 0) {
+      console.log('skipping portfolio history save: totalValue is 0');
+      return;
+    }
 
-  try {
-    const historyData = {
-      timestamp: Timestamp.fromDate(new Date()),
-      totalValue: totalValue,
-      walletCount: walletCount,
-      tokenCount: tokenCount,
-      userId: publicKey.toString()
-    };
+    try {
+      const portfolioData = {
+        totalValue,
+        walletCount,
+        tokenCount,
+        timestamp: new Date()
+      };
 
-    console.log('saving portfolio history to firestore:', historyData);
+      const encryptedPortfolioData = encryptionService.encryptPortfolioHistory(
+        portfolioData, 
+        publicKey.toString()
+      );
 
-    const historyRef = doc(collection(db, 'solo-users', publicKey.toString(), 'portfolioHistory'));
-    
-    console.log('firestore path:', historyRef.path);
-    
-    await setDoc(historyRef, historyData);
-    
-    console.log('successfully saved portfolio history to firestore');
-    
-    setPortfolioHistory(prev => {
-      const newHistory = [...prev, {
+      const historyData = {
+        timestamp: Timestamp.fromDate(new Date()),
+        userId: publicKey.toString(),
+        encryptedData: encryptedPortfolioData,
+        randomField1: encryptionService.generateRandomEncrypted(publicKey.toString()),
+        randomField2: encryptionService.generateRandomEncrypted(publicKey.toString()),
+        metadata: {
+          hasData: true,
+          recordType: 'portfolio',
+          version: '1.0',
+          walletCountRange: walletCount > 10 ? '10+' : '1-10',
+          tokenCountRange: tokenCount > 50 ? '50+' : tokenCount > 10 ? '10-50' : '1-10'
+        }
+      };
+
+      console.log('saving encrypted portfolio history:', {
         timestamp: historyData.timestamp.toDate(),
-        totalValue: historyData.totalValue,
-        walletCount: historyData.walletCount,
-        tokenCount: historyData.tokenCount
-      }];
-      
-      newHistory.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      const trimmedHistory = newHistory.slice(-100);
-      
-      console.log('updated portfolio history state:', trimmedHistory.length, 'records');
-      return trimmedHistory;
-    });
+        userId: historyData.userId,
+        dataEncrypted: true,
+        metadata: historyData.metadata
+      });
 
-  } catch (error) {
-    console.error('failed to save portfolio history to firestore:', error);
-  }
-};
+      const historyRef = doc(collection(db, 'solo-users', publicKey.toString(), 'portfolioHistory'));
+      
+      console.log('firestore path:', historyRef.path);
+      
+      await setDoc(historyRef, historyData);
+      
+      console.log('successfully saved encrypted portfolio history to firestore');
+      
+      setPortfolioHistory(prev => {
+        const newHistory = [...prev, {
+          timestamp: portfolioData.timestamp,
+          totalValue: portfolioData.totalValue,
+          walletCount: portfolioData.walletCount,
+          tokenCount: portfolioData.tokenCount
+        }];
+        
+        newHistory.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        const trimmedHistory = newHistory.slice(-100);
+        
+        console.log('updated portfolio history state:', trimmedHistory.length, 'records');
+        return trimmedHistory;
+      });
+
+    } catch (error) {
+      console.error('failed to save encrypted portfolio history to firestore:', error);
+    }
+  };
 
   useEffect(() => {
     const totalLastValue = savedWallets.reduce((sum, wallet) => sum + (wallet.lastTotalValue || 0), 0);
