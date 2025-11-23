@@ -99,6 +99,8 @@ environment configuration
     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=""
     NEXT_PUBLIC_FIREBASE_APP_ID=""
     NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=""
+
+    NEXT_PUBLIC_ENCRYPTION_SECRET=""
     ```
 
 4. run development server
