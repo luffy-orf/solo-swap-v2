@@ -449,7 +449,7 @@ secureLog.info('portfolio history updated', {
                 className="h-7 w-auto sm:h-8" 
               />
               <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                solo swap
+                solo: swap
               </h1>
             </div>
           </div>

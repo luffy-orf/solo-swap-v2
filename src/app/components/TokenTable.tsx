@@ -322,7 +322,7 @@ export function TokenTable({
 
       {/* Search and Filters */}
       <CollapsibleSection 
-        title="search & filters"
+        title="search"
         defaultOpen={true}
       >
         <div className="flex flex-col sm:flex-row gap-3">
@@ -366,7 +366,7 @@ export function TokenTable({
         )}
 
         {/* Failed Tokens Alert */}
-        {failedTokens.length > 0 && (
+        {/* {failedTokens.length > 0 && (
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mt-3">
             <div className="flex justify-between items-center text-xs sm:text-sm">
               <span className="text-yellow-200">
@@ -381,7 +381,7 @@ export function TokenTable({
               </button>
             </div>
           </div>
-        )}
+        )} */}
       </CollapsibleSection>
 
       {/* Token Table */}

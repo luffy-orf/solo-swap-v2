@@ -636,25 +636,92 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   };
 
   const resolveDomain = async (domain: string): Promise<string> => {
+  try {
+    const cleanDomain = domain.replace('@', '').toLowerCase().trim();
+    console.log(`resolving domain: ${cleanDomain}`);
+
     try {
-      const cleanDomain = domain.replace('@', '').toLowerCase();
+      console.log('trying spl name service resolution...');
+      const { getDomainKey, NameRegistryState } = await import('@bonfida/spl-name-service');
       
-      const response = await fetch(`https://sns-sdk-proxy.jup.ag/resolve/${cleanDomain}`);
+      const { pubkey } = await getDomainKey(cleanDomain);
+      const registry = await NameRegistryState.retrieve(connection, pubkey);
+      const owner = registry.registry.owner.toBase58();
+      
+      console.log(`resolved ${cleanDomain} to: ${owner} via spl name service`);
+      return owner;
+    } catch (snsError) {
+      console.warn('spl name service resolution failed:', snsError);
+    }
+
+    try {
+      console.log('trying getDomainOwner rpc method...');
+      const domainOwner = await connection.getDomainOwner(cleanDomain);
+      if (domainOwner) {
+        console.log(`resolved ${cleanDomain} to: ${domainOwner.toBase58()} via getDomainOwner`);
+        return domainOwner.toBase58();
+      }
+    } catch (domainOwnerError) {
+      console.warn('getDomainOwner resolution failed:', domainOwnerError);
+    }
+
+    try {
+      console.log('trying enhanced helius rpc resolution...');
+      const response = await fetch(connection.rpcEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'getDomainNames',
+          params: {
+            domain: cleanDomain
+          },
+        }),
+      });
+
+      const data = await response.json();
+      if (data.result && data.result.owner) {
+        console.log(`resolved ${cleanDomain} to: ${data.result.owner} via helius enhanced api`);
+        return data.result.owner;
+      }
+    } catch (heliusError) {
+      console.warn('helius enhanced resolution failed:', heliusError);
+    }
+
+    try {
+      console.log('trying bonfida api fallback...');
+      const response = await fetch(`https://sns-sdk-proxy.bonfida.workers.dev/resolve/${cleanDomain}`);
       
       if (response.ok) {
         const data = await response.json();
         if (data?.address) {
-          console.log(`resolved ${cleanDomain} to: ${data.address}`);
+          console.log(`resolved ${cleanDomain} to: ${data.address} via bonfida api`);
           return data.address;
         }
       }
-      
-      throw new Error(`could not resolve domain: ${cleanDomain}`);
-    } catch (err) {
-      console.error('domain resolution failed:', err);
-      throw new Error(`failed to resolve domain: ${domain}`);
+    } catch (apiError) {
+      console.warn('bonfida api fallback failed:', apiError);
     }
-  };
+
+    throw new Error(`could not resolve domain: ${cleanDomain}. the domain may not exist or all resolution methods are unavailable.`);
+
+  } catch (err) {
+    console.error('domain resolution failed:', err);
+    
+    if (err instanceof Error) {
+      if (err.message.includes('not exist') || err.message.includes('not found')) {
+        throw new Error(`the domain "${domain}" doesn't exist or isn't registered on Solana.`);
+      } else if (err.message.includes('currently unavailable')) {
+        throw new Error(`domain resolution services are temporarily down. Please try using the wallet address directly for "${domain}".`);
+      }
+    }
+    
+    throw new Error(`failed to resolve domain "${domain}". please try using the wallet address directly.`);
+  }
+};
 
   const validateWalletAddress = (address: string): boolean => {
     try {
@@ -671,66 +738,108 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   };
 
   const addWallet = async () => {
-    if (!walletInput.trim()) {
-      setError('please enter a wallet address or domain');
-      return;
-    }
+  if (!walletInput.trim()) {
+    setError('please enter a wallet address or domain');
+    return;
+  }
 
-    if (!publicKey) {
-      setError('wallet not properly connected. please ensure your wallet is connected and try again.');
-      return;
-    }
+  if (!publicKey) {
+    setError('wallet not properly connected. please ensure your wallet is connected and try again.');
+    return;
+  }
 
-    setAddingWallet(true);
-    setError('');
+  setAddingWallet(true);
+  setError('');
 
-    try {
-      let address = walletInput.trim();
-      let isDomainAddress = false;
+  try {
+    let address = walletInput.trim();
+    let isDomainAddress = false;
 
-      if (isDomain(address)) {
-        console.log('resolving domain:', address);
+    if (isDomain(address)) {
+      console.log('resolving domain:', address);
+      try {
         address = await resolveDomain(address);
         isDomainAddress = true;
         console.log('resolved to address:', address);
+      } catch (resolveError) {
+        const errorMsg = resolveError instanceof Error ? resolveError.message : 'unknown resolution error';
+        
+        if (errorMsg.includes('not exist') || errorMsg.includes('not found') || errorMsg.includes('doesn\'t exist')) {
+          setError(`the domain "${walletInput}" doesn't exist or isn't registered. please check the domain and try again.`);
+        } else if (errorMsg.includes('network') || errorMsg.includes('failed to fetch') || errorMsg.includes('connection')) {
+          setError('network error resolving domain. please check your internet connection and try again.');
+        } else if (errorMsg.includes('rate limit') || errorMsg.includes('too many requests')) {
+          setError('domain service is temporarily unavailable due to high demand. please try again in a few moments.');
+        } else {
+          setError(`failed to resolve domain "${walletInput}": ${errorMsg}`);
+        }
+        return;
       }
-
-      if (!validateWalletAddress(address)) {
-        throw new Error('invalid wallet address');
-      }
-
-      console.log('saving wallet:', {
-        address,
-        nickname: walletNickname,
-        isDomain: isDomainAddress,
-        user: publicKey.toString()
-      });
-
-      const savedWallet = await saveWalletToFirestore(
-        address, 
-        walletNickname || undefined, 
-        isDomainAddress
-      );
-
-      setSavedWallets(prev => [savedWallet, ...prev]);
-      
-      await analyzeWallet(address, walletNickname, isDomainAddress);
-      
-      console.log('wallet added and analyzed successfully');
-      
-      setWalletInput('');
-      setWalletNickname('');
-      
-    } catch (err) {
-      console.error('error in addWallet:', err);
-      const errorMsg = err instanceof Error ? err.message : 'failed to add wallet';
-      setError(`${errorMsg}`);
-    } finally {
-      setAddingWallet(false);
     }
-  };
 
-  const analyzeWallet = async (walletAddress: string, nickname?: string | null, isDomain: boolean = false): Promise<AnalysisResult | null> => {
+    if (!validateWalletAddress(address)) {
+      throw new Error(`invalid wallet address: ${address}. please check the address and try again.`);
+    }
+
+    const existingWallet = savedWallets.find(wallet => wallet.address === address);
+    if (existingWallet) {
+      const existingName = existingWallet.nickname || (existingWallet.isDomain ? existingWallet.address : `${existingWallet.address.slice(0, 8)}...${existingWallet.address.slice(-6)}`);
+      throw new Error(`this wallet is already saved as: ${existingName}`);
+    }
+
+    console.log('saving wallet:', {
+      address,
+      nickname: walletNickname,
+      isDomain: isDomainAddress,
+      user: publicKey.toString()
+    });
+
+    const savedWallet = await saveWalletToFirestore(
+      address, 
+      walletNickname || undefined, 
+      isDomainAddress
+    );
+
+    setSavedWallets(prev => [savedWallet, ...prev]);
+    
+    const existingResult = results.find(r => r.walletAddress === address);
+    if (!existingResult) {
+      await analyzeWallet(address, walletNickname, isDomainAddress);
+    } else {
+      console.log('wallet already analyzed, skipping analysis');
+      if (walletNickname) {
+        setResults(prev => prev.map(r => 
+          r.walletAddress === address 
+            ? { ...r, nickname: walletNickname }
+            : r
+        ));
+      }
+    }
+    
+    console.log('wallet added successfully');
+    
+    setWalletInput('');
+    setWalletNickname('');
+    
+  } catch (err) {
+    console.error('error in addWallet:', err);
+    const errorMsg = err instanceof Error ? err.message : 'failed to add wallet';
+    
+    if (errorMsg.includes('already saved') || errorMsg.includes('already exists')) {
+      setError(errorMsg);
+    } else if (errorMsg.includes('firestore') || errorMsg.includes('permission')) {
+      setError('storage error: unable to save wallet. please check your connection and try again.');
+    } else if (errorMsg.includes('invalid wallet address')) {
+      setError(errorMsg);
+    } else {
+      setError(`failed to add wallet: ${errorMsg}`);
+    }
+  } finally {
+    setAddingWallet(false);
+  }
+};
+
+const analyzeWallet = async (walletAddress: string, nickname?: string | null, isDomain: boolean = false): Promise<AnalysisResult | null> => {
   setAnalyzing(true);
   setError('');
 
@@ -739,11 +848,19 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
 
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    let tokenBalances = await tokenService.getTokenBalances(walletAddress);
+    let tokenBalances: TokenBalance[] = [];
     
-    if (tokenBalances.length === 0) {
-      console.log('no tokens found in wallet');
-      tokenBalances = [];
+    try {
+      tokenBalances = await tokenService.getTokenBalances(walletAddress);
+      
+      if (tokenBalances.length === 0) {
+        console.log('no tokens found in wallet:', walletAddress);
+      } else {
+        console.log(`found ${tokenBalances.length} tokens in wallet:`, walletAddress);
+      }
+    } catch (balanceError) {
+      console.error('failed to fetch token balances:', balanceError);
+      throw new Error(`unable to fetch token balances for this wallet. the wallet may be empty or there may be network issues.`);
     }
 
     const potentiallyValuableTokens = tokenBalances.filter(token => {
@@ -777,6 +894,8 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
           value: 0,
           price: 0
         }));
+        
+        console.log('using tokens with zero value due to price API failure');
       }
     }
 
@@ -821,10 +940,14 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
     const errorMsg = err instanceof Error ? err.message : 'failed to analyze wallet';
     console.error('analysis error:', err);
     
-    if (errorMsg.includes('failed to fetch')) {
-      setError('network error: Unable to connect to solana rpc. please check your connection.');
-    } else if (errorMsg.includes('invalid')) {
+    if (errorMsg.includes('failed to fetch') || errorMsg.includes('network')) {
+      setError('network error: unable to connect to solana rpc. please check your connection and try again.');
+    } else if (errorMsg.includes('invalid') || errorMsg.includes('validation')) {
       setError('invalid wallet address or domain');
+    } else if (errorMsg.includes('rate limit') || errorMsg.includes('429')) {
+      setError('rate limited: too many requests. please wait a moment and try again.');
+    } else if (errorMsg.includes('unable to fetch token balances')) {
+      setError(errorMsg);
     } else {
       setError(`analysis failed: ${errorMsg}`);
     }
@@ -1413,7 +1536,7 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            multi-wallet portfolio analyzer
+            solo: shop
           </h1>
           <div className="w-20"></div>
         </div>
@@ -1444,13 +1567,13 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
 
         {/* Help Section */}
         <CollapsibleSection 
-          title="multi-wallet portfolio analyzer"
+          title="instructions"
           defaultOpen={true}
           className="mb-6"
         >
           <div className="flex items-start justify-between">
             <p className="text-sm text-gray-300 flex-1">
-              enter multiple wallet addresses or sns domains to generate a combined pro-rata swap shopping list for multisig wallets.
+              enter multiple wallet addresses to generate a combined pro-rata swap shopping list for multisig wallets.
               perfect for managing multiple treasury wallets and multisig setups that can&apos;t connect directly to dapps.
             </p>
             <button
@@ -1463,7 +1586,7 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
           
           {showHelp && (
             <div className="mt-3 p-3 bg-purple-500/20 border border-purple-500/50 rounded-lg">
-              <h4 className="font-semibold text-sm mb-2">how to use multi-wallet mode:</h4>
+              <h4 className="font-semibold text-sm mb-2">how to use:</h4>
               <ul className="text-xs text-gray-300 space-y-1 lowercase">
                 <li>• add individual wallets or upload a csv with multiple addresses</li>
                 <li>• Wallets are saved to your account for future use</li>
@@ -1478,7 +1601,7 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
 
         {savedWallets.length > 0 && lastLoadedPortfolioValue > 0 && (
           <CollapsibleSection 
-            title="last loaded portfolio value"
+            title="last total"
             defaultOpen={true}
             className="mb-6"
           >
@@ -1486,7 +1609,7 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
               <div className="flex items-center space-x-3">
                 <Clock className="h-5 w-5 text-blue-400" />
                 <div>
-                  <h3 className="font-medium text-sm">last loaded portfolio value</h3>
+                  <h3 className="font-medium text-sm">last loaded total</h3>
                   <p className="text-xs text-gray-300">
                     based on previous analysis of {savedWallets.length} wallet{savedWallets.length > 1 ? 's' : ''}
                   </p>
@@ -1542,7 +1665,7 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">
-                nickname (optional)
+                nickname
               </label>
               <input
                 type="text"

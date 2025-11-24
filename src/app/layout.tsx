@@ -8,7 +8,7 @@ import '@solana/wallet-adapter-react-ui/styles.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'solo swap',
+  title: 'solo: swap',
   description: 'pro-rata swap interface for solana',
 };
 
