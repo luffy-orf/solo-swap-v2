@@ -246,7 +246,7 @@ export function TokenTable({
   if (loading || isRetryLoading) {
     const currentProgress = isRetryLoading ? retryProgress.current : processingProgress;
     const currentTotal = isRetryLoading ? retryProgress.total : totalToProcess;
-    const loadingText = isRetryLoading ? 'retrying failed tokens...' : 'fetching prices from jupiter...';
+    const loadingText = isRetryLoading ? 'retrying failed tokens...' : 'fetching prices...';
 
     console.log('rendering loading state:', {
       currentProgress,

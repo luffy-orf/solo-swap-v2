@@ -1241,8 +1241,8 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
       let successfulImports = 0;
       let failedImports = 0;
       const errors: string[] = [];
-      const processedAddresses = new Set<string>(); // Track processed addresses to prevent duplicates
-      const duplicateAddresses = new Set<string>(); // Track duplicates for error reporting
+      const processedAddresses = new Set<string>();
+      const duplicateAddresses = new Set<string>();
 
       for (const [index, wallet] of wallets.entries()) {
         try {
@@ -1280,7 +1280,6 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
             continue;
           }
 
-          // Check for duplicate addresses within the CSV
           if (processedAddresses.has(address)) {
             console.warn(`skipping duplicate address at row ${index + 1}: ${address}`);
             duplicateAddresses.add(address);
@@ -1452,7 +1451,7 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
           <div className="flex items-start justify-between">
             <p className="text-sm text-gray-300 flex-1">
               enter multiple wallet addresses or sns domains to generate a combined pro-rata swap shopping list for multisig wallets.
-              perfect for managing multiple treasury wallets and multisig setups that can&apos;t connect directly to dapps. <i>free rpc tier, this is going to take a long time. be patient, watch the dev terminal to see what&apos;s going on!</i>
+              perfect for managing multiple treasury wallets and multisig setups that can&apos;t connect directly to dapps.
             </p>
             <button
               onClick={() => setShowHelp(!showHelp)}
@@ -1614,21 +1613,21 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
           </div>
 
           {(error || csvUploadError) && (
-            <div className={`mt-3 p-3 rounded-lg text-sm ${
-              error.includes('✅') || csvUploadError.includes('added') 
-                ? 'bg-green-500/20 border border-green-500 text-green-200'
-                : 'bg-red-500/20 border border-red-500 text-red-200'
-            }`}>
-              <div className="flex items-center space-x-2">
-                {error.includes('✅') || csvUploadError.includes('added') ? (
-                  <CheckCircle className="h-4 w-4" />
-                ) : (
-                  <AlertCircle className="h-4 w-4" />
-                )}
-                <span>{error || csvUploadError}</span>
-              </div>
+          <div className={`mt-3 p-3 rounded-lg text-sm ${
+            error.includes('✅') || csvUploadError.includes('successfully imported') || csvUploadError.includes('added') 
+              ? 'bg-green-500/20 border border-green-500 text-green-200'
+              : 'bg-red-500/20 border border-red-500 text-red-200'
+          }`}>
+            <div className="flex items-center space-x-2">
+              {error.includes('✅') || csvUploadError.includes('successfully imported') || csvUploadError.includes('added') ? (
+                <CheckCircle className="h-4 w-4" />
+              ) : (
+                <AlertCircle className="h-4 w-4" />
+              )}
+              <span>{error || csvUploadError}</span>
             </div>
-          )}
+          </div>
+        )}
 
           {savedWallets.length > 0 && (
             <div className="mt-6">
