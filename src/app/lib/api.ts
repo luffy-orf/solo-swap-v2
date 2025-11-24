@@ -1,7 +1,56 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { TokenBalance, TokenInfo, PriceProgress } from '../types/token';
 
-const JUPITER_LITE_API = 'https://lite-api.jup.ag';
+const HELIUS_RPC_URL = process.env.NEXT_PUBLIC_HELIUS_API_KEY 
+  ? `https://mainnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY}`
+  : 'https://mainnet.helius-rpc.com/';
+
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
+
+interface ParsedTokenAccountInfo {
+  mint: string;
+  tokenAmount: {
+    amount: string;
+    decimals: number;
+    uiAmount: number;
+  };
+}
+
+interface ParsedTokenAccount {
+  account: {
+    data: {
+      parsed: {
+        info: ParsedTokenAccountInfo;
+      };
+    };
+  };
+}
+
+interface HeliusAssetContent {
+  metadata?: {
+    symbol?: string;
+    name?: string;
+  };
+  links?: {
+    image?: string;
+  };
+  files?: Array<{
+    uri?: string;
+  }>;
+}
+
+interface HeliusAsset {
+  id: string;
+  content?: HeliusAssetContent;
+  token_info?: {
+    price_info?: {
+      price_per_token?: number;
+      total_price?: number;
+    };
+  };
+}
+
 const RPC_ENDPOINTS = [
   process.env.NEXT_PUBLIC_RPC_ENDPOINT_1,
   process.env.NEXT_PUBLIC_RPC_ENDPOINT_2,
@@ -12,26 +61,7 @@ const FALLBACK_RPC_ENDPOINTS = [
   'https://solana-api.projectserum.com'
 ];
 
-class RateLimiter {
-  private lastRequestTime = 0;
-  private minInterval = 1100;
-
-  async wait(): Promise<void> {
-    const now = Date.now();
-    const timeSinceLastRequest = now - this.lastRequestTime;
-    
-    if (timeSinceLastRequest < this.minInterval) {
-      await new Promise(resolve => 
-        setTimeout(resolve, this.minInterval - timeSinceLastRequest)
-      );
-    }
-    
-    this.lastRequestTime = Date.now();
-  }
-}
-
 class LoadBalancer {
-  private rpcLimiters: Map<string, RateLimiter> = new Map();
   private currentIndex = 0;
 
   constructor(private endpoints: string[]) {
@@ -40,21 +70,13 @@ class LoadBalancer {
       console.warn('using fallback rpc endpoints. please configure RPC_ENDPOINT environment variables for better performance.');
     }
     
-    this.endpoints.forEach(endpoint => {
-      this.rpcLimiters.set(endpoint, new RateLimiter());
-    });
-    
     console.log(`loadbalancer initialized with ${this.endpoints.length} endpoints`);
   }
 
-  async getNextEndpoint(): Promise<{ endpoint: string; limiter: RateLimiter }> {
+  async getNextEndpoint(): Promise<string> {
     const endpoint = this.endpoints[this.currentIndex];
-    const limiter = this.rpcLimiters.get(endpoint)!;
-    
     this.currentIndex = (this.currentIndex + 1) % this.endpoints.length;
-    await limiter.wait();
-    
-    return { endpoint, limiter };
+    return endpoint;
   }
 
   async executeWithRetry<T>(
@@ -64,7 +86,7 @@ class LoadBalancer {
     let lastError: Error | null = null;
     
     for (let attempt = 0; attempt < maxRetries; attempt++) {
-      const { endpoint } = await this.getNextEndpoint();
+      const endpoint = await this.getNextEndpoint();
       
       try {
         console.log(`attempt ${attempt + 1} with ${this.getEndpointName(endpoint)}`);
@@ -101,14 +123,24 @@ class LoadBalancer {
 }
 
 const rpcLoadBalancer = new LoadBalancer(RPC_ENDPOINTS);
-const jupiterLimiter = new RateLimiter();
 
+// Singleton TokenService to prevent memory leaks
 export class TokenService {
+  private static instance: TokenService | null = null;
   private tokenMap: Map<string, TokenInfo> = new Map();
   private tokenListLoaded: boolean = false;
+  private priceCache: Map<string, { price: number; timestamp: number }> = new Map();
+  private readonly PRICE_CACHE_DURATION = 60000; // 60 seconds as per Helius cache
 
-  constructor() {
+  private constructor() {
     this.loadTokenList();
+  }
+
+  public static getInstance(): TokenService {
+    if (!TokenService.instance) {
+      TokenService.instance = new TokenService();
+    }
+    return TokenService.instance;
   }
 
   private createConnection(endpoint: string): Connection {
@@ -215,26 +247,47 @@ export class TokenService {
         });
       }
 
-      for (const account of tokenAccounts.value) {
+      // Fetch token metadata from Helius for all tokens at once
+      const mintAddresses = tokenAccounts.value
+        .map((account: ParsedTokenAccount) => {
+          try {
+            const accountInfo = account.account.data.parsed.info;
+            const tokenAmount = accountInfo.tokenAmount;
+            if (tokenAmount.uiAmount > 0) {
+              return accountInfo.mint;
+            }
+          } catch (error) {
+            console.warn('error processing token account:', error);
+          }
+          return null;
+        })
+        .filter((mint: string | null): mint is string => mint !== null);
+
+      // Fetch metadata from Helius in batch
+      const tokenMetadataMap = await this.fetchTokenMetadataBatch(mintAddresses);
+
+      for (const account of tokenAccounts.value as ParsedTokenAccount[]) {
         try {
           const accountInfo = account.account.data.parsed.info;
           const mint = accountInfo.mint;
           const tokenAmount = accountInfo.tokenAmount;
           
           if (tokenAmount.uiAmount > 0) {
+            // Use Helius metadata if available, otherwise fall back to tokenMap
+            const heliusMetadata = tokenMetadataMap.get(mint);
             const tokenInfo = this.tokenMap.get(mint);
             
             tokens.push({
               mint: mint,
-              symbol: tokenInfo?.symbol || 'UNKNOWN',
-              name: tokenInfo?.name || 'Unknown Token',
+              symbol: heliusMetadata?.symbol || tokenInfo?.symbol || 'UNKNOWN',
+              name: heliusMetadata?.name || tokenInfo?.name || 'Unknown Token',
               balance: Number(tokenAmount.amount),
               decimals: tokenAmount.decimals,
               uiAmount: tokenAmount.uiAmount,
               price: 0,
               value: 0,
               selected: false,
-              logoURI: tokenInfo?.logoURI || null
+              logoURI: heliusMetadata?.logoURI || tokenInfo?.logoURI || null
             });
           }
         } catch (error) {
@@ -247,107 +300,233 @@ export class TokenService {
     });
   }
 
-  async getTokenPrices(
-  tokens: TokenBalance[], 
-  onProgress?: (progress: PriceProgress) => void
-): Promise<TokenBalance[]> {
-  console.log(`fetching prices for ${tokens.length} tokens...`);
-  
-  const results: TokenBalance[] = [];
-  
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i];
+  private async fetchTokenMetadataBatch(mintAddresses: string[]): Promise<Map<string, { symbol: string; name: string; logoURI: string | null }>> {
+    const metadataMap = new Map<string, { symbol: string; name: string; logoURI: string | null }>();
     
-    if (onProgress) {
-      onProgress({
-        current: i + 1,
-        total: tokens.length,
-        currentToken: token.symbol
-      });
-    }
-    
+    if (mintAddresses.length === 0) return metadataMap;
+
     try {
-      if (token.mint === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') {
-        results.push({
-          ...token,
-          price: 1,
-          value: token.uiAmount
-        });
-        console.log(`usdc: ${token.uiAmount} → $${token.uiAmount.toFixed(6)} ($1.00/token)`);
-        continue;
+      // Use Helius DAS API to fetch token metadata in batch
+      const response = await fetch(HELIUS_RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: '1',
+          method: 'getAssetBatch',
+          params: {
+            ids: mintAddresses
+          }
+        })
+      });
+
+      if (response.ok) {
+        const data: { result?: HeliusAsset[] } = await response.json();
+        if (Array.isArray(data.result)) {
+          data.result.forEach((asset) => {
+            if (asset && asset.id) {
+              const symbol = asset.content?.metadata?.symbol || asset.content?.metadata?.name?.split(' ')[0] || 'UNKNOWN';
+              const name = asset.content?.metadata?.name || 'Unknown Token';
+              const logoURI = asset.content?.links?.image || asset.content?.files?.[0]?.uri || null;
+              
+              metadataMap.set(asset.id, { symbol, name, logoURI });
+            }
+          });
+        }
       }
+    } catch (error) {
+      console.warn('failed to fetch token metadata from Helius:', error);
+    }
 
-      await jupiterLimiter.wait();
-      
-      const rawAmount = Math.max(
-        Math.floor(token.uiAmount * Math.pow(10, token.decimals)),
-        1000
-      );
+    return metadataMap;
+  }
 
-      const url = `${JUPITER_LITE_API}/swap/v1/quote?inputMint=${token.mint}&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=${rawAmount}`;
+  async getTokenPrices(
+    tokens: TokenBalance[], 
+    onProgress?: (progress: PriceProgress) => void
+  ): Promise<TokenBalance[]> {
+    console.log(`fetching prices for ${tokens.length} tokens using Helius price cache...`);
+    
+    if (tokens.length === 0) {
+      return [];
+    }
+
+    // Check cache first
+    const now = Date.now();
+    const cachedResults: TokenBalance[] = [];
+    const tokensToFetch: TokenBalance[] = [];
+
+    for (const token of tokens) {
+      const cached = this.priceCache.get(token.mint);
+      if (cached && (now - cached.timestamp) < this.PRICE_CACHE_DURATION) {
+        const value = cached.price * token.uiAmount;
+        cachedResults.push({
+          ...token,
+          price: cached.price,
+          value
+        });
+      } else {
+        tokensToFetch.push(token);
+      }
+    }
+
+    if (tokensToFetch.length === 0) {
+      console.log(`all ${tokens.length} tokens found in cache`);
+      if (onProgress) {
+        onProgress({
+          current: tokens.length,
+          total: tokens.length,
+          currentToken: 'complete'
+        });
+      }
+      return cachedResults;
+    }
+
+    console.log(`fetching prices for ${tokensToFetch.length} tokens from Helius...`);
+
+    // Fetch prices from Helius DAS API in a single request
+    try {
+      const mintAddresses = tokensToFetch.map(t => t.mint);
       
-      console.log(`getting quote for ${token.symbol}: ${token.uiAmount} (raw: ${rawAmount})`);
-      
-      const response = await fetch(url);
+      const response = await fetch(HELIUS_RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: '1',
+          method: 'getAssetBatch',
+          params: {
+            ids: mintAddresses
+          }
+        })
+      });
 
       if (!response.ok) {
-        if (response.status === 400) {
-          console.log(`${token.symbol} is not tradable`);
-          results.push({ ...token, value: 0, price: 0 });
-          continue;
+        throw new Error(`Helius API error: ${response.status}`);
+      }
+
+      const data: { result?: HeliusAsset[] } = await response.json();
+      
+      if (Array.isArray(data.result)) {
+        const priceMap = new Map<string, number>();
+        const assetMap = new Map<string, HeliusAsset>();
+        
+        // Create a map of asset ID to asset data for easier lookup
+        data.result.forEach((asset) => {
+          if (asset && asset.id) {
+            assetMap.set(asset.id, asset);
+          }
+        });
+        
+        tokensToFetch.forEach((token) => {
+          const asset = assetMap.get(token.mint);
+          
+          // Get price from Helius price_info (cached for 60 seconds)
+          let price = 0;
+
+          if (asset) {
+            const priceInfo = asset.token_info?.price_info;
+            
+            if (priceInfo && priceInfo.price_per_token) {
+              price = priceInfo.price_per_token;
+              
+              // Update cache
+              this.priceCache.set(token.mint, {
+                price,
+                timestamp: now
+              });
+            } else if (token.mint === USDC_MINT) {
+              // USDC is always $1
+              price = 1;
+              this.priceCache.set(token.mint, {
+                price: 1,
+                timestamp: now
+              });
+            } else if (token.mint === SOL_MINT) {
+              if (priceInfo?.total_price && token.uiAmount > 0) {
+                price = priceInfo.total_price / token.uiAmount;
+              }
+              
+              if (price > 0) {
+                this.priceCache.set(token.mint, {
+                  price,
+                  timestamp: now
+                });
+              }
+            }
+          } else if (token.mint === USDC_MINT) {
+            // USDC fallback
+            price = 1;
+            this.priceCache.set(token.mint, {
+              price: 1,
+              timestamp: now
+            });
+          }
+
+          priceMap.set(token.mint, price);
+
+          if (onProgress) {
+            onProgress({
+              current: cachedResults.length + priceMap.size,
+              total: tokens.length,
+              currentToken: token.symbol
+            });
+          }
+        });
+
+        // Build results array
+        const fetchedResults = tokensToFetch.map(token => {
+          const price = priceMap.get(token.mint) || 0;
+          const value = price * token.uiAmount;
+          
+          return {
+            ...token,
+            price,
+            value
+          };
+        });
+
+        const allResults = [...cachedResults, ...fetchedResults];
+        
+        // Update metadata for tokens that might have been missing
+        for (const result of fetchedResults) {
+          const asset = data.result?.find((a) => a.id === result.mint);
+          if (asset) {
+            const symbol = asset.content?.metadata?.symbol || result.symbol;
+            const name = asset.content?.metadata?.name || result.name;
+            const logoURI = asset.content?.links?.image || asset.content?.files?.[0]?.uri || result.logoURI;
+            
+            result.symbol = symbol;
+            result.name = name;
+            result.logoURI = logoURI;
+          }
         }
-        throw new Error(`http ${response.status}`);
+
+        if (onProgress) {
+          onProgress({
+            current: tokens.length,
+            total: tokens.length,
+            currentToken: 'complete'
+          });
+        }
+
+        const successfulTokens = allResults.filter(token => (token.value || 0) > 0);
+        console.log(`final results: ${successfulTokens.length} priced, ${allResults.length - successfulTokens.length} failed`);
+        
+        return allResults;
+      } else {
+        throw new Error('Invalid response from Helius API');
       }
-
-      const quoteData = await response.json();
-      
-      if (!quoteData?.outAmount) {
-        console.log(`no quote data for ${token.symbol}`);
-        results.push({ ...token, value: 0, price: 0 });
-        continue;
-      }
-
-      const usdcValue = parseInt(quoteData.outAmount) / 1_000_000;
-      const price = token.uiAmount > 0 ? usdcValue / token.uiAmount : 0;
-      const value = usdcValue;
-
-      console.log(`${token.symbol}: ${token.uiAmount} → $${value.toFixed(6)} ($${price.toFixed(6)}/token)`);
-      
-      results.push({
-        ...token,
-        value,
-        price,
-      });
-      
     } catch (error) {
-      console.error(`failed to get price for ${token.symbol}:`, error);
-      results.push({ ...token, value: 0, price: 0 });
-      
-      if (error instanceof Error && error.message.includes('429')) {
-        console.log('rate limited, waiting 2 secs...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-    }
-
-    if (i < tokens.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      console.error('failed to fetch prices from Helius:', error);
+      // Return tokens with zero prices on error
+      return tokens.map(token => ({
+        ...token,
+        price: 0,
+        value: 0
+      }));
     }
   }
-
-  if (onProgress) {
-    onProgress({
-      current: tokens.length,
-      total: tokens.length,
-      currentToken: 'complete'
-    });
-  }
-
-  const successfulTokens = results.filter(token => (token.value || 0) > 0);
-  
-  console.log(`final results: ${successfulTokens.length} priced, ${results.length - successfulTokens.length} failed`);
-  
-  return results;
-}
 
   async retryFailedTokens(
     failedTokens: TokenBalance[], 

@@ -38,20 +38,22 @@ export default function Home() {
   const [totalToProcess, setTotalToProcess] = useState(0);
   const [currentPortfolioData, setCurrentPortfolioData] = useState<PortfolioHistory[]>([]);
 
-  const tokenService = new TokenService();
+  const tokenService = TokenService.getInstance();
+
+  type SafeLogData = Record<string, unknown>;
 
   const secureLog = {
-  info: (message: string, data?: any) => {
+  info: (message: string, data?: SafeLogData) => {
     if (process.env.NODE_ENV === 'development') {
       console.log(`[INFO] ${message}`, data ? { ...data, sensitive: '[REDACTED]' } : '');
     }
   },
   
-  error: (message: string, error?: any) => {
+  error: (message: string, error?: unknown) => {
     console.error(`[ERROR] ${message}`, error);
   },
   
-  wallet: (message: string, publicKey?: string, data?: any) => {
+  wallet: (message: string, publicKey?: string, data?: SafeLogData & { tokens?: unknown[] }) => {
     if (process.env.NODE_ENV === 'development') {
       const safeData = data ? {
         ...data,
@@ -76,7 +78,14 @@ const loadPortfolioHistory = useCallback(async () => {
     
     const history = querySnapshot.docs
       .map(doc => {
-        const data = doc.data();
+        const data = doc.data() as {
+          encryptedData?: {
+            totalValue: string;
+            walletCount: string;
+            tokenCount: string;
+          };
+          timestamp?: Timestamp;
+        };
         
         if (!data.encryptedData) {
           console.warn('no encrypted data found for record:', doc.id);
@@ -84,9 +93,9 @@ const loadPortfolioHistory = useCallback(async () => {
         }
 
         try {
-          const decryptedTotalValue = encryptionService.decryptData(data.encryptedData.totalValue, publicKey.toString());
-          const decryptedWalletCount = encryptionService.decryptData(data.encryptedData.walletCount, publicKey.toString());
-          const decryptedTokenCount = encryptionService.decryptData(data.encryptedData.tokenCount, publicKey.toString());
+          const decryptedTotalValue = encryptionService.decryptData<number>(data.encryptedData.totalValue, publicKey.toString());
+          const decryptedWalletCount = encryptionService.decryptData<number>(data.encryptedData.walletCount, publicKey.toString());
+          const decryptedTokenCount = encryptionService.decryptData<number>(data.encryptedData.tokenCount, publicKey.toString());
 
           if (decryptedTotalValue === null || decryptedWalletCount === null || decryptedTokenCount === null) {
             console.warn('failed to decrypt data for record:', doc.id);
@@ -292,10 +301,15 @@ secureLog.info('portfolio history updated', {
 
   const selectedTokens = tokens.filter(token => token.selected);
   const totalSelectedValue = selectedTokens.reduce((sum, token) => sum + (token.value || 0), 0);
+  const [selectedOutputToken, setSelectedOutputToken] = useState<string>('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'); // USDC default
 
   const handleSwapComplete = () => {
     console.log('swap completed, refreshing balances...');
     fetchTokenBalances(); 
+  };
+
+  const handleOutputTokenChange = (mint: string) => {
+    setSelectedOutputToken(mint);
   };
 
   const [isClient, setIsClient] = useState(false);
@@ -310,7 +324,7 @@ secureLog.info('portfolio history updated', {
       console.log('NEXT_PUBLIC_HELIUS_API_KEY exists:', !!process.env.NEXT_PUBLIC_HELIUS_API_KEY);
       console.log('NEXT_PUBLIC_SOLANA_RPC_URL:', process.env.NEXT_PUBLIC_SOLANA_RPC_URL);
       
-      const testService = new TokenService();
+      const testService = TokenService.getInstance();
       await testService.getTokenBalances(publicKey?.toString() || 'Cj1jScR4V73qLmvWJiGiWs9jtcwCXEZsmS5cevWt9jNc');
     };
 
@@ -400,7 +414,8 @@ secureLog.info('portfolio history updated', {
             onRefreshPrices={handleRefreshPrices}
             processingProgress={processingProgress}
             totalToProcess={totalToProcess}
-            portfolioHistory={currentPortfolioData} 
+            portfolioHistory={currentPortfolioData}
+            excludeTokenMint={selectedOutputToken}
           />
         </div>
       </div>
@@ -411,7 +426,9 @@ secureLog.info('portfolio history updated', {
           <SwapInterface
             selectedTokens={selectedTokens}
             totalSelectedValue={totalSelectedValue}
+            allTokens={tokens}
             onSwapComplete={handleSwapComplete}
+            onOutputTokenChange={handleOutputTokenChange}
           />
         </div>
       </div>

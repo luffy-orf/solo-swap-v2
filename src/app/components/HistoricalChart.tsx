@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -12,7 +12,9 @@ import {
   Tooltip,
   Legend,
   TimeScale,
-  Filler
+  Filler,
+  TooltipItem,
+  ChartOptions
 } from 'chart.js';
 import { TrendingUp, Calendar, Download } from 'lucide-react';
 
@@ -60,13 +62,9 @@ export function PortfolioChart({
   mode = 'default'
 }: PortfolioChartProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
-
-  useEffect(() => {
-    if (portfolioHistory.length > 0) {
-      setLastRefresh(new Date());
-    }
-  }, [portfolioHistory]);
+  const lastRefresh = useMemo(() => (
+    portfolioHistory.length > 0 ? new Date() : null
+  ), [portfolioHistory]);
 
   const filterDataByTimeRange = (data: PortfolioHistory[]): PortfolioHistory[] => {
     if (data.length === 0) return [];
@@ -163,7 +161,7 @@ export function PortfolioChart({
     };
   };
 
-  const chartOptions = {
+  const chartOptions: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -182,13 +180,13 @@ export function PortfolioChart({
         borderColor: 'rgba(139, 92, 246, 0.5)',
         borderWidth: 1,
         callbacks: {
-          label: function(context: any): string {
+          label: function(context: TooltipItem<'line'>): string {
             return `$${context.parsed.y.toLocaleString(undefined, { 
               minimumFractionDigits: 2, 
               maximumFractionDigits: 2 
             })}`;
           },
-          title: function(tooltipItems: any[]): string {
+          title: function(tooltipItems: TooltipItem<'line'>[]): string {
             const item = portfolioHistory.find(item => 
               formatDate(item.timestamp) === tooltipItems[0].label
             );
@@ -223,8 +221,9 @@ export function PortfolioChart({
         },
         ticks: {
           color: 'rgb(156, 163, 175)',
-          callback: function(value: any): string {
-            return '$' + value.toLocaleString();
+          callback: function(value: number | string): string {
+            const numericValue = typeof value === 'number' ? value : Number(value);
+            return `$${numericValue.toLocaleString()}`;
           },
         },
         beginAtZero: true,

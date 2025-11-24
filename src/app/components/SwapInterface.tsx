@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import { TokenBalance } from '../types/token';
@@ -10,14 +10,13 @@ import { ArrowUpDown, Calculator, AlertCircle, ExternalLink, RefreshCw, DollarSi
 interface SwapInterfaceProps {
   selectedTokens: TokenBalance[];
   totalSelectedValue: number;
+  allTokens: TokenBalance[]; // All available tokens for output selection
   onSwapComplete: () => void;
+  onOutputTokenChange?: (mint: string) => void; // Callback to notify parent of output token change
 }
 
-const OUTPUT_TOKENS = [
-  { mint: 'So11111111111111111111111111111111111111112', symbol: 'SOL' },
-  { mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', symbol: 'USDC' },
-  { mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', symbol: 'USDT' },
-];
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
 interface SwapResult {
   symbol: string;
@@ -48,13 +47,34 @@ interface JupiterSwapResponse {
 
 export function SwapInterface({ 
   selectedTokens, 
-  totalSelectedValue, 
-  onSwapComplete 
+  totalSelectedValue,
+  allTokens,
+  onSwapComplete,
+  onOutputTokenChange
 }: SwapInterfaceProps) {
   const { connection } = useConnection();
   const { publicKey, signTransaction, sendTransaction, wallet } = useWallet();
   
-  const [outputToken, setOutputToken] = useState(OUTPUT_TOKENS[1].mint);
+  const [outputToken, setOutputToken] = useState(USDC_MINT);
+  const [showTokenSelector, setShowTokenSelector] = useState(false);
+  const tokenSelectorRef = useRef<HTMLDivElement>(null);
+  
+  // Close token selector when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tokenSelectorRef.current && !tokenSelectorRef.current.contains(event.target as Node)) {
+        setShowTokenSelector(false);
+      }
+    };
+    
+    if (showTokenSelector) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showTokenSelector]);
   const [slippage, setSlippage] = useState(1.0);
   const [liquidationPercentage, setLiquidationPercentage] = useState<number>(100);
   const [swapping, setSwapping] = useState(false);
@@ -67,7 +87,7 @@ export function SwapInterface({
     return wallet?.adapter?.name?.toLowerCase().includes('ledger');
   }, [wallet]);
 
-  const tokenService = new TokenService();
+  const tokenService = TokenService.getInstance();
 
   const liquidationValue = (totalSelectedValue * liquidationPercentage) / 100;
 
@@ -111,11 +131,19 @@ export function SwapInterface({
   }, [signTransaction, isLedgerConnected]);
 
   const calculateProRataAmounts = (): ProRataToken[] => {
-    return selectedTokens.map(token => {
+    // Exclude the selected output token from pro-rata calculation
+    const tokensToLiquidate = selectedTokens.filter(token => token.mint !== outputToken);
+    
+    // Recalculate total value excluding output token
+    const totalValueExcludingOutput = tokensToLiquidate.reduce((sum, token) => sum + (token.value || 0), 0);
+    
+    return tokensToLiquidate.map(token => {
       const tokenValue = token.value || 0;
-      const tokenPercentageOfTotal = totalSelectedValue > 0 ? tokenValue / totalSelectedValue : 0;
+      const tokenPercentageOfTotal = totalValueExcludingOutput > 0 ? tokenValue / totalValueExcludingOutput : 0;
       
-      const tokenLiquidationValue = liquidationValue * tokenPercentageOfTotal;
+      // Use the adjusted liquidation value based on tokens excluding output token
+      const adjustedLiquidationValue = (totalValueExcludingOutput * liquidationPercentage) / 100;
+      const tokenLiquidationValue = adjustedLiquidationValue * tokenPercentageOfTotal;
       
       const tokenPrice = token.price || 1;
       const tokenAmountToSwap = tokenPrice > 0 ? tokenLiquidationValue / tokenPrice : 0;
@@ -299,12 +327,15 @@ export function SwapInterface({
             throw new Error(`transaction failed: ${confirmation.value.err}`);
           }
 
+          const outputTokenInfo = sortedOutputTokens.find(t => t.mint === outputToken);
+          const outputDecimals = outputTokenInfo?.decimals || (outputToken === SOL_MINT ? 9 : 6);
+          
           const result: SwapResult = {
             symbol: token.symbol,
             signature,
             amount: token.liquidationAmount,
             inputAmount: token.swapAmount,
-            outputAmount: parseInt(quoteData.outAmount) / Math.pow(10, OUTPUT_TOKENS.find(t => t.mint === outputToken)?.mint === 'So11111111111111111111111111111111111111112' ? 9 : 6),
+            outputAmount: parseInt(quoteData.outAmount) / Math.pow(10, outputDecimals),
             retryCount
           };
 
@@ -358,8 +389,11 @@ export function SwapInterface({
     try {
       const proRataTokens = calculateProRataAmounts();
       
+      // Filter out tokens that are the same as output token and have valid amounts
       const validTokens = proRataTokens.filter(token => 
-        token.swapAmount > 0.000001 && token.liquidationAmount > 0.01
+        token.mint !== outputToken && 
+        token.swapAmount > 0.000001 && 
+        token.liquidationAmount > 0.01
       );
 
       console.log(`valid tokens for liquidation:`, validTokens.map(t => ({
@@ -408,8 +442,45 @@ export function SwapInterface({
   };
 
   const proRataTokens = calculateProRataAmounts();
-  const outputTokenSymbol = OUTPUT_TOKENS.find(t => t.mint === outputToken)?.symbol;
+  
+  // Get sorted tokens with USDC and SOL sticky on top
+  const sortedOutputTokens = useMemo(() => {
+    const stickyTokens: TokenBalance[] = [];
+    const otherTokens: TokenBalance[] = [];
+    
+    allTokens.forEach(token => {
+      if (token.mint === USDC_MINT || token.mint === SOL_MINT) {
+        stickyTokens.push(token);
+      } else {
+        otherTokens.push(token);
+      }
+    });
+    
+    // Sort sticky tokens: USDC first, then SOL
+    stickyTokens.sort((a, b) => {
+      if (a.mint === USDC_MINT) return -1;
+      if (b.mint === USDC_MINT) return 1;
+      if (a.mint === SOL_MINT) return -1;
+      return 1;
+    });
+    
+    // Sort other tokens alphabetically
+    otherTokens.sort((a, b) => a.symbol.localeCompare(b.symbol));
+    
+    return [...stickyTokens, ...otherTokens];
+  }, [allTokens]);
+  
+  const outputTokenInfo = sortedOutputTokens.find(t => t.mint === outputToken);
+  const outputTokenSymbol = outputTokenInfo?.symbol || 'USDC';
   const hasFailedSwaps = swapResults.some(result => result.error);
+  
+  const handleOutputTokenChange = (mint: string) => {
+    setOutputToken(mint);
+    setShowTokenSelector(false);
+    if (onOutputTokenChange) {
+      onOutputTokenChange(mint);
+    }
+  };
 
   return (
     <div className="bg-gray-800/50 rounded-xl p-4 sm:p-6 backdrop-blur-sm border border-gray-700 h-fit mobile-optimized relative z-10">
@@ -527,19 +598,54 @@ export function SwapInterface({
             {showAdvanced && (
               <div className="space-y-3 sm:space-y-4 animate-slideDown">
                 {/* Output Token Selection */}
-                <div>
+                <div className="relative" ref={tokenSelectorRef}>
                   <label className="block text-xs sm:text-sm font-medium mb-2">output token</label>
-                  <select
-                    value={outputToken}
-                    onChange={(e) => setOutputToken(e.target.value)}
-                    className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent mobile-optimized"
+                  <button
+                    type="button"
+                    onClick={() => setShowTokenSelector(!showTokenSelector)}
+                    className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-3 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent mobile-optimized flex items-center justify-between"
                   >
-                    {OUTPUT_TOKENS.map(token => (
-                      <option key={token.mint} value={token.mint}>
-                        {token.symbol}
-                      </option>
-                    ))}
-                  </select>
+                    <div className="flex items-center space-x-2">
+                      {outputTokenInfo?.logoURI ? (
+                        <img src={outputTokenInfo.logoURI} alt={outputTokenSymbol} className="w-4 h-4 rounded-full" />
+                      ) : (
+                        <div className="w-4 h-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-[8px] font-bold">
+                          {outputTokenSymbol.slice(0, 2)}
+                        </div>
+                      )}
+                      <span>{outputTokenSymbol}</span>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${showTokenSelector ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showTokenSelector && (
+                    <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto mobile-scroll">
+                      {sortedOutputTokens.map(token => (
+                        <button
+                          key={token.mint}
+                          type="button"
+                          onClick={() => handleOutputTokenChange(token.mint)}
+                          className={`w-full px-3 py-2 text-left text-xs sm:text-sm hover:bg-gray-700 transition-colors flex items-center space-x-2 ${
+                            token.mint === outputToken ? 'bg-purple-600/30' : ''
+                          } ${
+                            (token.mint === USDC_MINT || token.mint === SOL_MINT) ? 'border-b border-gray-600' : ''
+                          }`}
+                        >
+                          {token.logoURI ? (
+                            <img src={token.logoURI} alt={token.symbol} className="w-4 h-4 rounded-full" />
+                          ) : (
+                            <div className="w-4 h-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-[8px] font-bold">
+                              {token.symbol.slice(0, 2)}
+                            </div>
+                          )}
+                          <span>{token.symbol}</span>
+                          {token.mint === outputToken && (
+                            <span className="ml-auto text-purple-400">✓</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Slippage Tolerance */}

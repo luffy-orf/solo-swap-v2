@@ -19,6 +19,12 @@ import Papa from 'papaparse';
 import { PortfolioChart } from './HistoricalChart';
 import { encryptionService } from '../lib/encryption';
 
+declare global {
+  interface Window {
+    refreshPortfolioChart?: () => void;
+  }
+}
+
 interface MultisigAnalyzerProps {
   onBack: () => void;
 }
@@ -148,13 +154,17 @@ export function LoadingBar({
     
     startTimeRef.current = Date.now();
     previousProcessedRef.current = 0;
-    setProgress(0);
-    setTimeRemaining(0);
+    const resetFrame = requestAnimationFrame(() => {
+      setProgress(0);
+      setTimeRemaining(0);
+    });
 
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
+    
+    return () => cancelAnimationFrame(resetFrame);
   }, [totalItems]);
 
   useEffect(() => {
@@ -297,7 +307,7 @@ function CollapsibleSection({ title, children, defaultOpen = true, className = '
 export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   const { connection } = useConnection();
   const { publicKey } = useWallet();
-  const tokenService = useMemo(() => new TokenService(), []);
+  const tokenService = useMemo(() => TokenService.getInstance(), []);
   const [walletInput, setWalletInput] = useState('');
   const [walletNickname, setWalletNickname] = useState<string>(''); 
   const [analyzing, setAnalyzing] = useState(false);
@@ -500,9 +510,10 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
       console.error('firestore save failed:', error);
       
       if (error instanceof Error) {
+        const firestoreError = error as { code?: string };
         console.error('error details:', {
           message: error.message,
-          code: (error as any).code,
+          code: firestoreError.code,
           user: publicKey?.toString(),
           collection: 'solo-users'
         });
@@ -921,9 +932,9 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
     });
     window.dispatchEvent(event);
 
-    if (typeof (window as any).refreshPortfolioChart === 'function') {
+    if (typeof window !== 'undefined' && typeof window.refreshPortfolioChart === 'function') {
       console.log('triggering portfolio chart refresh');
-      (window as any).refreshPortfolioChart();
+      window.refreshPortfolioChart();
     }
 
     window.dispatchEvent(new CustomEvent('portfolioUpdated'));

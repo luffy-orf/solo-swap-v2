@@ -6,14 +6,14 @@ export class EncryptionService {
     return CryptoJS.SHA256(publicKey + appSecret).toString();
   }
 
-  encryptData(data: any, publicKey: string): string {
+  encryptData<T>(data: T, publicKey: string): string {
     const key = this.getEncryptionKey(publicKey);
     const dataString = JSON.stringify(data);
     const encrypted = CryptoJS.AES.encrypt(dataString, key);
     return encrypted.toString();
   }
 
-  decryptData(encryptedData: string, publicKey: string): any {
+  decryptData<T>(encryptedData: string, publicKey: string): T | null {
     try {
       const key = this.getEncryptionKey(publicKey);
       const decrypted = CryptoJS.AES.decrypt(encryptedData, key);
@@ -23,7 +23,7 @@ export class EncryptionService {
         throw new Error('Decryption failed - invalid key or data');
       }
       
-      return JSON.parse(decryptedString);
+      return JSON.parse(decryptedString) as T;
     } catch (error) {
       console.error('Decryption error:', error);
       return null;
@@ -45,7 +45,12 @@ export class EncryptionService {
     tokenCount: number;
     timestamp: Date;
   } | null {
-    const decrypted = this.decryptData(encryptedData, publicKey);
+    const decrypted = this.decryptData<{
+      totalValue?: number;
+      walletCount?: number;
+      tokenCount?: number;
+      timestamp?: string | number | Date;
+    }>(encryptedData, publicKey);
     if (!decrypted) return null;
 
     return {
