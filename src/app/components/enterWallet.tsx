@@ -655,16 +655,16 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
       console.warn('spl name service resolution failed:', snsError);
     }
 
-    try {
-      console.log('trying getDomainOwner rpc method...');
-      const domainOwner = await connection.getDomainOwner(cleanDomain);
-      if (domainOwner) {
-        console.log(`resolved ${cleanDomain} to: ${domainOwner.toBase58()} via getDomainOwner`);
-        return domainOwner.toBase58();
-      }
-    } catch (domainOwnerError) {
-      console.warn('getDomainOwner resolution failed:', domainOwnerError);
-    }
+    // try {
+    //   console.log('trying getDomainOwner rpc method...');
+    //   const domainOwner = await connection.getDomainOwner(cleanDomain);
+    //   if (domainOwner) {
+    //     console.log(`resolved ${cleanDomain} to: ${domainOwner.toBase58()} via getDomainOwner`);
+    //     return domainOwner.toBase58();
+    //   }
+    // } catch (domainOwnerError) {
+    //   console.warn('getDomainOwner resolution failed:', domainOwnerError);
+    // }
 
     try {
       console.log('trying enhanced helius rpc resolution...');
