@@ -301,7 +301,7 @@ secureLog.info('portfolio history updated', {
 
   const selectedTokens = tokens.filter(token => token.selected);
   const totalSelectedValue = selectedTokens.reduce((sum, token) => sum + (token.value || 0), 0);
-  const [selectedOutputToken, setSelectedOutputToken] = useState<string>('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'); // USDC default
+  const [selectedOutputToken, setSelectedOutputToken] = useState<string>('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 
   const handleSwapComplete = () => {
     console.log('swap completed, refreshing balances...');

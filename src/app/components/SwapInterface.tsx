@@ -10,9 +10,9 @@ import { ArrowUpDown, Calculator, AlertCircle, ExternalLink, RefreshCw, DollarSi
 interface SwapInterfaceProps {
   selectedTokens: TokenBalance[];
   totalSelectedValue: number;
-  allTokens: TokenBalance[]; // All available tokens for output selection
+  allTokens: TokenBalance[];
   onSwapComplete: () => void;
-  onOutputTokenChange?: (mint: string) => void; // Callback to notify parent of output token change
+  onOutputTokenChange?: (mint: string) => void;
 }
 
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -59,7 +59,6 @@ export function SwapInterface({
   const [showTokenSelector, setShowTokenSelector] = useState(false);
   const tokenSelectorRef = useRef<HTMLDivElement>(null);
   
-  // Close token selector when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (tokenSelectorRef.current && !tokenSelectorRef.current.contains(event.target as Node)) {
@@ -131,17 +130,14 @@ export function SwapInterface({
   }, [signTransaction, isLedgerConnected]);
 
   const calculateProRataAmounts = (): ProRataToken[] => {
-    // Exclude the selected output token from pro-rata calculation
     const tokensToLiquidate = selectedTokens.filter(token => token.mint !== outputToken);
     
-    // Recalculate total value excluding output token
     const totalValueExcludingOutput = tokensToLiquidate.reduce((sum, token) => sum + (token.value || 0), 0);
     
     return tokensToLiquidate.map(token => {
       const tokenValue = token.value || 0;
       const tokenPercentageOfTotal = totalValueExcludingOutput > 0 ? tokenValue / totalValueExcludingOutput : 0;
       
-      // Use the adjusted liquidation value based on tokens excluding output token
       const adjustedLiquidationValue = (totalValueExcludingOutput * liquidationPercentage) / 100;
       const tokenLiquidationValue = adjustedLiquidationValue * tokenPercentageOfTotal;
       
@@ -389,7 +385,6 @@ export function SwapInterface({
     try {
       const proRataTokens = calculateProRataAmounts();
       
-      // Filter out tokens that are the same as output token and have valid amounts
       const validTokens = proRataTokens.filter(token => 
         token.mint !== outputToken && 
         token.swapAmount > 0.000001 && 
@@ -443,7 +438,6 @@ export function SwapInterface({
 
   const proRataTokens = calculateProRataAmounts();
   
-  // Get sorted tokens with USDC and SOL sticky on top
   const sortedOutputTokens = useMemo(() => {
     const stickyTokens: TokenBalance[] = [];
     const otherTokens: TokenBalance[] = [];
@@ -456,7 +450,6 @@ export function SwapInterface({
       }
     });
     
-    // Sort sticky tokens: USDC first, then SOL
     stickyTokens.sort((a, b) => {
       if (a.mint === USDC_MINT) return -1;
       if (b.mint === USDC_MINT) return 1;
@@ -464,7 +457,6 @@ export function SwapInterface({
       return 1;
     });
     
-    // Sort other tokens alphabetically
     otherTokens.sort((a, b) => a.symbol.localeCompare(b.symbol));
     
     return [...stickyTokens, ...otherTokens];

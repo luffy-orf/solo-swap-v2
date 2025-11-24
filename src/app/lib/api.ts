@@ -124,13 +124,12 @@ class LoadBalancer {
 
 const rpcLoadBalancer = new LoadBalancer(RPC_ENDPOINTS);
 
-// Singleton TokenService to prevent memory leaks
 export class TokenService {
   private static instance: TokenService | null = null;
   private tokenMap: Map<string, TokenInfo> = new Map();
   private tokenListLoaded: boolean = false;
   private priceCache: Map<string, { price: number; timestamp: number }> = new Map();
-  private readonly PRICE_CACHE_DURATION = 60000; // 60 seconds as per Helius cache
+  private readonly PRICE_CACHE_DURATION = 60000;
 
   private constructor() {
     this.loadTokenList();
@@ -247,7 +246,6 @@ export class TokenService {
         });
       }
 
-      // Fetch token metadata from Helius for all tokens at once
       const mintAddresses = tokenAccounts.value
         .map((account: ParsedTokenAccount) => {
           try {
@@ -263,7 +261,6 @@ export class TokenService {
         })
         .filter((mint: string | null): mint is string => mint !== null);
 
-      // Fetch metadata from Helius in batch
       const tokenMetadataMap = await this.fetchTokenMetadataBatch(mintAddresses);
 
       for (const account of tokenAccounts.value as ParsedTokenAccount[]) {
@@ -273,7 +270,6 @@ export class TokenService {
           const tokenAmount = accountInfo.tokenAmount;
           
           if (tokenAmount.uiAmount > 0) {
-            // Use Helius metadata if available, otherwise fall back to tokenMap
             const heliusMetadata = tokenMetadataMap.get(mint);
             const tokenInfo = this.tokenMap.get(mint);
             
@@ -306,7 +302,6 @@ export class TokenService {
     if (mintAddresses.length === 0) return metadataMap;
 
     try {
-      // Use Helius DAS API to fetch token metadata in batch
       const response = await fetch(HELIUS_RPC_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -351,7 +346,6 @@ export class TokenService {
       return [];
     }
 
-    // Check cache first
     const now = Date.now();
     const cachedResults: TokenBalance[] = [];
     const tokensToFetch: TokenBalance[] = [];
@@ -384,7 +378,6 @@ export class TokenService {
 
     console.log(`fetching prices for ${tokensToFetch.length} tokens from Helius...`);
 
-    // Fetch prices from Helius DAS API in a single request
     try {
       const mintAddresses = tokensToFetch.map(t => t.mint);
       
@@ -411,7 +404,6 @@ export class TokenService {
         const priceMap = new Map<string, number>();
         const assetMap = new Map<string, HeliusAsset>();
         
-        // Create a map of asset ID to asset data for easier lookup
         data.result.forEach((asset) => {
           if (asset && asset.id) {
             assetMap.set(asset.id, asset);
@@ -421,7 +413,6 @@ export class TokenService {
         tokensToFetch.forEach((token) => {
           const asset = assetMap.get(token.mint);
           
-          // Get price from Helius price_info (cached for 60 seconds)
           let price = 0;
 
           if (asset) {
@@ -430,13 +421,11 @@ export class TokenService {
             if (priceInfo && priceInfo.price_per_token) {
               price = priceInfo.price_per_token;
               
-              // Update cache
               this.priceCache.set(token.mint, {
                 price,
                 timestamp: now
               });
             } else if (token.mint === USDC_MINT) {
-              // USDC is always $1
               price = 1;
               this.priceCache.set(token.mint, {
                 price: 1,
@@ -455,7 +444,6 @@ export class TokenService {
               }
             }
           } else if (token.mint === USDC_MINT) {
-            // USDC fallback
             price = 1;
             this.priceCache.set(token.mint, {
               price: 1,
@@ -474,7 +462,6 @@ export class TokenService {
           }
         });
 
-        // Build results array
         const fetchedResults = tokensToFetch.map(token => {
           const price = priceMap.get(token.mint) || 0;
           const value = price * token.uiAmount;
@@ -488,7 +475,6 @@ export class TokenService {
 
         const allResults = [...cachedResults, ...fetchedResults];
         
-        // Update metadata for tokens that might have been missing
         for (const result of fetchedResults) {
           const asset = data.result?.find((a) => a.id === result.mint);
           if (asset) {
@@ -519,7 +505,6 @@ export class TokenService {
       }
     } catch (error) {
       console.error('failed to fetch prices from Helius:', error);
-      // Return tokens with zero prices on error
       return tokens.map(token => ({
         ...token,
         price: 0,

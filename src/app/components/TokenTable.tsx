@@ -21,7 +21,7 @@ interface TokenTableProps {
     walletCount: number;
     tokenCount: number;
   }>;
-  excludeTokenMint?: string; // Token mint to hide from table (e.g., selected output token)
+  excludeTokenMint?: string;
 }
 
 type SortField = 'symbol' | 'balance' | 'USD' | 'value';
@@ -138,7 +138,6 @@ export function TokenTable({
   }, [tokens]);
 
   const filteredAndSortedTokens = useMemo(() => {
-    // Filter out excluded token (e.g., selected output token for liquidation)
     const tokensToShow = excludeTokenMint 
       ? tokens.filter(token => token.mint !== excludeTokenMint)
       : tokens;
@@ -194,7 +193,6 @@ export function TokenTable({
     }
   };
 
-  // Adjust selected count based on excluded token
   const visibleTokens = excludeTokenMint 
     ? tokens.filter(token => token.mint !== excludeTokenMint)
     : tokens;
@@ -288,8 +286,7 @@ export function TokenTable({
             livePortfolioValue={totalPortfolioValue}
             liveTokenCount={tokens.length}
             liveWalletCount={1}
-            mode="tokentable" // Add this line
-            // Remove tokenPriceHistory and selectedToken since they don't exist
+            mode="tokentable"
           />
         </CollapsibleSection>
       )}

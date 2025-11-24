@@ -39,6 +39,9 @@ solo swap enables users to efficiently liquidate multiple solana tokens in a sin
 
 ## 🚧 planned features
 
+#### transaction history
+- **swap history**: with sell indicators on chart
+
 ### 🔥 transaction bundling (coming soon)
 - **atomic multi-token swaps**: bundle multiple token swaps into single transactions
 - **gas optimization**: reduced network fees through transaction compression

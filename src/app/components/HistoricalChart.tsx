@@ -162,49 +162,50 @@ export function PortfolioChart({
   };
 
   const chartOptions: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false,
-      },
-      title: {
-        display: false,
-      },
-      tooltip: {
-        mode: 'index' as const,
-        intersect: false,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        titleColor: 'rgb(156, 163, 175)',
-        bodyColor: 'white',
-        borderColor: 'rgba(139, 92, 246, 0.5)',
-        borderWidth: 1,
-        callbacks: {
-          label: function(context: TooltipItem<'line'>): string {
-            return `$${context.parsed.y.toLocaleString(undefined, { 
-              minimumFractionDigits: 2, 
-              maximumFractionDigits: 2 
-            })}`;
-          },
-          title: function(tooltipItems: TooltipItem<'line'>[]): string {
-            const item = portfolioHistory.find(item => 
-              formatDate(item.timestamp) === tooltipItems[0].label
-            );
-            if (item) {
-              return item.timestamp.toLocaleString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-              }).toLowerCase();
-            }
-            return tooltipItems[0].label;
-          }
-        }
-      },
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false,
     },
+    title: {
+      display: false,
+    },
+    tooltip: {
+      mode: 'index' as const,
+      intersect: false,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      titleColor: 'rgb(156, 163, 175)',
+      bodyColor: 'white',
+      borderColor: 'rgba(139, 92, 246, 0.5)',
+      borderWidth: 1,
+      callbacks: {
+        label: function(context: TooltipItem<'line'>): string {
+          const value = context.parsed.y ?? 0;
+          return `$${value.toLocaleString(undefined, { 
+            minimumFractionDigits: 2, 
+            maximumFractionDigits: 2 
+          })}`;
+        },
+        title: function(tooltipItems: TooltipItem<'line'>[]): string {
+          const item = portfolioHistory.find(item => 
+            formatDate(item.timestamp) === tooltipItems[0].label
+          );
+          if (item) {
+            return item.timestamp.toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            }).toLowerCase();
+          }
+          return tooltipItems[0].label;
+        }
+      }
+    },
+  },
     scales: {
       x: {
         grid: {
