@@ -496,7 +496,7 @@ secureLog.info('portfolio history updated', {
                 className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded-lg transition-colors text-xs"
               >
                 <Calculator className="h-3 w-3" />
-                <span>multisig</span>
+                <span>solo: shop</span>
               </button>
             ) : (
               <button
