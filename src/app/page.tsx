@@ -476,12 +476,12 @@ secureLog.info('portfolio history updated', {
               </button>
             )}
 
-            <button
+            {/* <button
               onClick={() => setShowSettings(!showSettings)}
               className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
             >
               <Settings2 className="h-5 w-5" />
-            </button>
+            </button> */}
             <div className="relative z-40">
               {isClient && (
                 <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm" />
@@ -520,7 +520,7 @@ secureLog.info('portfolio history updated', {
         {showMobileMenu && (
           <div className="sm:hidden mb-4 p-4 bg-gray-800/80 rounded-lg backdrop-blur-sm border border-gray-700 relative z-30">
             <div className="flex flex-col space-y-3">
-              <button
+              {/* <button
                 onClick={() => {
                   setShowSettings(true);
                   setShowMobileMenu(false);
@@ -529,7 +529,7 @@ secureLog.info('portfolio history updated', {
               >
                 <Settings2 className="h-4 w-4" />
                 <span>settings</span>
-              </button>
+              </button> */}
               <div className="flex justify-center relative z-40">
                 {isClient && (
                   <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm !py-2 !px-4" />
