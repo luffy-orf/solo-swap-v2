@@ -44,22 +44,29 @@ export class EncryptionService {
     walletCount: number;
     tokenCount: number;
     timestamp: Date;
-  } | null {
+    } | null {
     const decrypted = this.decryptData<{
-      totalValue?: number;
-      walletCount?: number;
-      tokenCount?: number;
-      timestamp?: string | number | Date;
+        totalValue?: number;
+        walletCount?: number;
+        tokenCount?: number;
+        timestamp?: string | number | Date;
     }>(encryptedData, publicKey);
     if (!decrypted) return null;
 
+    let timestamp: Date;
+    if (decrypted.timestamp) {
+        timestamp = new Date(decrypted.timestamp);
+    } else {
+        timestamp = new Date();
+    }
+
     return {
-      totalValue: decrypted.totalValue || 0,
-      walletCount: decrypted.walletCount || 0,
-      tokenCount: decrypted.tokenCount || 0,
-      timestamp: new Date(decrypted.timestamp)
+        totalValue: decrypted.totalValue || 0,
+        walletCount: decrypted.walletCount || 0,
+        tokenCount: decrypted.tokenCount || 0,
+        timestamp: timestamp
     };
-  }
+    }
 
   generateRandomEncrypted(publicKey: string): string {
     const randomData = {
