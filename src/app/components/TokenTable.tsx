@@ -21,6 +21,7 @@ interface TokenTableProps {
     walletCount: number;
     tokenCount: number;
   }>;
+  excludeTokenMint?: string; // Token mint to hide from table (e.g., selected output token)
 }
 
 type SortField = 'symbol' | 'balance' | 'USD' | 'value';
@@ -112,7 +113,8 @@ export function TokenTable({
   onRefreshPrices,
   processingProgress,
   totalToProcess,
-  portfolioHistory = []
+  portfolioHistory = [],
+  excludeTokenMint
 }: TokenTableProps) {
   const [sortField, setSortField] = useState<SortField>('value');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -127,7 +129,7 @@ export function TokenTable({
     tokenTable: true
   });
 
-  const tokenService = useMemo(() => new TokenService(), []);
+  const tokenService = useMemo(() => TokenService.getInstance(), []);
 
   useEffect(() => {}, [loading, processingProgress, totalToProcess, tokens]);
 
@@ -136,7 +138,12 @@ export function TokenTable({
   }, [tokens]);
 
   const filteredAndSortedTokens = useMemo(() => {
-    const filtered = tokens.filter(token =>
+    // Filter out excluded token (e.g., selected output token for liquidation)
+    const tokensToShow = excludeTokenMint 
+      ? tokens.filter(token => token.mint !== excludeTokenMint)
+      : tokens;
+    
+    const filtered = tokensToShow.filter(token =>
       token.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
       token.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -176,7 +183,7 @@ export function TokenTable({
     });
 
     return filtered;
-  }, [tokens, searchTerm, sortField, sortDirection]);
+  }, [tokens, searchTerm, sortField, sortDirection, excludeTokenMint]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -187,8 +194,16 @@ export function TokenTable({
     }
   };
 
-  const allSelected = tokens.length > 0 && selectedTokens.length === tokens.length;
-  const someSelected = selectedTokens.length > 0 && selectedTokens.length < tokens.length;
+  // Adjust selected count based on excluded token
+  const visibleTokens = excludeTokenMint 
+    ? tokens.filter(token => token.mint !== excludeTokenMint)
+    : tokens;
+  const visibleSelectedTokens = excludeTokenMint
+    ? selectedTokens.filter(token => token.mint !== excludeTokenMint)
+    : selectedTokens;
+  
+  const allSelected = visibleTokens.length > 0 && visibleSelectedTokens.length === visibleTokens.length;
+  const someSelected = visibleSelectedTokens.length > 0 && visibleSelectedTokens.length < visibleTokens.length;
 
   const failedTokens = useMemo(() => 
     tokens.filter(token => token.value === 0 && token.uiAmount > 0),
