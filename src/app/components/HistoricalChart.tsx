@@ -151,61 +151,64 @@ export function PortfolioChart({
           borderWidth: 3,
           fill: true,
           tension: 0.4,
-          pointBackgroundColor: 'rgb(139, 92, 246)',
-          pointBorderColor: 'white',
-          pointBorderWidth: 2,
-          pointRadius: 4,
-          pointHoverRadius: 6,
+          // Remove points and hover effects for smoother appearance
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          pointBackgroundColor: 'transparent',
+          pointBorderColor: 'transparent',
+          pointBorderWidth: 0,
+          // Smooth the line further
+          cubicInterpolationMode: 'monotone' as const,
         },
       ],
     };
   };
 
   const chartOptions: ChartOptions<'line'> = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false,
-    },
-    title: {
-      display: false,
-    },
-    tooltip: {
-      mode: 'index' as const,
-      intersect: false,
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      titleColor: 'rgb(156, 163, 175)',
-      bodyColor: 'white',
-      borderColor: 'rgba(139, 92, 246, 0.5)',
-      borderWidth: 1,
-      callbacks: {
-        label: function(context: TooltipItem<'line'>): string {
-          const value = context.parsed.y ?? 0;
-          return `$${value.toLocaleString(undefined, { 
-            minimumFractionDigits: 2, 
-            maximumFractionDigits: 2 
-          })}`;
-        },
-        title: function(tooltipItems: TooltipItem<'line'>[]): string {
-          const item = portfolioHistory.find(item => 
-            formatDate(item.timestamp) === tooltipItems[0].label
-          );
-          if (item) {
-            return item.timestamp.toLocaleString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: true
-            }).toLowerCase();
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      title: {
+        display: false,
+      },
+      tooltip: {
+        mode: 'index' as const,
+        intersect: false,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: 'rgb(156, 163, 175)',
+        bodyColor: 'white',
+        borderColor: 'rgba(139, 92, 246, 0.5)',
+        borderWidth: 1,
+        callbacks: {
+          label: function(context: TooltipItem<'line'>): string {
+            const value = context.parsed.y ?? 0;
+            return `$${value.toLocaleString(undefined, { 
+              minimumFractionDigits: 2, 
+              maximumFractionDigits: 2 
+            })}`;
+          },
+          title: function(tooltipItems: TooltipItem<'line'>[]): string {
+            const item = portfolioHistory.find(item => 
+              formatDate(item.timestamp) === tooltipItems[0].label
+            );
+            if (item) {
+              return item.timestamp.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+              }).toLowerCase();
+            }
+            return tooltipItems[0].label;
           }
-          return tooltipItems[0].label;
         }
-      }
+      },
     },
-  },
     scales: {
       x: {
         grid: {
@@ -234,6 +237,12 @@ export function PortfolioChart({
       mode: 'nearest' as const,
       axis: 'x' as const,
       intersect: false,
+    },
+    // Additional smoothing options
+    elements: {
+      line: {
+        tension: 0.4, // Smooth curve
+      },
     },
   };
 
