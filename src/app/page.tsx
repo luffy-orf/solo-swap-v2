@@ -14,6 +14,7 @@ import Image from 'next/image';
 import { collection, doc, setDoc, getDocs, query, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from './lib/firebase';
 import { encryptionService } from './lib/encryption';
+import { HistoricalPortfolio } from './components/ViewHistory';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
 
@@ -548,6 +549,7 @@ secureLog.info('portfolio history updated', {
           <SettingsPanel onClose={() => setShowSettings(false)} />
         )}
 
+        <HistoricalPortfolio />
         {/* Footer */}
         <div className="mt-4 sm:mt-6 pt-4 border-t border-gray-700/50">
           <div className="flex justify-center items-center space-x-6">

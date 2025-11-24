@@ -20,9 +20,14 @@ interface PortfolioHistory {
 interface HistoricalPortfolioProps {
   onPortfolioSelect?: (portfolio: PortfolioHistory) => void;
   currentPortfolioValue?: number;
+  mode?: 'single' | 'multisig';
 }
 
-export function HistoricalPortfolio({ onPortfolioSelect, currentPortfolioValue }: HistoricalPortfolioProps) {
+export function HistoricalPortfolio({ 
+  onPortfolioSelect, 
+  currentPortfolioValue, 
+  mode = 'single'
+}: HistoricalPortfolioProps) {
   const { publicKey } = useWallet();
   const [portfolioHistory, setPortfolioHistory] = useState<PortfolioHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,8 +46,13 @@ export function HistoricalPortfolio({ onPortfolioSelect, currentPortfolioValue }
 
     try {
       setLoading(true);
+      
+      const collectionPath = mode === 'multisig' 
+        ? `solo-users/${publicKey.toString()}/portfolioHistory`
+        : `wallet-history/${publicKey.toString()}/records`;
+      
       const historyQuery = query(
-        collection(db, 'solo-users', publicKey.toString(), 'portfolioHistory'),
+        collection(db, collectionPath),
         orderBy('timestamp', 'desc')
       );
       const querySnapshot = await getDocs(historyQuery);
@@ -55,15 +65,44 @@ export function HistoricalPortfolio({ onPortfolioSelect, currentPortfolioValue }
         const data = doc.data();
         
         if (!data.encryptedData) {
-          console.warn('No encrypted data found for record:', doc.id);
+          console.warn('no encrypted data found for record:', doc.id);
           continue;
         }
 
         try {
-          const decryptedData = encryptionService.decryptPortfolioHistory(
-            data.encryptedData, 
-            publicKey.toString()
-          );
+          let decryptedData;
+          
+          if (mode === 'multisig') {
+            decryptedData = encryptionService.decryptPortfolioHistory(
+              data.encryptedData, 
+              publicKey.toString()
+            );
+          } else {
+            const decryptedTotalValue = encryptionService.decryptData<number>(
+              data.encryptedData.totalValue, 
+              publicKey.toString()
+            );
+            const decryptedWalletCount = encryptionService.decryptData<number>(
+              data.encryptedData.walletCount, 
+              publicKey.toString()
+            );
+            const decryptedTokenCount = encryptionService.decryptData<number>(
+              data.encryptedData.tokenCount, 
+              publicKey.toString()
+            );
+
+            if (decryptedTotalValue === null || decryptedWalletCount === null || decryptedTokenCount === null) {
+              console.warn('failed to decrypt data for record:', doc.id);
+              continue;
+            }
+
+            decryptedData = {
+              timestamp: data.timestamp?.toDate() || new Date(),
+              totalValue: decryptedTotalValue,
+              walletCount: decryptedWalletCount,
+              tokenCount: decryptedTokenCount
+            };
+          }
 
           if (decryptedData) {
             history.push({
@@ -74,9 +113,6 @@ export function HistoricalPortfolio({ onPortfolioSelect, currentPortfolioValue }
               tokenCount: decryptedData.tokenCount
             });
             successfulDecryptions++;
-          } else {
-            console.warn('Failed to decrypt data for record:', doc.id);
-            decryptionErrors++;
           }
         } catch (decryptError) {
           console.error('Decryption error for record:', doc.id, decryptError);
@@ -85,24 +121,21 @@ export function HistoricalPortfolio({ onPortfolioSelect, currentPortfolioValue }
       }
 
       setPortfolioHistory(history);
+      console.log(`Loaded ${mode} portfolio history:`, history.length, 'records');
       
-      console.log('Loaded encrypted portfolio history:', {
-        totalRecords: querySnapshot.docs.length,
-        successfullyDecrypted: successfulDecryptions,
-        decryptionErrors: decryptionErrors,
-        finalHistoryCount: history.length
-      });
-
-      if (decryptionErrors > 0) {
-        console.warn(`${decryptionErrors} records could not be decrypted and were skipped`);
-      }
-
     } catch (err) {
-      console.error('Failed to load encrypted portfolio history:', err);
+      console.error(`Failed to load ${mode} portfolio history:`, err);
     } finally {
       setLoading(false);
     }
   };
+
+  // Update useEffect to reload when mode changes
+  useEffect(() => {
+    if (publicKey && expanded) {
+      loadPortfolioHistory();
+    }
+  }, [publicKey, expanded, mode]);
 
   const deletePortfolioRecord = async (portfolioId: string) => {
     if (!publicKey) return;
