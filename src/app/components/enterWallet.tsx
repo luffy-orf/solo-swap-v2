@@ -18,6 +18,7 @@ import { db } from '../lib/firebase';
 import Papa from 'papaparse';
 import { PortfolioChart } from './HistoricalChart';
 import { encryptionService } from '../lib/encryption';
+import { HistoricalPortfolio } from './ViewHistory';
 
 declare global {
   interface Window {
@@ -2215,6 +2216,7 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
                 </CollapsibleSection>
               )}
             </CollapsibleSection>
+            <HistoricalPortfolio />
           </div>
         )}
 
