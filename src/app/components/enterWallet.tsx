@@ -2216,7 +2216,13 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
                 </CollapsibleSection>
               )}
             </CollapsibleSection>
-            <HistoricalPortfolio />
+           <HistoricalPortfolio 
+            mode="multisig"
+            currentPortfolioValue={totalPortfolioValue}
+            onPortfolioSelect={(portfolio) => {
+              console.log('selected multi-wallet portfolio:', portfolio);
+            }}
+          />
           </div>
         )}
 

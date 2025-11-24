@@ -39,7 +39,14 @@ export function HistoricalPortfolio({
     if (publicKey && expanded) {
       loadPortfolioHistory();
     }
-  }, [publicKey, expanded]);
+  }, [publicKey, expanded, mode]); // Add mode to dependencies
+
+  const getCollectionPath = () => {
+    if (!publicKey) return '';
+    return mode === 'multisig' 
+      ? `solo-users/${publicKey.toString()}/portfolioHistory`
+      : `wallet-history/${publicKey.toString()}/records`;
+  };
 
   const loadPortfolioHistory = async () => {
     if (!publicKey) return;
@@ -47,9 +54,8 @@ export function HistoricalPortfolio({
     try {
       setLoading(true);
       
-      const collectionPath = mode === 'multisig' 
-        ? `solo-users/${publicKey.toString()}/portfolioHistory`
-        : `wallet-history/${publicKey.toString()}/records`;
+      const collectionPath = getCollectionPath();
+      console.log(`Loading portfolio history from: ${collectionPath}`);
       
       const historyQuery = query(
         collection(db, collectionPath),
@@ -65,7 +71,7 @@ export function HistoricalPortfolio({
         const data = doc.data();
         
         if (!data.encryptedData) {
-          console.warn('no encrypted data found for record:', doc.id);
+          console.warn('No encrypted data found for record:', doc.id);
           continue;
         }
 
@@ -113,39 +119,43 @@ export function HistoricalPortfolio({
               tokenCount: decryptedData.tokenCount
             });
             successfulDecryptions++;
+          } else {
+            console.warn('failed to decrypt data for record:', doc.id);
+            decryptionErrors++;
           }
         } catch (decryptError) {
-          console.error('Decryption error for record:', doc.id, decryptError);
+          console.error('decryption error for record:', doc.id, decryptError);
           decryptionErrors++;
         }
       }
 
       setPortfolioHistory(history);
-      console.log(`Loaded ${mode} portfolio history:`, history.length, 'records');
+      console.log(`loaded ${mode} portfolio history:`, {
+        totalRecords: querySnapshot.docs.length,
+        successfullyDecrypted: successfulDecryptions,
+        decryptionErrors: decryptionErrors,
+        finalHistoryCount: history.length
+      });
       
     } catch (err) {
-      console.error(`Failed to load ${mode} portfolio history:`, err);
+      console.error(`failed to load ${mode} portfolio history:`, err);
     } finally {
       setLoading(false);
     }
   };
-
-  // Update useEffect to reload when mode changes
-  useEffect(() => {
-    if (publicKey && expanded) {
-      loadPortfolioHistory();
-    }
-  }, [publicKey, expanded, mode]);
 
   const deletePortfolioRecord = async (portfolioId: string) => {
     if (!publicKey) return;
 
     try {
       setDeletingId(portfolioId);
-      await deleteDoc(doc(db, 'solo-users', publicKey.toString(), 'portfolioHistory', portfolioId));
+      const collectionPath = getCollectionPath();
+      console.log(`deleting portfolio record from: ${collectionPath}`);
+      
+      await deleteDoc(doc(db, collectionPath, portfolioId));
       
       setPortfolioHistory(prev => prev.filter(record => record.id !== portfolioId));
-      console.log('Deleted portfolio record:', portfolioId);
+      console.log('deleted portfolio record:', portfolioId);
       
       if (selectedPortfolio?.id === portfolioId) {
         setSelectedPortfolio(null);
@@ -154,7 +164,7 @@ export function HistoricalPortfolio({
         }
       }
     } catch (err) {
-      console.error('Failed to delete portfolio record:', err);
+      console.error('failed to delete portfolio record:', err);
     } finally {
       setDeletingId(null);
     }
@@ -189,7 +199,7 @@ export function HistoricalPortfolio({
   const downloadHistoryAsCSV = () => {
     if (portfolioHistory.length === 0) return;
 
-    const headers = ['Date', 'Total Value', 'Wallets', 'Tokens'];
+    const headers = ['date', 'total value', 'wallets', 'tokens'];
     const csvData = portfolioHistory.map(record => [
       record.timestamp.toISOString(),
       record.totalValue.toString(),
@@ -205,7 +215,7 @@ export function HistoricalPortfolio({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `portfolio-history-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `portfolio-history-${mode}-${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -237,7 +247,7 @@ export function HistoricalPortfolio({
         <div className="flex items-center space-x-3">
           <Calendar className="h-5 w-5 text-purple-400" />
           <div>
-            <h3 className="text-lg font-semibold">edit history</h3>
+            <h3 className="text-lg font-semibold">edit history ({mode})</h3>
             <p className="text-sm text-gray-400">
               {portfolioHistory.length} historical snapshot{portfolioHistory.length !== 1 ? 's' : ''} recorded
             </p>
@@ -269,12 +279,12 @@ export function HistoricalPortfolio({
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto"></div>
-              <p className="text-gray-400 mt-2">loading history...</p>
+              <p className="text-gray-400 mt-2">loading {mode} history...</p>
             </div>
           ) : portfolioHistory.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>no portfolio history available yet.</p>
+              <p>no {mode} portfolio history available yet.</p>
               <p className="text-sm mt-1">analyze your wallets to generate historical data.</p>
             </div>
           ) : (
@@ -400,7 +410,7 @@ export function HistoricalPortfolio({
               {selectedPortfolio && (
                 <div className="mt-4 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-purple-400">selected snapshot</h4>
+                    <h4 className="font-semibold text-purple-400">selected snapshot ({mode})</h4>
                     <button
                       onClick={() => {
                         setSelectedPortfolio(null);

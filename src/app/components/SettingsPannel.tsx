@@ -1,4 +1,5 @@
 import { Settings, X, Github, Twitter } from 'lucide-react';
+import { HistoricalPortfolio } from './ViewHistory';
 
 interface SettingsPanelProps {
   onClose: () => void;
