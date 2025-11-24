@@ -49,14 +49,16 @@ interface TokenLogoProps {
 }
 
 const TokenLogo = ({ token, size = 8 }: TokenLogoProps) => {
-  const logoSize = `w-6 h-6 sm:w-${size} sm:h-${size}`;
+  const logoClasses = size === 6 
+    ? "w-6 h-6 sm:w-6 sm:h-6" 
+    : "w-6 h-6 sm:w-8 sm:h-8";
   
   if (token.logoURI) {
     return (
       <img
         src={token.logoURI}
         alt={token.symbol}
-        className={`rounded-full ${logoSize} flex-shrink-0`}
+        className={`rounded-full ${logoClasses} flex-shrink-0 object-cover`}
         onError={(e) => {
           (e.target as HTMLImageElement).style.display = 'none';
         }}
@@ -65,7 +67,7 @@ const TokenLogo = ({ token, size = 8 }: TokenLogoProps) => {
   }
   
   return (
-    <div className={`bg-gradient-to-br from-purple-500 to-pink-500 rounded-full ${logoSize} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
+    <div className={`bg-gradient-to-br from-purple-500 to-pink-500 rounded-full ${logoClasses} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
       {token.symbol.slice(0, 3)}
     </div>
   );

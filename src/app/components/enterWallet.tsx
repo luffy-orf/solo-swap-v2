@@ -11,7 +11,7 @@ import {
   Plus, Trash2, Upload, FileText, Clock, ChevronRight
 } from 'lucide-react';
 import { 
-  collection, doc, setDoc, getDocs, deleteDoc, 
+  collection, doc, setDoc, getDoc, getDocs, deleteDoc, 
   query, orderBy, Timestamp 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -1241,6 +1241,8 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
       let successfulImports = 0;
       let failedImports = 0;
       const errors: string[] = [];
+      const processedAddresses = new Set<string>(); // Track processed addresses to prevent duplicates
+      const duplicateAddresses = new Set<string>(); // Track duplicates for error reporting
 
       for (const [index, wallet] of wallets.entries()) {
         try {
@@ -1278,12 +1280,33 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
             continue;
           }
 
+          // Check for duplicate addresses within the CSV
+          if (processedAddresses.has(address)) {
+            console.warn(`skipping duplicate address at row ${index + 1}: ${address}`);
+            duplicateAddresses.add(address);
+            failedImports++;
+            errors.push(`row ${index + 1}: duplicate address ${wallet.address}`);
+            continue;
+          }
+
+          const walletDocRef = doc(db, 'solo-users', publicKey.toString(), 'wallets', address);
+          const walletDoc = await getDoc(walletDocRef);
+          
+          if (walletDoc.exists()) {
+            console.warn(`skipping duplicate address at row ${index + 1}: ${address} (already exists in your wallets)`);
+            duplicateAddresses.add(address);
+            failedImports++;
+            errors.push(`row ${index + 1}: address already exists in your wallets ${wallet.address}`);
+            continue;
+          }
+
           await saveWalletToFirestore(
             address,
             wallet.nickname?.trim() || undefined,
             isDomainAddress
           );
 
+          processedAddresses.add(address);
           successfulImports++;
           
           if (index < wallets.length - 1) {
@@ -1307,8 +1330,19 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
         }
       }
 
+      let successMessage = '';
       if (successfulImports > 0) {
-        setCsvUploadError(`successfully imported ${successfulImports} wallet${successfulImports > 1 ? 's' : ''}${failedImports > 0 ? `, ${failedImports} failed` : ''}`);
+        successMessage = `successfully imported ${successfulImports} wallet${successfulImports > 1 ? 's' : ''}`;
+        
+        if (failedImports > 0) {
+          successMessage += `, ${failedImports} failed`;
+        }
+        
+        if (duplicateAddresses.size > 0) {
+          successMessage += ` (${duplicateAddresses.size} duplicate${duplicateAddresses.size > 1 ? 's' : ''} skipped)`;
+        }
+        
+        setCsvUploadError(successMessage);
         
         try {
           const walletsQuery = query(collection(db, 'solo-users', publicKey.toString(), 'wallets'));
@@ -1336,12 +1370,18 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
           console.error('failed to reload wallets after csv import:', err);
         }
       } else if (failedImports > 0) {
-        setCsvUploadError(`no wallets were successfully imported. all ${failedImports} failed.`);
+        let errorMessage = `no wallets were successfully imported. all ${failedImports} failed.`;
+        
+        if (duplicateAddresses.size > 0) {
+          errorMessage += ` (${duplicateAddresses.size} duplicate${duplicateAddresses.size > 1 ? 's' : ''} found)`;
+        }
         
         if (errors.length > 0) {
           const errorPreview = errors.slice(0, 3).join('; ');
-          setCsvUploadError(prev => prev + ` errors: ${errorPreview}${errors.length > 3 ? '...' : ''}`);
+          errorMessage += ` errors: ${errorPreview}${errors.length > 3 ? '...' : ''}`;
         }
+        
+        setCsvUploadError(errorMessage);
       }
 
       if (fileInputRef.current) {
