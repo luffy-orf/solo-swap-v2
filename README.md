@@ -104,6 +104,7 @@ environment configuration
     NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=""
 
     NEXT_PUBLIC_ENCRYPTION_SECRET=""
+    NEXT_PUBLIC_HASH_SALT=""
     ```
 
 4. run development server

@@ -69,8 +69,6 @@ class LoadBalancer {
       this.endpoints = FALLBACK_RPC_ENDPOINTS;
       console.warn('using fallback rpc endpoints. please configure RPC_ENDPOINT environment variables for better performance.');
     }
-    
-    console.log(`loadbalancer initialized with ${this.endpoints.length} endpoints`);
   }
 
   async getNextEndpoint(): Promise<string> {
@@ -89,17 +87,13 @@ class LoadBalancer {
       const endpoint = await this.getNextEndpoint();
       
       try {
-        console.log(`attempt ${attempt + 1} with ${this.getEndpointName(endpoint)}`);
         const result = await operation(endpoint);
-        console.log(`success with ${this.getEndpointName(endpoint)}`);
         return result;
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'unknown error occurred';
         lastError = new Error(errorMessage);
-        console.warn(`attempt ${attempt + 1} failed with ${this.getEndpointName(endpoint)}:`, errorMessage);
         
         if (errorMessage.includes('403') || errorMessage.includes('429') || errorMessage.includes('401')) {
-          console.log(`skipping ${this.getEndpointName(endpoint)} due to auth/rate limit`);
           continue;
         }
       }
@@ -200,7 +194,6 @@ export class TokenService {
     });
     
     this.tokenListLoaded = true;
-    console.log('using fallback token list');
   }
 
   async ensureTokenListLoaded(): Promise<void> {
@@ -211,8 +204,6 @@ export class TokenService {
 
   async getTokenBalances(walletAddress: string): Promise<TokenBalance[]> {
     await this.ensureTokenListLoaded();
-    
-    console.log('fetching token balances for:', walletAddress);
 
     return await rpcLoadBalancer.executeWithRetry(async (endpoint) => {
       const connection = this.createConnection(endpoint);
@@ -225,8 +216,6 @@ export class TokenService {
         ),
         connection.getBalance(publicKey)
       ]);
-
-      console.log(`found ${tokenAccounts.value.length} token accounts and ${solBalance} lamports sol`);
 
       const tokens: TokenBalance[] = [];
 
@@ -287,11 +276,8 @@ export class TokenService {
             });
           }
         } catch (error) {
-          console.warn('error processing token account:', error);
         }
       }
-
-      console.log(`processed ${tokens.length} tokens with balance`);
       return tokens;
     });
   }
@@ -340,7 +326,6 @@ export class TokenService {
     tokens: TokenBalance[], 
     onProgress?: (progress: PriceProgress) => void
   ): Promise<TokenBalance[]> {
-    console.log(`fetching prices for ${tokens.length} tokens using Helius price cache...`);
     
     if (tokens.length === 0) {
       return [];
@@ -365,7 +350,6 @@ export class TokenService {
     }
 
     if (tokensToFetch.length === 0) {
-      console.log(`all ${tokens.length} tokens found in cache`);
       if (onProgress) {
         onProgress({
           current: tokens.length,
@@ -375,8 +359,6 @@ export class TokenService {
       }
       return cachedResults;
     }
-
-    console.log(`fetching prices for ${tokensToFetch.length} tokens from Helius...`);
 
     try {
       const mintAddresses = tokensToFetch.map(t => t.mint);
@@ -495,9 +477,6 @@ export class TokenService {
             currentToken: 'complete'
           });
         }
-
-        const successfulTokens = allResults.filter(token => (token.value || 0) > 0);
-        console.log(`final results: ${successfulTokens.length} priced, ${allResults.length - successfulTokens.length} failed`);
         
         return allResults;
       } else {
@@ -520,8 +499,6 @@ export class TokenService {
     if (failedTokens.length === 0) {
       return [];
     }
-
-    console.log(`🔄 Retrying ${failedTokens.length} failed tokens...`);
     return await this.getTokenPrices(failedTokens, onProgress);
   }
 

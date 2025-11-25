@@ -1,9 +1,16 @@
-import { useState, useMemo, useEffect } from 'react';
+'use client';
+
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { TokenBalance, PriceProgress } from '../types/token';
 import { TokenService } from '../lib/api';
-import { ArrowUpDown, Search, Image, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
+import { ArrowUpDown, Search, Image, ChevronDown, ChevronUp, ChevronRight, RefreshCw, Settings, Eye, EyeOff, GripVertical } from 'lucide-react';
 import { LoadingBar } from './LoadingBar';
 import { PortfolioChart } from './HistoricalChart';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, useSortable, horizontalListSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { ColumnConfig, SortField } from '../types/table';
+import { useColumnState } from '../hooks/useColumnState';
 
 interface TokenTableProps {
   tokens: TokenBalance[];
@@ -24,7 +31,6 @@ interface TokenTableProps {
   excludeTokenMint?: string;
 }
 
-type SortField = 'symbol' | 'balance' | 'USD' | 'value';
 type SortDirection = 'asc' | 'desc';
 
 interface SortIconProps {
@@ -55,6 +61,7 @@ const TokenLogo = ({ token, size = 8 }: TokenLogoProps) => {
   
   if (token.logoURI) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={token.logoURI}
         alt={token.symbol}
@@ -89,7 +96,7 @@ function CollapsibleSection({ title, children, defaultOpen = true, className = '
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between p-4 sm:p-6 text-left hover:bg-gray-700/30 transition-colors rounded-xl"
       >
-        <h3 className="text-lg font-semibold">{title}</h3>
+        <h3 className="text-m font-semibold">{title}</h3>
         <ChevronRight 
           className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${
             isOpen ? 'rotate-90' : ''
@@ -105,11 +112,281 @@ function CollapsibleSection({ title, children, defaultOpen = true, className = '
   );
 }
 
+const defaultColumns: ColumnConfig[] = [
+  { id: 'select', label: '', width: 60, visible: true, sortable: false, resizable: false, field: 'symbol', configurable: false },
+  { id: 'symbol', label: 'symbol', width: 200, visible: true, sortable: true, resizable: true, field: 'symbol' },
+  { id: 'balance', label: 'quantity', width: 150, visible: true, sortable: true, resizable: true, field: 'balance' },
+  { id: 'price', label: 'price', width: 120, visible: true, sortable: true, resizable: true, field: 'USD' },
+  { id: 'value', label: 'value', width: 120, visible: true, sortable: true, resizable: true, field: 'value' },
+];
+
+interface ResizableTableHeaderProps {
+  column: ColumnConfig;
+  onResize: (columnId: string, newWidth: number) => void;
+  onSort: (field: SortField) => void;
+  sortField: SortField;
+  sortDirection: 'asc' | 'desc';
+}
+
+function ResizableTableHeader({
+  column,
+  onResize,
+  onSort,
+  sortField,
+  sortDirection,
+}: ResizableTableHeaderProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: column.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    width: column.width,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const isResizing = useRef(false);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isResizing.current = true;
+    
+    const startX = e.clientX;
+    const startWidth = column.width;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing.current) return;
+      
+      const newWidth = startWidth + (e.clientX - startX);
+      onResize(column.id, Math.max(80, newWidth));
+    };
+
+    const handleMouseUp = () => {
+      isResizing.current = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleHeaderClick = () => {
+    if (column.sortable) {
+      onSort(column.field);
+    }
+  };
+
+  return (
+    <th
+      ref={setNodeRef}
+      style={style}
+      className="relative py-3 sm:py-4 px-2 sm:px-4 bg-gray-800/50 group select-none"
+      {...attributes}
+    >
+      <div className="flex items-center justify-between h-full">
+        {column.resizable && (
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-purple-400 active:bg-purple-400 z-10"
+            onMouseDown={handleMouseDown}
+          />
+        )}
+        
+        <div className="flex items-center space-x-2 flex-1 h-full">
+          {column.resizable && (
+            <div
+              {...listeners}
+              className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <GripVertical className="h-4 w-4 text-gray-400" />
+            </div>
+          )}
+          
+          <div
+            onClick={handleHeaderClick}
+            className={`flex-1 h-full flex items-center ${column.sortable ? 'cursor-pointer hover:text-white' : ''}`}
+          >
+            <div className="flex items-center space-x-2">
+              <span className="text-xs sm:text-sm font-semibold text-gray-200 lowercase">
+                {column.label}
+              </span>
+              {column.sortable && sortField === column.field && (
+                <span className="text-purple-400">
+                  {sortDirection === 'asc' ? '↑' : '↓'}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {column.resizable && (
+          <div
+            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-purple-400 active:bg-purple-400 z-10"
+            onMouseDown={handleMouseDown}
+          />
+        )}
+      </div>
+    </th>
+  );
+}
+
+// Column Customization Panel
+interface ColumnCustomizationPanelProps {
+  columns: ColumnConfig[];
+  onToggleVisibility: (columnId: string) => void;
+  onReorder: (fromIndex: number, toIndex: number) => void;
+  onReset: () => void;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+function SortableColumnItem({ column, onToggleVisibility }: { column: ColumnConfig; onToggleVisibility: (id: string) => void }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: column.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg border border-gray-600"
+    >
+      <div className="flex items-center space-x-3">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing"
+        >
+          <GripVertical className="h-4 w-4 text-gray-400" />
+        </div>
+        <span className="text-sm text-gray-200 lowercase">{column.label}</span>
+      </div>
+      <button
+        onClick={() => onToggleVisibility(column.id)}
+        className="p-1 hover:bg-gray-600 rounded transition-colors"
+      >
+        {column.visible ? (
+          <Eye className="h-4 w-4 text-green-400" />
+        ) : (
+          <EyeOff className="h-4 w-4 text-gray-400" />
+        )}
+      </button>
+    </div>
+  );
+}
+
+function ColumnCustomizationPanel({
+  columns,
+  onToggleVisibility,
+  onReorder,
+  onReset,
+  isOpen,
+  onClose,
+}: ColumnCustomizationPanelProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleDragEnd = (event: any) => {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      const oldIndex = columns.findIndex(col => col.id === active.id);
+      const newIndex = columns.findIndex(col => col.id === over.id);
+      onReorder(oldIndex, newIndex);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="absolute top-full right-0 mt-2 w-80 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl z-50 backdrop-blur-sm">
+      <div className="p-4 border-b border-gray-700">
+        <div className="flex items-center justify-between">
+          <h3 className="text-m font-semibold text-white"></h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors text-xl"
+          >
+            ×
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-1">drag to reorder, click eye to toggle visibility</p>
+      </div>
+
+      <div className="p-4">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={columns.map(col => col.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {columns
+              .filter(col => col.configurable !== false)
+              .map(column => (
+                <SortableColumnItem
+                  key={column.id}
+                  column={column}
+                  onToggleVisibility={onToggleVisibility}
+                />
+            ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      </div>
+
+      <div className="p-4 border-t border-gray-700">
+        <button
+          onClick={onReset}
+          className="w-50vh px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm font-medium transition-colors"
+        >
+          reset
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sortableKeyboardCoordinates = (event: any, args: any) => {
+  switch (event.code) {
+    case 'ArrowRight':
+      return { x: args.containerRect.width, y: 0 };
+    case 'ArrowLeft':
+      return { x: -args.containerRect.width, y: 0 };
+    default:
+      return undefined;
+  }
+};
+
 export function TokenTable({ 
   tokens,
   loading, 
   onTokenSelect, 
-  onSelectAll,
+  // onSelectAll,
   selectedTokens, 
   totalSelectedValue,
   onRefreshPrices,
@@ -123,15 +400,15 @@ export function TokenTable({
   const [searchTerm, setSearchTerm] = useState('');
   const [retryLoading, setRetryLoading] = useState(false);
   const [retryProgress, setRetryProgress] = useState({ current: 0, total: 0 });
+  const [showColumnPanel, setShowColumnPanel] = useState(false);
   
-  const [sectionsVisible, setSectionsVisible] = useState({
-    portfolioChart: true,
-    portfolioSummary: true,
-    searchAndFilters: true,
-    tokenTable: true
-  });
-
-  const tokenService = useMemo(() => TokenService.getInstance(), []);
+  const {
+  columns,
+  updateColumnWidth,
+  toggleColumnVisibility,
+  reorderColumns,
+  resetColumns,
+} = useColumnState();
 
   useEffect(() => {}, [loading, processingProgress, totalToProcess, tokens]);
 
@@ -139,52 +416,59 @@ export function TokenTable({
     return tokens.reduce((total, token) => total + (token.value || 0), 0);
   }, [tokens]);
 
-  const filteredAndSortedTokens = useMemo(() => {
-    const tokensToShow = excludeTokenMint 
-      ? tokens.filter(token => token.mint !== excludeTokenMint)
-      : tokens;
-    
-    const filtered = tokensToShow.filter(token =>
-      token.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      token.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const [hideZeroValueTokens, setHideZeroValueTokens] = useState(false);
 
-    filtered.sort((a, b) => {
-      let aValue: string | number = 0;
-      let bValue: string | number = 0;
+const filteredAndSortedTokens = useMemo(() => {
+  let tokensToShow = excludeTokenMint 
+    ? tokens.filter(token => token.mint !== excludeTokenMint)
+    : tokens;
 
-      switch (sortField) {
-        case 'symbol':
-          aValue = a.symbol.toLowerCase();
-          bValue = b.symbol.toLowerCase();
-          break;
-        case 'balance':
-          aValue = a.uiAmount;
-          bValue = b.uiAmount;
-          break;
-        case 'USD':
-          aValue = a.price || 0;
-          bValue = b.price || 0;
-          break;
-        case 'value':
-          aValue = a.value || 0;
-          bValue = b.value || 0;
-          break;
-      }
+  if (hideZeroValueTokens) {
+    tokensToShow = tokensToShow.filter(token => !(token.value === 0 && token.uiAmount > 0));
+  }
 
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortDirection === 'asc' 
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
+  const filtered = tokensToShow.filter(token =>
+    token.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    token.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
+  filtered.sort((a, b) => {
+    let aValue: string | number = 0;
+    let bValue: string | number = 0;
+
+    switch (sortField) {
+      case 'symbol':
+        aValue = a.symbol.toLowerCase();
+        bValue = b.symbol.toLowerCase();
+        break;
+      case 'balance':
+        aValue = a.uiAmount;
+        bValue = b.uiAmount;
+        break;
+      case 'USD':
+        aValue = a.price || 0;
+        bValue = b.price || 0;
+        break;
+      case 'value':
+        aValue = a.value || 0;
+        bValue = b.value || 0;
+        break;
+    }
+
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
       return sortDirection === 'asc' 
-        ? (aValue as number) - (bValue as number)
-        : (bValue as number) - (aValue as number);
-    });
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
+    }
 
-    return filtered;
-  }, [tokens, searchTerm, sortField, sortDirection, excludeTokenMint]);
+    return sortDirection === 'asc' 
+      ? (aValue as number) - (bValue as number)
+      : (bValue as number) - (aValue as number);
+  });
+
+  return filtered;
+}, [tokens, searchTerm, sortField, sortDirection, excludeTokenMint, hideZeroValueTokens]);
+
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -195,15 +479,15 @@ export function TokenTable({
     }
   };
 
-  const visibleTokens = excludeTokenMint 
-    ? tokens.filter(token => token.mint !== excludeTokenMint)
-    : tokens;
-  const visibleSelectedTokens = excludeTokenMint
-    ? selectedTokens.filter(token => token.mint !== excludeTokenMint)
-    : selectedTokens;
+  // const visibleTokens = excludeTokenMint 
+  //   ? tokens.filter(token => token.mint !== excludeTokenMint)
+  //   : tokens;
+  // const visibleSelectedTokens = excludeTokenMint
+  //   ? selectedTokens.filter(token => token.mint !== excludeTokenMint)
+  //   : selectedTokens;
   
-  const allSelected = visibleTokens.length > 0 && visibleSelectedTokens.length === visibleTokens.length;
-  const someSelected = visibleSelectedTokens.length > 0 && visibleSelectedTokens.length < visibleTokens.length;
+  // const allSelected = visibleTokens.length > 0 && visibleSelectedTokens.length === visibleTokens.length;
+  // const someSelected = visibleSelectedTokens.length > 0 && visibleSelectedTokens.length < visibleTokens.length;
 
   const failedTokens = useMemo(() => 
     tokens.filter(token => token.value === 0 && token.uiAmount > 0),
@@ -217,18 +501,15 @@ export function TokenTable({
     setRetryProgress({ current: 0, total: failedTokens.length });
     
     try {
-      console.log(`retrying ${failedTokens.length} failed tokens...`);
-      
-      const retriedTokens = await tokenService.retryFailedTokens(
-        failedTokens,
-        (progress: PriceProgress) => {
-          setRetryProgress({
-            current: progress.current,
-            total: progress.total
-          });
-          console.log(`retry Progress: ${progress.current}/${progress.total} - ${progress.currentToken}`);
-        }
-      );
+      // const retriedTokens = await tokenService.retryFailedTokens(
+      //   failedTokens,
+      //   (progress: PriceProgress) => {
+      //     setRetryProgress({
+      //       current: progress.current,
+      //       total: progress.total
+      //     });
+      //   }
+      // );
       
       if (onRefreshPrices) {
         onRefreshPrices();
@@ -243,17 +524,87 @@ export function TokenTable({
 
   const isRetryLoading = retryLoading && retryProgress.total > 0;
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleHeaderDragEnd = (event: any) => {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      const oldIndex = columns.findIndex(col => col.id === active.id);
+      const newIndex = columns.findIndex(col => col.id === over.id);
+      reorderColumns(oldIndex, newIndex);
+    }
+  };
+
+  const visibleColumns = columns.filter(col => col.visible);
+
+  const renderTableCell = (token: TokenBalance, columnId: string) => {
+    switch (columnId) {
+      case 'select':
+        return (
+          <input
+            type="checkbox"
+            checked={token.selected}
+            onChange={(e) => onTokenSelect(token.mint, e.target.checked)}
+            className="rounded-lg bg-gray-700 border-gray-600 text-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200"
+          />
+        );
+      
+      case 'symbol':
+        return (
+          <div className="flex items-center space-x-2 sm:space-x-3 lowercase">
+            <TokenLogo token={token} size={8} />
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-sm sm:text-base text-white truncate">
+                {token.symbol}
+              </div>
+              <div className="text-xs text-gray-400 truncate">{token.name}</div>
+            </div>
+          </div>
+        );
+      
+      case 'balance':
+        return (
+          <div className="text-right text-xs sm:text-sm font-mono text-gray-200">
+            {token.uiAmount < 0.0001 ? token.uiAmount.toExponential(2) : token.uiAmount.toFixed(4)}
+          </div>
+        );
+      
+      case 'price':
+        return (
+          <div className="text-right text-xs sm:text-sm font-mono text-gray-200">
+            {token.price ? `$${token.price < 0.01 ? token.price.toExponential(2) : token.price.toFixed(2)}` : '- -'}
+          </div>
+        );
+      
+      case 'value':
+        return (
+          <div className={`text-right text-xs sm:text-sm font-mono font-semibold ${
+            token.value > 0 ? 'text-green-400' : 'text-gray-400'
+          }`}>
+            {token.value ? `$${token.value.toFixed(2)}` : '$0.00'}
+          </div>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
   if (loading || isRetryLoading) {
     const currentProgress = isRetryLoading ? retryProgress.current : processingProgress;
     const currentTotal = isRetryLoading ? retryProgress.total : totalToProcess;
     const loadingText = isRetryLoading ? 'retrying failed tokens...' : 'fetching prices...';
-
-    console.log('rendering loading state:', {
-      currentProgress,
-      currentTotal,
-      progressPercentage: currentTotal > 0 ? (currentProgress / currentTotal) * 100 : 0,
-      isRetryLoading
-    });
 
     return (
       <div className="flex flex-col items-center justify-center py-12 space-y-6">
@@ -276,230 +627,188 @@ export function TokenTable({
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 mobile-optimized">
-      {portfolioHistory && portfolioHistory.length > 0 && (
-        <CollapsibleSection 
-          title="performance"
-          defaultOpen={true}
-        >
-          <PortfolioChart 
-            className="w-full"
-            portfolioHistory={portfolioHistory}
-            livePortfolioValue={totalPortfolioValue}
-            liveTokenCount={tokens.length}
-            liveWalletCount={1}
-            mode="tokentable"
+  <div className="space-y-4 sm:space-y-6 mobile-optimized">
+    {/* Performance Chart */}
+    {portfolioHistory && portfolioHistory.length > 0 && (
+      <CollapsibleSection 
+        title="performance"
+        defaultOpen={true}
+        className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-900/30 shadow-xl"
+      >
+        <PortfolioChart 
+          className="w-full"
+          portfolioHistory={portfolioHistory}
+          livePortfolioValue={totalPortfolioValue}
+          liveTokenCount={tokens.length}
+          liveWalletCount={1}
+          mode="tokentable"
+        />
+      </CollapsibleSection>
+    )}
+
+    {/* Search */}
+    <CollapsibleSection 
+      title="search"
+      defaultOpen={true}
+      className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl"
+    >
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 sm:h-5 sm:w-5" />
+          <input
+            type="text"
+            placeholder="search tokens by name or symbol..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="lowercase w-full pl-10 pr-4 py-3 sm:py-3.5 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base placeholder-gray-400 transition-all duration-200 backdrop-blur-sm"
           />
-        </CollapsibleSection>
-      )}
-
-      {/* Portfolio Summary
-      <CollapsibleSection 
-        title="portfolio summary"
-        defaultOpen={true}
-      >
-        <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-lg p-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <div className="text-xs sm:text-sm text-gray-300">total portfolio value</div>
-              <div className="text-xl sm:text-2xl font-bold text-white">
-                ${totalPortfolioValue.toFixed(2)}
-              </div>
-              <div className="text-xs text-gray-400 mt-1">
-                {tokens.length} tokens • {filteredAndSortedTokens.length} visible
-                {failedTokens.length > 0 && ` • ${failedTokens.length} failed`}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs sm:text-sm text-gray-300">selected value</div>
-              <div className="text-lg font-semibold text-white">
-                ${totalSelectedValue.toFixed(2)}
-              </div>
-            </div>
-          </div>
         </div>
-      </CollapsibleSection> */}
-
-      {/* Search and Filters */}
-      <CollapsibleSection 
-        title="search"
-        defaultOpen={true}
-      >
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <input
-              type="text"
-              placeholder="search tokens..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base"
-            />
-          </div>
-          
-          {failedTokens.length > 0 && (
-            <button
-              onClick={handleRetryFailedTokens}
-              disabled={retryLoading}
-              className="px-4 py-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg hover:bg-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium text-yellow-200"
-            >
-              {retryLoading ? (
-                <div className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-400"></div>
-                  retrying...
-                </div>
-              ) : (
-                `retry ${failedTokens.length} failed`
-              )}
-            </button>
-          )}
-        </div>
-
-        {/* Selected Summary */}
-        {selectedTokens.length > 0 && (
-          <div className="bg-purple-500/20 border border-purple-500/50 rounded-lg p-3 mt-3">
-            <div className="flex justify-between text-xs sm:text-sm">
-              <span>selected: {selectedTokens.length} tokens</span>
-              <span>total value: ${totalSelectedValue.toFixed(2)}</span>
-            </div>
-          </div>
+        
+        {failedTokens.length > 0 && (
+          <button
+            onClick={handleRetryFailedTokens}
+            disabled={retryLoading}
+            className="px-4 py-3 sm:py-3.5 bg-gradient-to-r from-gray-600/80 to-black-600/80 border border-gray-500/50 rounded-xl hover:from-gray-600 hover:to-black-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-sm font-medium text-white shadow-lg hover:shadow-gray-500/25 mobile-optimized"
+          >
+            {retryLoading ? (
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span className="text-xs sm:text-sm">retrying...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 sm:gap-3">
+                <RefreshCw className="h-4 w-4" />
+              </div>
+            )}
+          </button>
         )}
+      </div>
 
-        {/* Failed Tokens Alert */}
-        {/* {failedTokens.length > 0 && (
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mt-3">
-            <div className="flex justify-between items-center text-xs sm:text-sm">
-              <span className="text-yellow-200">
-                {failedTokens.length} tokens failed to load prices
+      {/* Selected Summary */}
+      {selectedTokens.length > 0 && (
+        <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-4 mt-4 backdrop-blur-sm">
+          <div className="flex justify-between items-center text-sm sm:text-base">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full animate-pulse"></div>
+              <span className="text-gray-200 font-medium">
+                {selectedTokens.length} token{selectedTokens.length !== 1 ? 's' : ''} selected
               </span>
-              <button
-                onClick={handleRetryFailedTokens}
-                disabled={retryLoading}
-                className="text-yellow-300 hover:text-yellow-200 disabled:opacity-50 text-xs"
-              >
-                {retryLoading ? 'retrying...' : 'retry now'}
-              </button>
             </div>
+            <span className="text-green-400 font-bold text-lg">
+              ${totalSelectedValue.toFixed(2)}
+            </span>
           </div>
-        )} */}
-      </CollapsibleSection>
+        </div>
+      )}
+    </CollapsibleSection>
 
-      {/* Token Table */}
-      <CollapsibleSection 
-        title="tokens"
-        defaultOpen={true}
+    {/* Token Table */}
+    <CollapsibleSection 
+      title={`tokens • ${filteredAndSortedTokens.length} of ${tokens.length}`}
+      defaultOpen={true}
+      className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl overflow-hidden"
+    >
+      <div className="flex items-center space-x-2">
+  <button
+    onClick={() => setHideZeroValueTokens(!hideZeroValueTokens)}
+    className="flex items-center space-x-1 p-1 hover:bg-gray-700/50 rounded transition-colors text-gray-400"
+  >
+    <span>hide zero value</span>
+    <ChevronDown
+      className={`h-4 w-4 transition-transform duration-200 ${
+        hideZeroValueTokens ? 'rotate-180' : ''
+      }`}
+    />
+  </button>
+</div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleHeaderDragEnd}
       >
-        <div className="overflow-x-auto mobile-scroll">
-          <table className="w-full min-w-[500px] sm:min-w-full token-table-mobile">
-            <thead>
-              <tr className="border-b border-gray-700">
-                <th className="text-left py-2 sm:py-3 px-1 sm:px-2 w-10 sm:w-12">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    ref={(input) => {
-                      if (input) {
-                        input.indeterminate = someSelected;
-                      }
-                    }}
-                    onChange={(e) => onSelectAll(e.target.checked)}
-                    className="rounded bg-gray-700 border-gray-600 text-purple-500 focus:ring-purple-500 w-4 h-4 sm:w-5 sm:h-5"
-                  />
-                </th>
-                <th 
-                  className="text-left py-2 sm:py-3 px-1 sm:px-2 cursor-pointer hover:bg-gray-700/50 rounded transition-colors"
-                  onClick={() => handleSort('symbol')}
-                >
-                  <div className="flex items-center space-x-1">
-                    <span className="text-xs sm:text-sm">symbol</span>
-                    <SortIcon field="symbol" sortField={sortField} sortDirection={sortDirection} />
-                  </div>
-                </th>
-                <th 
-                  className="text-right py-2 sm:py-3 px-1 sm:px-2 cursor-pointer hover:bg-gray-700/50 rounded transition-colors"
-                  onClick={() => handleSort('balance')}
-                >
-                  <div className="flex items-center justify-end space-x-1">
-                    <span className="text-xs sm:text-sm">quantity</span>
-                    <SortIcon field="balance" sortField={sortField} sortDirection={sortDirection} />
-                  </div>
-                </th>
-                <th 
-                  className="text-right py-2 sm:py-3 px-1 sm:px-2 cursor-pointer hover:bg-gray-700/50 rounded transition-colors"
-                  onClick={() => handleSort('USD')}
-                >
-                  <div className="flex items-center justify-end space-x-1">
-                    <span className="text-xs sm:text-sm">price</span>
-                    <SortIcon field="USD" sortField={sortField} sortDirection={sortDirection} />
-                  </div>
-                </th>
-                <th 
-                  className="text-right py-2 sm:py-3 px-1 sm:px-2 cursor-pointer hover:bg-gray-700/50 rounded transition-colors"
-                  onClick={() => handleSort('value')}
-                >
-                  <div className="flex items-center justify-end space-x-1">
-                    <span className="text-xs sm:text-sm">value</span>
-                    <SortIcon field="value" sortField={sortField} sortDirection={sortDirection} />
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAndSortedTokens.map((token) => (
-                <tr 
-                  key={token.mint} 
-                  className={`border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors ${
-                    token.value === 0 && token.uiAmount > 0 ? 'opacity-60' : ''
-                  }`}
-                >
-                  <td className="py-2 sm:py-3 px-1 sm:px-2">
-                    <input
-                      type="checkbox"
-                      checked={token.selected}
-                      onChange={(e) => onTokenSelect(token.mint, e.target.checked)}
-                      className="rounded bg-gray-700 border-gray-600 text-purple-500 focus:ring-purple-500 w-4 h-4 sm:w-5 sm:h-5"
+        <SortableContext 
+          items={visibleColumns.map(col => col.id)} 
+          strategy={horizontalListSortingStrategy}
+        >
+          <div className="overflow-x-auto mobile-scroll">
+            <table className="w-full min-w-[500px] sm:min-w-full token-table-mobile">
+              <thead>
+                <tr className="border-b border-gray-700/70 bg-gray-800/50 backdrop-blur-sm">
+                  
+                  {/* Render only <th> elements */}
+                  {visibleColumns.map((column) => (
+                    <ResizableTableHeader
+                      key={column.id}
+                      column={column}
+                      onResize={updateColumnWidth}
+                      onSort={handleSort}
+                      sortField={sortField}
+                      sortDirection={sortDirection}
                     />
-                  </td>
-                  <td className="py-2 sm:py-3 px-1 sm:px-2">
-                    <div className="flex items-center space-x-2 sm:space-x-3 lowercase">
-                      <TokenLogo token={token} size={8} />
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium text-sm sm:text-base truncate">
-                          {token.symbol}
-                          {token.value === 0 && token.uiAmount > 0 && (
-                            <span className="ml-1 text-yellow-500 text-xs"></span>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-400 truncate">{token.name}</div>
-                      </div>
+                  ))}
+
+                  {/* Settings column */}
+                  <th className="py-3 sm:py-4 px-2 sm:px-4 w-12 bg-gray-800/50">
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowColumnPanel(!showColumnPanel)}
+                        className="p-1 hover:bg-gray-700/50 rounded transition-colors"
+                      >
+                        <Settings className="h-4 w-4 text-gray-400" />
+                      </button>
+                      
+                      <ColumnCustomizationPanel
+                        columns={columns}
+                        onToggleVisibility={toggleColumnVisibility}
+                        onReorder={reorderColumns}
+                        onReset={resetColumns}
+                        isOpen={showColumnPanel}
+                        onClose={() => setShowColumnPanel(false)}
+                      />
                     </div>
-                  </td>
-                  <td className="text-right py-2 sm:py-3 px-1 sm:px-2 text-xs sm:text-sm">
-                    {token.uiAmount < 0.0001 ? token.uiAmount.toExponential(2) : token.uiAmount.toFixed(4)}
-                  </td>
-                  <td className="text-right py-2 sm:py-3 px-1 sm:px-2 text-xs sm:text-sm">
-                    {token.price ? `$${token.price < 0.01 ? token.price.toExponential(2) : token.price.toFixed(2)}` : '$0.00'}
-                  </td>
-                  <td className="text-right py-2 sm:py-3 px-1 sm:px-2 text-xs sm:text-sm font-medium">
-                    {token.value ? `$${token.value.toFixed(2)}` : '$0.00'}
-                  </td>
+                  </th>
+
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
 
-          {filteredAndSortedTokens.length === 0 && (
-            <div className="text-center py-6 sm:py-8 text-gray-400 text-sm sm:text-base">
-              {tokens.length === 0 ? 'no tokens found' : 'no tokens match your search'}
-            </div>
-          )}
-        </div>
+              <tbody>
+                {filteredAndSortedTokens.map((token, index) => (
+                  <tr 
+                    key={token.mint} 
+                    className={`border-b border-gray-700/30 hover:bg-gray-700/40 transition-all duration-200 group ${
+                      token.value === 0 && token.uiAmount > 0 ? 'opacity-70' : ''
+                    } ${index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'}`}
+                  >
+                    {visibleColumns.map(column => (
+                      <td 
+                        key={column.id}
+                        style={{ width: column.width }}
+                        className="py-3 sm:py-4 px-2 sm:px-4"
+                      >
+                        {renderTableCell(token, column.id)}
+                      </td>
+                    ))}
+                    
+                    {/* Empty cell for settings column */}
+                    <td className="py-3 sm:py-4 px-2 sm:px-4"></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SortableContext>
+      </DndContext>
 
-        {/* Mobile Footer Info */}
-        <div className="sm:hidden text-center text-xs text-gray-500 pt-2">
-          scroll horizontally to view all columns
+      {/* Mobile Footer */}
+      <div className="sm:hidden text-center text-xs text-gray-500 pt-3 pb-2 border-t border-gray-700/30 mt-2">
+        <div className="flex items-center justify-center space-x-2">
+          <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
+          <span>scroll horizontally to view all columns</span>
+          <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
         </div>
-      </CollapsibleSection>
-    </div>
-  );
+      </div>
+
+    </CollapsibleSection>
+  </div>
+);
 }

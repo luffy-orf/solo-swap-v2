@@ -151,7 +151,6 @@ export function LoadingBar({
   }, [totalItems, currentProcessed, durationPerItem]);
 
   useEffect(() => {
-    console.log('loadingbar reset - totalitems:', totalItems, 'currentprocessed:', currentProcessed);
     
     startTimeRef.current = Date.now();
     previousProcessedRef.current = 0;
@@ -170,11 +169,6 @@ export function LoadingBar({
 
   useEffect(() => {
     if (currentProcessed > previousProcessedRef.current) {
-      console.log('progress update:', {
-        currentProcessed,
-        totalItems,
-        progress: (currentProcessed / totalItems) * 100
-      });
       previousProcessedRef.current = currentProcessed;
     }
 
@@ -305,6 +299,7 @@ function CollapsibleSection({ title, children, defaultOpen = true, className = '
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   const { connection } = useConnection();
   const { publicKey } = useWallet();
@@ -326,8 +321,53 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   const [addingWallet, setAddingWallet] = useState(false);
   const [portfolioHistory, setPortfolioHistory] = useState<PortfolioHistory[]>([]);
   const [lastLoadedPortfolioValue, setLastLoadedPortfolioValue] = useState<number>(0);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loadingLastValue, setLoadingLastValue] = useState<boolean>(false);
   const [chartDataLoaded, setChartDataLoaded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [targetToken, setTargetToken] = useState<any>(null);
+
+  const searchTokens = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(`https://lite-api.jup.ag/tokens/v2/search?query=${encodeURIComponent(query)}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const tokens = await response.json();
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const formattedResults = tokens.slice(0, 20).map((token: any) => ({
+        mint: token.id,
+        symbol: token.symbol,
+        name: token.name,
+        logoURI: token.icon,
+        decimals: token.decimals,
+        uiAmount: 0,
+        value: 0,
+        price: 0
+      }));
+      
+      setSearchResults(formattedResults);
+      
+    } catch (error) {
+      console.error('Token search failed:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const [loadingProgress, setLoadingProgress] = useState({
     totalItems: 0,
@@ -365,8 +405,9 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
 
     const loadPortfolioHistory = async () => {
       try {
+        const anonymizedKey = encryptionService.anonymizePublicKey(publicKey.toString());
         const historyQuery = query(
-          collection(db, 'solo-users', publicKey.toString(), 'portfolioHistory'),
+          collection(db, 'solo-users', anonymizedKey, 'portfolioHistory'),
           orderBy('timestamp', 'asc')
         );
         const querySnapshot = await getDocs(historyQuery);
@@ -411,13 +452,6 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
         
         setPortfolioHistory(history);
         setChartDataLoaded(true);
-        
-        console.log('loaded encrypted multi-wallet portfolio history:', {
-          totalRecords: querySnapshot.docs.length,
-          successfullyDecrypted: successfulDecryptions,
-          decryptionErrors: decryptionErrors,
-          finalHistoryCount: history.length
-        });
 
         if (decryptionErrors > 0) {
           console.warn(`${decryptionErrors} records could not be decrypted and were skipped`);
@@ -463,7 +497,6 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
         const totalLastValue = wallets.reduce((sum, wallet) => sum + (wallet.lastTotalValue || 0), 0);
         setLastLoadedPortfolioValue(totalLastValue);
         
-        console.log('loaded wallets:', wallets.length, 'last portfolio value:', totalLastValue);
       } catch (err) {
         console.error('failed to load saved wallets:', err);
       } finally {
@@ -490,21 +523,11 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
     };
 
     try {
-      console.log('saving wallet:', { 
-        address, 
-        nickname, 
-        isDomain, 
-        user: publicKey.toString(),
-        collectionPath: `solo-users/${publicKey.toString()}/wallets`
-      });
       
       const walletRef = doc(collection(db, 'solo-users', publicKey.toString(), 'wallets'));
       
-      console.log('firestore path:', walletRef.path);
-      
       await setDoc(walletRef, walletData);
       
-      console.log('wallet saved successfully to:', walletRef.path);
       return { id: walletRef.id, ...walletData };
       
     } catch (error) {
@@ -531,11 +554,11 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
     }
 
     if (totalValue <= 0) {
-      console.log('skipping portfolio history save: totalValue is 0');
       return;
     }
 
     try {
+      const anonymizedKey = encryptionService.anonymizePublicKey(publicKey.toString());
       const portfolioData = {
         totalValue,
         walletCount,
@@ -563,20 +586,9 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
         }
       };
 
-      console.log('saving encrypted portfolio history:', {
-        timestamp: historyData.timestamp.toDate(),
-        userId: historyData.userId,
-        dataEncrypted: true,
-        metadata: historyData.metadata
-      });
-
-      const historyRef = doc(collection(db, 'solo-users', publicKey.toString(), 'portfolioHistory'));
-      
-      console.log('firestore path:', historyRef.path);
+      const historyRef = doc(collection(db, 'solo-users', anonymizedKey, 'portfolioHistory')); 
       
       await setDoc(historyRef, historyData);
-      
-      console.log('successfully saved encrypted portfolio history to firestore');
       
       setPortfolioHistory(prev => {
         const newHistory = [...prev, {
@@ -589,7 +601,6 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
         newHistory.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
         const trimmedHistory = newHistory.slice(-100);
         
-        console.log('updated portfolio history state:', trimmedHistory.length, 'records');
         return trimmedHistory;
       });
 
@@ -621,8 +632,6 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
           ? { ...w, lastAnalyzed: new Date(), lastTotalValue: totalValue }
           : w
       ));
-      
-      console.log('updated last analyzed for wallet:', walletAddress, 'with value:', totalValue);
     } catch (error) {
       console.error('failed to update last analyzed:', error);
     }
@@ -639,35 +648,20 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   const resolveDomain = async (domain: string): Promise<string> => {
   try {
     const cleanDomain = domain.replace('@', '').toLowerCase().trim();
-    console.log(`resolving domain: ${cleanDomain}`);
 
     try {
-      console.log('trying spl name service resolution...');
       const { getDomainKey, NameRegistryState } = await import('@bonfida/spl-name-service');
       
       const { pubkey } = await getDomainKey(cleanDomain);
       const registry = await NameRegistryState.retrieve(connection, pubkey);
       const owner = registry.registry.owner.toBase58();
       
-      console.log(`resolved ${cleanDomain} to: ${owner} via spl name service`);
       return owner;
     } catch (snsError) {
       console.warn('spl name service resolution failed:', snsError);
     }
 
-    // try {
-    //   console.log('trying getDomainOwner rpc method...');
-    //   const domainOwner = await connection.getDomainOwner(cleanDomain);
-    //   if (domainOwner) {
-    //     console.log(`resolved ${cleanDomain} to: ${domainOwner.toBase58()} via getDomainOwner`);
-    //     return domainOwner.toBase58();
-    //   }
-    // } catch (domainOwnerError) {
-    //   console.warn('getDomainOwner resolution failed:', domainOwnerError);
-    // }
-
     try {
-      console.log('trying enhanced helius rpc resolution...');
       const response = await fetch(connection.rpcEndpoint, {
         method: 'POST',
         headers: {
@@ -685,7 +679,6 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
 
       const data = await response.json();
       if (data.result && data.result.owner) {
-        console.log(`resolved ${cleanDomain} to: ${data.result.owner} via helius enhanced api`);
         return data.result.owner;
       }
     } catch (heliusError) {
@@ -693,13 +686,11 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
     }
 
     try {
-      console.log('trying bonfida api fallback...');
       const response = await fetch(`https://sns-sdk-proxy.bonfida.workers.dev/resolve/${cleanDomain}`);
       
       if (response.ok) {
         const data = await response.json();
         if (data?.address) {
-          console.log(`resolved ${cleanDomain} to: ${data.address} via bonfida api`);
           return data.address;
         }
       }
@@ -757,11 +748,9 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
     let isDomainAddress = false;
 
     if (isDomain(address)) {
-      console.log('resolving domain:', address);
       try {
         address = await resolveDomain(address);
         isDomainAddress = true;
-        console.log('resolved to address:', address);
       } catch (resolveError) {
         const errorMsg = resolveError instanceof Error ? resolveError.message : 'unknown resolution error';
         
@@ -788,13 +777,6 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
       throw new Error(`this wallet is already saved as: ${existingName}`);
     }
 
-    console.log('saving wallet:', {
-      address,
-      nickname: walletNickname,
-      isDomain: isDomainAddress,
-      user: publicKey.toString()
-    });
-
     const savedWallet = await saveWalletToFirestore(
       address, 
       walletNickname || undefined, 
@@ -807,7 +789,6 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
     if (!existingResult) {
       await analyzeWallet(address, walletNickname, isDomainAddress);
     } else {
-      console.log('wallet already analyzed, skipping analysis');
       if (walletNickname) {
         setResults(prev => prev.map(r => 
           r.walletAddress === address 
@@ -816,9 +797,7 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
         ));
       }
     }
-    
-    console.log('wallet added successfully');
-    
+
     setWalletInput('');
     setWalletNickname('');
     
@@ -845,7 +824,6 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
   setError('');
 
   try {
-    console.log('analyzing wallet:', walletAddress);
 
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -855,9 +833,7 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
       tokenBalances = await tokenService.getTokenBalances(walletAddress);
       
       if (tokenBalances.length === 0) {
-        console.log('no tokens found in wallet:', walletAddress);
       } else {
-        console.log(`found ${tokenBalances.length} tokens in wallet:`, walletAddress);
       }
     } catch (balanceError) {
       console.error('failed to fetch token balances:', balanceError);
@@ -870,8 +846,6 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
       
       return (isSol && hasBalance) || (!isSol && hasBalance);
     });
-
-    console.log(`filtered to ${potentiallyValuableTokens.length} potentially valuable tokens`);
 
     let valuableTokens: TokenBalance[] = [];
     
@@ -886,8 +860,6 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
           
           return (isSol && hasBalance) || (!isSol && hasValue && hasBalance);
         });
-        
-        console.log(`final valuable tokens: ${valuableTokens.length}`);
       } catch (priceError) {
         console.error('price fetching failed:', priceError);
         valuableTokens = potentiallyValuableTokens.map(token => ({
@@ -895,8 +867,6 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
           value: 0,
           price: 0
         }));
-        
-        console.log('using tokens with zero value due to price API failure');
       }
     }
 
@@ -922,14 +892,6 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
     });
 
     await updateWalletLastAnalyzed(walletAddress, totalValue);
-
-    console.log('analysis complete:', {
-      wallet: walletAddress,
-      tokens: valuableTokens.length,
-      totalValue,
-      analyzedAt: result.analyzedAt,
-      solBalance: valuableTokens.find(t => t.symbol.toLowerCase() === 'sol')?.uiAmount || 0
-    });
 
     if (valuableTokens.length === 0) {
       setError('no valuable tokens found in this wallet (all non-sol tokens < $0.01 value)');
@@ -976,7 +938,6 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
   });
 
   try {
-    console.log(`starting sequential analysis of ${savedWallets.length} wallets...`);
     
     const analysisStartTime = Date.now();
     let successfulAnalyses = 0;
@@ -990,7 +951,6 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
 
     for (let i = 0; i < savedWallets.length; i++) {
       const wallet = savedWallets[i];
-      console.log(`analyzing wallet ${i + 1}/${savedWallets.length}: ${wallet.address}`);
       
       setLoadingProgress(prev => ({
         ...prev,
@@ -1008,13 +968,11 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
         failedAnalyses++;
         
         if (err instanceof Error && (err.message.includes('rate limit') || err.message.includes('429'))) {
-          console.log('rate limited, waiting 10 secs...');
           await new Promise(resolve => setTimeout(resolve, 10000));
         }
       }
       
       if (i < savedWallets.length - 1) {
-        console.log(`waiting 3 seconds before next wallet analysis...`);
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
@@ -1030,20 +988,10 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
 
     const totalPortfolioValue = newResults.reduce((sum, result) => sum + result.totalValue, 0);
     const totalTokens = newResults.reduce((sum, result) => sum + result.tokens.length, 0);
-    
-    console.log('final portfolio summary for saving:', {
-      totalValue: totalPortfolioValue,
-      walletCount: newResults.length,
-      tokenCount: totalTokens,
-      resultsCount: newResults.length,
-      results: newResults.map(r => ({ wallet: r.walletAddress, value: r.totalValue }))
-    });
 
     if (totalPortfolioValue > 0 && newResults.length > 0) {
       await savePortfolioHistory(totalPortfolioValue, newResults.length, totalTokens);
-      console.log('portfolio history saved successfully');
     } else {
-      console.log('skipping portfolio history save: total value is 0 or no results');
     }
 
     const event = new CustomEvent('portfolioAnalysisComplete', {
@@ -1057,15 +1005,11 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
     window.dispatchEvent(event);
 
     if (typeof window !== 'undefined' && typeof window.refreshPortfolioChart === 'function') {
-      console.log('triggering portfolio chart refresh');
       window.refreshPortfolioChart();
     }
 
     window.dispatchEvent(new CustomEvent('portfolioUpdated'));
     localStorage.setItem('portfolioDataUpdated', Date.now().toString());
-
-    const analysisTime = Date.now() - analysisStartTime;
-    console.log(`completed analysis of ${successfulAnalyses}/${savedWallets.length} wallets in ${analysisTime}ms`);
     
     if (failedAnalyses > 0) {
       setError(`completed with ${failedAnalyses} failed analyses. check console for details.`);
@@ -1214,7 +1158,7 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
     } else {
       return Math.min(amount, selectedTokensValue);
     }
-  }, [liquidationAmount, liquidationType, selectedTokensValue]);
+  }, [allTokens.length, liquidationAmount, liquidationType, selectedTokensValue]);
 
   const calculateProRataAmounts = () => {
     if (allTokens.length === 0 || liquidationValue <= 0 || selectedTokens.size === 0) return [];
@@ -1246,61 +1190,75 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
   const remainingPortfolioValue = totalPortfolioValue - liquidationValue;
 
   const generateShoppingList = () => {
-    if (allTokens.length === 0) return '';
+  if (allTokens.length === 0) return '';
 
-    const selectedTokenData = allTokens.filter(token => selectedTokens.has(token.mint));
-    const selectedTokensValue = selectedTokenData.reduce((sum, token) => sum + (token.value || 0), 0);
+  const selectedTokenData = allTokens.filter(token => selectedTokens.has(token.mint));
+  const selectedTokensValue = selectedTokenData.reduce((sum, token) => sum + (token.value || 0), 0);
 
-    const sortedSelectedTokens = [...selectedTokenData].sort((a, b) => (b.value || 0) - (a.value || 0));
-    const sortedProRataTokens = [...proRataTokens].sort((a, b) => (b.value || 0) - (a.value || 0));
+  const sortedSelectedTokens = [...selectedTokenData].sort((a, b) => (b.value || 0) - (a.value || 0));
+  const sortedProRataTokens = [...proRataTokens].sort((a, b) => (b.value || 0) - (a.value || 0));
 
-    const header = `💰 multi-wallet pro-rata swap shopping list\n`;
-    const timestamp = `generated: ${new Date().toLocaleString()}\n`;
-    
-    const walletSummary = results.map(result => 
-      `• ${result.nickname || (result.isDomain ? result.walletAddress : `${result.walletAddress.slice(0, 8)}...${result.walletAddress.slice(-6)}`)}: $${result.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    ).join('\n');
-    
-    const summary = `total portfolio value: $${totalPortfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\nwallets analyzed: ${results.length}\n${walletSummary}\n\nselected tokens: ${selectedTokens.size}/${allTokens.length}\nselected value: $${selectedTokensValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n`;
-    
-    let tokenList: string;
-    
-    if (hasLiquidation) {
-      tokenList = sortedProRataTokens.map((token, index) => {
+  const header = `💰 multi-wallet pro-rata swap shopping list\n`;
+  const timestamp = `generated: ${new Date().toLocaleString()}\n`;
+  
+  const targetInfo = targetToken ? `swapping to: ${targetToken.symbol} (${targetToken.name})\n` : '';
+  
+  const walletSummary = results.map(result => 
+    `• ${result.nickname || (result.isDomain ? result.walletAddress : `${result.walletAddress.slice(0, 8)}...${result.walletAddress.slice(-6)}`)}: $${result.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  ).join('\n');
+  
+  const summary = `total portfolio value: $${totalPortfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\nwallets analyzed: ${results.length}\n${walletSummary}\n\n${targetInfo}selected tokens: ${selectedTokens.size}/${allTokens.length}\nselected value: $${selectedTokensValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n`;
+  
+  let tokenList: string;
+  
+  if (hasLiquidation) {
+    tokenList = sortedProRataTokens.map((token, index) => {
+      const portfolioPercentage = totalPortfolioValue > 0 ? ((token.value || 0) / totalPortfolioValue * 100) : 0;
+      const selectedPercentage = selectedTokensValue > 0 ? ((token.value || 0) / selectedTokensValue * 100) : 0;
+      
+      return `${(index + 1).toString().padStart(2)}. ${token.symbol.padEnd(8)} | ${token.swapAmount.toLocaleString(undefined, { maximumFractionDigits: 6 }).padStart(15)} | $${token.liquidationAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(12)} | ${selectedPercentage.toFixed(1).padStart(5)}% sel | ${portfolioPercentage.toFixed(1).padStart(5)}% port | ${token.sourceNickname}`;
+    }).join('\n');
+  } else {
+    tokenList = sortedSelectedTokens
+      .map((token, index) => {
         const portfolioPercentage = totalPortfolioValue > 0 ? ((token.value || 0) / totalPortfolioValue * 100) : 0;
         const selectedPercentage = selectedTokensValue > 0 ? ((token.value || 0) / selectedTokensValue * 100) : 0;
         
-        return `${(index + 1).toString().padStart(2)}. ${token.symbol.padEnd(8)} | ${token.swapAmount.toLocaleString(undefined, { maximumFractionDigits: 6 }).padStart(15)} | $${token.liquidationAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(12)} | ${selectedPercentage.toFixed(1).padStart(5)}% sel | ${portfolioPercentage.toFixed(1).padStart(5)}% port | ${token.sourceNickname}`;
+        return `${(index + 1).toString().padStart(2)}. ${token.symbol.padEnd(8)} | ${token.uiAmount.toLocaleString(undefined, { maximumFractionDigits: 6 }).padStart(15)} | $${(token.value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(12)} | ${selectedPercentage.toFixed(1).padStart(5)}% sel | ${portfolioPercentage.toFixed(1).padStart(5)}% port | ${token.sourceNickname}`;
       }).join('\n');
+  }
+
+  const liquidationInfo = hasLiquidation ? 
+    `\n💸 summary:\n` +
+    `liquidating: $${liquidationValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+    `of selected: ${((liquidationValue / selectedTokensValue) * 100).toFixed(1)}%\n` +
+    `remaining portfolio: $${remainingPortfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` : '';
+
+  const footer = `\n💡 instructions:\n` +
+    `• use this list with your multisig wallet for pro-rata swaps\n` +
+    `• tokens are ordered by value (highest to lowest)\n` +
+    `• "sel" = percentage of selected tokens\n` +
+    `• "port" = percentage of total portfolio\n` +
+    `• source shows which wallet holds each token`;
+
+  const columnHeaders = 
+    'no. token    |           amount |        value |  share |  share | source\n' +
+    '-- ---------- | ---------------- | ------------ | ------ | ------ | ---------\n';
+
+  return header + timestamp + summary + liquidationInfo + columnHeaders + tokenList + '\n\n' + footer;
+};
+
+useEffect(() => {
+  const delayDebounceFn = setTimeout(() => {
+    if (searchQuery.trim()) {
+      searchTokens(searchQuery);
     } else {
-      tokenList = sortedSelectedTokens
-        .map((token, index) => {
-          const portfolioPercentage = totalPortfolioValue > 0 ? ((token.value || 0) / totalPortfolioValue * 100) : 0;
-          const selectedPercentage = selectedTokensValue > 0 ? ((token.value || 0) / selectedTokensValue * 100) : 0;
-          
-          return `${(index + 1).toString().padStart(2)}. ${token.symbol.padEnd(8)} | ${token.uiAmount.toLocaleString(undefined, { maximumFractionDigits: 6 }).padStart(15)} | $${(token.value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(12)} | ${selectedPercentage.toFixed(1).padStart(5)}% sel | ${portfolioPercentage.toFixed(1).padStart(5)}% port | ${token.sourceNickname}`;
-        }).join('\n');
+      setSearchResults([]);
     }
+  }, 300);
 
-    const liquidationInfo = hasLiquidation ? 
-      `\n💸 summary:\n` +
-      `liquidating: $${liquidationValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
-      `of selected: ${((liquidationValue / selectedTokensValue) * 100).toFixed(1)}%\n` +
-      `remaining portfolio: $${remainingPortfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` : '';
-
-    const footer = `\n💡 instructions:\n` +
-      `• use this list with your multisig wallet for pro-rata swaps\n` +
-      `• tokens are ordered by value (highest to lowest)\n` +
-      `• "sel" = percentage of selected tokens\n` +
-      `• "port" = percentage of total portfolio\n` +
-      `• source shows which wallet holds each token`;
-
-    const columnHeaders = 
-      'no. token    |           amount |        value |  share |  share | source\n' +
-      '-- ---------- | ---------------- | ------------ | ------ | ------ | ---------\n';
-
-    return header + timestamp + summary + liquidationInfo + columnHeaders + tokenList + '\n\n' + footer;
-  };
+  return () => clearTimeout(delayDebounceFn);
+}, [searchQuery]);
 
   const copyShoppingList = async () => {
     const shoppingList = generateShoppingList();
@@ -1360,8 +1318,6 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
         throw new Error('no valid wallet data found in csv');
       }
 
-      console.log(`processing csv with ${wallets.length} wallets for user:`, publicKey.toString());
-
       let successfulImports = 0;
       let failedImports = 0;
       const errors: string[] = [];
@@ -1385,7 +1341,6 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
           let isDomainAddress = false;
 
           if (isDomain(address)) {
-            console.log(`resolving domain from csv: ${address}`);
             try {
               address = await resolveDomain(address);
               isDomainAddress = true;
@@ -1488,7 +1443,6 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
           });
           
           setSavedWallets(updatedWallets);
-          console.log('reloaded wallets after csv import:', updatedWallets.length);
         } catch (err) {
           console.error('failed to reload wallets after csv import:', err);
         }
@@ -1522,6 +1476,20 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
     }
   };
 
+  useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    const searchArea = document.querySelector('[data-search-area]');
+    if (searchArea && !searchArea.contains(event.target as Node)) {
+      setSearchResults([]);
+    }
+  };
+
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => {
+    document.removeEventListener('mousedown', handleClickOutside);
+  };
+}, []);
+
   const formatTimestamp = (date: Date) => {
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
@@ -1532,92 +1500,117 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white p-4">
+ <div className="min-h-screen text-white relative overflow-hidden">
+  {/* Keep the overlay but make it more transparent too */}
+  <div className="absolute inset-0 pointer-events-none" />
+  
+  <div className="relative z-10 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+        {/* Enhanced Header */}
+        <div className="flex items-center justify-between mb-6 sm:mb-8 p-4 sm:p-5 bg-gray-800/30 rounded-2xl backdrop-blur-xl border border-gray-700/50 shadow-lg">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-300 via-pink-300 to-purple-300 bg-clip-text text-transparent tracking-tight">
             solo: shop
           </h1>
           <div className="w-20"></div>
         </div>
 
-       {loadingProgress.isActive && (
-  <div className="mb-6 bg-gray-800/50 rounded-xl p-6 backdrop-blur-sm border border-gray-700">
-    <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
-      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-500"></div>
-      <span>analyzing wallets...</span>
-    </h3>
-    <LoadingBar
-      totalItems={loadingProgress.totalItems}
-      currentProcessed={loadingProgress.currentProcessed}
-      itemType={loadingProgress.itemType}
-      durationPerItem={3000}
-      className="mt-4"
-    />
-    <div className="mt-3 text-sm text-gray-400 text-center">
-      processing wallet {Math.min(loadingProgress.currentProcessed + 1, loadingProgress.totalItems)} of {loadingProgress.totalItems}
-      {loadingProgress.currentProcessed > 0 && (
-        <span className="ml-2 text-purple-400">
-          ({Math.round((loadingProgress.currentProcessed / loadingProgress.totalItems) * 100)}%)
-        </span>
-      )}
-    </div>
-  </div>
-)}
+        {/* Loading Progress */}
+        {loadingProgress.isActive && (
+          <div className="mb-6 bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl p-6">
+            <h3 className="text-lg font-semibold mb-4 flex items-center space-x-3">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
+              <span>analyzing wallets...</span>
+            </h3>
+            <LoadingBar
+              totalItems={loadingProgress.totalItems}
+              currentProcessed={loadingProgress.currentProcessed}
+              itemType={loadingProgress.itemType}
+              durationPerItem={3000}
+              className="mt-4"
+            />
+            <div className="mt-4 text-sm text-gray-400 text-center">
+              processing wallet {Math.min(loadingProgress.currentProcessed + 1, loadingProgress.totalItems)} of {loadingProgress.totalItems}
+              {loadingProgress.currentProcessed > 0 && (
+                <span className="ml-2 text-purple-400 font-medium">
+                  ({Math.round((loadingProgress.currentProcessed / loadingProgress.totalItems) * 100)}%)
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
-        {/* Help Section */}
+        {/* Instructions Section */}
         <CollapsibleSection 
           title="instructions"
           defaultOpen={true}
-          className="mb-6"
+          className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl mb-6"
         >
           <div className="flex items-start justify-between">
-            <p className="text-sm text-gray-300 flex-1">
-              enter multiple wallet addresses to generate a combined pro-rata swap shopping list for multisig wallets.
-              perfect for managing multiple treasury wallets and multisig setups that can&apos;t connect directly to dapps.
+            <p className="text-sm text-gray-300 flex-1 leading-relaxed">
+              enter multiple addresses to generate a combined pro-rata swapping list.
             </p>
             <button
               onClick={() => setShowHelp(!showHelp)}
-              className="ml-4 text-gray-400 hover:text-gray-300 transition-colors flex-shrink-0"
+              className="ml-4 p-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-xl transition-all duration-200 active:scale-95"
             >
-              <HelpCircle className="h-5 w-5" />
+              <HelpCircle className="h-5 w-5 text-gray-400 hover:text-gray-300" />
             </button>
           </div>
           
           {showHelp && (
-            <div className="mt-3 p-3 bg-purple-500/20 border border-purple-500/50 rounded-lg">
-              <h4 className="font-semibold text-sm mb-2">how to use:</h4>
-              <ul className="text-xs text-gray-300 space-y-1 lowercase">
-                <li>• add individual wallets or upload a csv with multiple addresses</li>
-                <li>• Wallets are saved to your account for future use</li>
-                <li>• Analyze all wallets at once to see combined portfolio</li>
-                <li>• Select tokens from any wallet for pro-rata calculations</li>
-                <li>• Generate shopping lists that maintain weights across all selected tokens</li>
-                <li>• Each token shows which wallet it comes from</li>
+            <div className="mt-4 p-4 bg-gradient-to-r from-purple-500/15 to-pink-500/15 border border-purple-500/30 rounded-xl backdrop-blur-sm">
+              <h4 className="font-semibold text-sm mb-3 text-purple-400">how to use:</h4>
+              <ul className="text-sm text-gray-300 space-y-2 lowercase">
+                <li className="flex items-center space-x-2">
+                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                  <span>add individual wallets or upload a csv with multiple addresses</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                  <span>wallets are saved to your account for future use</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                  <span>analyze all wallets at once to see combined portfolio</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                  <span>select tokens from any wallet for pro-rata calculations</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                  <span>generate shopping lists that maintain weights across all selected tokens</span>
+                </li>
+                <li className="flex items-center space-x-2">
+                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                  <span>each token shows which wallet it comes from</span>
+                </li>
               </ul>
             </div>
           )}
         </CollapsibleSection>
 
+        {/* Last Total Section */}
         {savedWallets.length > 0 && lastLoadedPortfolioValue > 0 && (
           <CollapsibleSection 
             title="last total"
             defaultOpen={true}
-            className="mb-6"
+            className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl mb-6"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <Clock className="h-5 w-5 text-blue-400" />
+                <div className="p-2 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl border border-blue-500/30">
+                  <Clock className="h-5 w-5 text-blue-400" />
+                </div>
                 <div>
-                  <h3 className="font-medium text-sm">last loaded total</h3>
-                  <p className="text-xs text-gray-300">
+                  <h3 className="font-medium text-sm text-gray-200">last loaded total</h3>
+                  <p className="text-xs text-gray-400">
                     based on previous analysis of {savedWallets.length} wallet{savedWallets.length > 1 ? 's' : ''}
                   </p>
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-lg font-bold text-blue-400">
+                <div className="text-lg sm:text-xl font-bold text-blue-400">
                   ${lastLoadedPortfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 {results.length > 0 && (
@@ -1630,34 +1623,35 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
           </CollapsibleSection>
         )}
 
+        {/* Manage Wallets Section */}
         <CollapsibleSection 
           title="manage wallets"
           defaultOpen={true}
-          className="mb-6"
+          className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl mb-6"
         >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-2 lowercase">
-                Wallet Address or Domain
+              <label className="block text-sm font-medium mb-2 text-gray-200">
+                wallet address or domain
               </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <input
                   type="text"
-                  placeholder="enter wallet (e.g., 7aEY...f9Xq)"
+                  placeholder="enter wallet (e.g., 7aEY...f9Xq or example.sol)"
                   value={walletInput}
                   onChange={(e) => setWalletInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'enter' && addWallet()}
-                  className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  onKeyPress={(e) => e.key === 'Enter' && addWallet()}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm placeholder-gray-400 transition-all duration-200"
                 />
               </div>
-              <div className="flex flex-wrap gap-1 mt-2">
-                <span className="text-xs text-gray-400">try:</span>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span className="text-xs text-gray-400">try domains:</span>
                 {['.sol', '.bonk', '.poor'].map(domain => (
                   <button
                     key={domain}
                     onClick={() => setWalletInput(`example${domain}`)}
-                    className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                    className="text-xs text-purple-400 hover:text-purple-300 transition-colors px-2 py-1 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg"
                   >
                     {domain}
                   </button>
@@ -1665,7 +1659,7 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <label className="block text-sm font-medium mb-2 text-gray-200">
                 nickname
               </label>
               <input
@@ -1673,16 +1667,18 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
                 placeholder="my treasury"
                 value={walletNickname}
                 onChange={(e) => setWalletNickname(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm transition-all duration-200"
               />
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-6">
+            {/* Add Wallet */}
             <button
               onClick={addWallet}
               disabled={addingWallet || analyzing || !walletInput.trim()}
-              className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center justify-center sm:justify-start space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-3 rounded-2xl transition-transform duration-200 active:scale-95 text-sm font-semibold shadow-md hover:shadow-lg text-white w-full sm:w-auto"
             >
               {addingWallet ? (
                 <>
@@ -1697,10 +1693,11 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
               )}
             </button>
 
+            {/* Analyze All */}
             <button
               onClick={analyzeAllWallets}
               disabled={analyzing || savedWallets.length === 0 || loadingProgress.isActive}
-              className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center justify-center sm:justify-start space-x-2 bg-gradient-to-r from-green-700 to-emerald-700 hover:from-green-600 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-3 rounded-2xl transition-transform duration-200 active:scale-95 text-sm font-semibold shadow-md hover:shadow-lg text-white w-full sm:w-auto"
             >
               {loadingProgress.isActive ? (
                 <>
@@ -1715,15 +1712,8 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
               )}
             </button>
 
-            <button
-              onClick={downloadCsvTemplate}
-              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors"
-            >
-              <FileText className="h-4 w-4" />
-              <span>download csv template</span>
-            </button>
-
-            <label className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors cursor-pointer">
+            {/* Upload CSV */}
+            <label className="flex items-center justify-center sm:justify-start space-x-2 bg-gray-500 hover:bg-gray-400 px-5 py-3 rounded-2xl transition-transform duration-200 active:scale-95 text-sm font-medium shadow-sm hover:shadow-md text-gray-800 cursor-pointer w-full sm:w-auto">
               <Upload className="h-4 w-4" />
               <span>upload csv</span>
               <input
@@ -1734,48 +1724,64 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
                 className="hidden"
               />
             </label>
+
+            {/* Download Template */}
+            <button
+              onClick={downloadCsvTemplate}
+              className="flex items-center justify-center sm:justify-start space-x-2 bg-gray-500 hover:bg-gray-400 px-5 py-3 rounded-2xl transition-transform duration-200 active:scale-95 text-sm font-medium shadow-sm hover:shadow-md text-gray-800 cursor-pointer w-full sm:w-auto"
+            >
+              <FileText className="h-4 w-4" />
+              <span>template</span>
+            </button>
           </div>
 
+          {/* Error/Success Messages */}
           {(error || csvUploadError) && (
-          <div className={`mt-3 p-3 rounded-lg text-sm ${
-            error.includes('✅') || csvUploadError.includes('successfully imported') || csvUploadError.includes('added') 
-              ? 'bg-green-500/20 border border-green-500 text-green-200'
-              : 'bg-red-500/20 border border-red-500 text-red-200'
-          }`}>
-            <div className="flex items-center space-x-2">
-              {error.includes('✅') || csvUploadError.includes('successfully imported') || csvUploadError.includes('added') ? (
-                <CheckCircle className="h-4 w-4" />
-              ) : (
-                <AlertCircle className="h-4 w-4" />
-              )}
-              <span>{error || csvUploadError}</span>
+            <div className={`p-4 rounded-xl border text-sm ${
+              error.includes('✅') || csvUploadError.includes('successfully imported') || csvUploadError.includes('added') 
+                ? 'bg-green-500/20 border-green-500/50 text-green-200'
+                : 'bg-red-500/20 border-red-500/50 text-red-200'
+            }`}>
+              <div className="flex items-center space-x-2">
+                {error.includes('✅') || csvUploadError.includes('successfully imported') || csvUploadError.includes('added') ? (
+                  <CheckCircle className="h-4 w-4" />
+                ) : (
+                  <AlertCircle className="h-4 w-4" />
+                )}
+                <span>{error || csvUploadError}</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
+          {/* Saved Wallets List */}
           {savedWallets.length > 0 && (
             <div className="mt-6">
-              <h4 className="text-sm font-medium mb-3">saved wallets</h4>
-              <div className="space-y-2 max-h-60 overflow-y-auto">
+              <h4 className="text-sm font-medium mb-4 text-gray-200 flex items-center space-x-2">
+                <Wallet className="h-4 w-4 text-purple-400" />
+                <span>saved wallets ({savedWallets.length})</span>
+              </h4>
+              <div className="space-y-3 max-h-60 overflow-y-auto mobile-scroll pr-2 -mr-2">
                 {savedWallets.map((wallet) => (
                   <div
                     key={wallet.id}
-                    className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg hover:bg-gray-700/50 transition-colors"
+                    className="flex items-center justify-between p-4 bg-gray-700/30 rounded-xl border border-gray-600/50 hover:bg-gray-700/50 hover:border-gray-500/50 transition-all duration-200 group"
                   >
-                    <div className="flex items-center space-x-3">
-                      <Wallet className="h-4 w-4 text-purple-400" />
-                      <div>
-                        <div className="text-sm font-medium">
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <div className="p-2 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-lg border border-purple-500/30">
+                        <Wallet className="h-4 w-4 text-purple-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm text-white truncate">
                           {wallet.nickname || (wallet.isDomain ? 
                             (wallet.address || 'Unknown domain') : 
                             `${(wallet.address || '').slice(0, 8)}...${(wallet.address || '').slice(-6)}`
                           )}
                         </div>
                         {wallet.nickname && wallet.isDomain && (
-                          <div className="text-xs text-gray-400">{wallet.address}</div>
+                          <div className="text-xs text-gray-400 truncate">{wallet.address}</div>
                         )}
                         {wallet.nickname && !wallet.isDomain && (
-                          <div className="text-xs text-gray-400">{`${(wallet.address || '').slice(0, 8)}...${(wallet.address || '').slice(-6)}`}</div>
+                          <div className="text-xs text-gray-400 truncate">{`${(wallet.address || '').slice(0, 8)}...${(wallet.address || '').slice(-6)}`}</div>
                         )}
                         {wallet.lastAnalyzed && (
                           <div className="text-xs text-gray-500 flex items-center space-x-1 mt-1">
@@ -1785,17 +1791,17 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 flex-shrink-0">
                       <button
                         onClick={() => analyzeWallet(wallet.address, wallet.nickname, wallet.isDomain)}
                         disabled={analyzing}
-                        className="text-green-400 hover:text-green-300 transition-colors p-1"
+                        className="p-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 hover:border-green-500/50 rounded-lg transition-all duration-200 text-green-400 hover:text-green-300 disabled:opacity-50"
                       >
                         <Calculator className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => deleteWalletFromFirestore(wallet.id)}
-                        className="text-red-400 hover:text-red-300 transition-colors p-1"
+                        className="p-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 hover:border-red-500/50 rounded-lg transition-all duration-200 text-red-400 hover:text-red-300"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -1807,11 +1813,14 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
           )}
         </CollapsibleSection>
 
+        {/* Results Section */}
         {results.length > 0 && (
-        <div className="space-y-6">
+          <div className="space-y-6">
+            {/* Performance Chart */}
             <CollapsibleSection 
               title="performance" 
               defaultOpen={true}
+              className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl"
             >
               <PortfolioChart 
                 portfolioHistory={portfolioHistory}
@@ -1822,13 +1831,14 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
               />
             </CollapsibleSection>
             
+            {/* Portfolio Analysis */}
             <CollapsibleSection 
-              title="portfolio analysis"
+              title="analysis"
               defaultOpen={true}
+              className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl"
             >
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-xl font-semibold mb-2">portfolio analysis</h2>
                   <div className="text-sm text-gray-300">
                     {results.length} wallet{results.length > 1 ? 's' : ''} analyzed • 
                     total value: <span className="text-green-400 font-semibold">
@@ -1843,25 +1853,26 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
                 </div>
               </div>
 
+              {/* Portfolio History Summary */}
               {portfolioHistory.length > 0 && (
-                <div className="mb-6 p-4 bg-blue-500/20 border border-blue-500 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
+                <div className="mb-6 p-4 bg-gradient-to-r from-blue-500/15 to-cyan-500/15 border border-blue-500/30 rounded-xl backdrop-blur-sm">
+                  <div className="flex items-center space-x-2 mb-3">
                     <Clock className="h-4 w-4 text-blue-400" />
-                    <h3 className="font-medium text-sm">portfolio history</h3>
+                    <h3 className="font-medium text-sm text-blue-400">portfolio history</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div>
-                      <div className="text-gray-400">records</div>
+                      <div className="text-gray-400 text-xs font-medium mb-1">records</div>
                       <div className="text-blue-400 font-semibold">{portfolioHistory.length}</div>
                     </div>
                     <div>
-                      <div className="text-gray-400">first record</div>
+                      <div className="text-gray-400 text-xs font-medium mb-1">first record</div>
                       <div className="text-blue-400 font-semibold lowercase">
                         {formatTimestamp(portfolioHistory[0]?.timestamp)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-gray-400">refreshed on</div>
+                      <div className="text-gray-400 text-xs font-medium mb-1">refreshed on</div>
                       <div className="text-blue-400 font-semibold lowercase">
                         {formatTimestamp(portfolioHistory[portfolioHistory.length - 1]?.timestamp)}
                       </div>
@@ -1870,26 +1881,27 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
                 </div>
               )}
 
+              {/* Wallet Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 {results
                   .sort((a, b) => b.totalValue - a.totalValue)
                   .map((result) => (
-                    <div key={result.walletAddress} className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
+                    <div key={result.walletAddress} className="bg-gradient-to-br from-gray-700/30 to-gray-800/30 backdrop-blur-sm rounded-xl p-4 border border-gray-600/50 hover:border-gray-500/50 transition-all duration-200">
                       <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium text-sm">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-sm text-white truncate">
                             {result.nickname || (result.isDomain ? result.walletAddress : `${result.walletAddress.slice(0, 8)}...${result.walletAddress.slice(-6)}`)}
                           </h3>
                           <p className="text-xs text-gray-400 mt-1">
                             {result.tokens.length} tokens
                           </p>
                           {result.analyzedAt && (
-                            <p className="text-xs text-gray-500 mt-1 lowercase">
+                            <p className="text-xs text-gray-500 mt-1">
                               analyzed: {formatTimestamp(result.analyzedAt)}
                             </p>
                           )}
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex-shrink-0">
                           <div className="text-lg font-bold text-green-400">
                             ${result.totalValue.toLocaleString()}
                           </div>
@@ -1902,56 +1914,34 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
                   ))}
               </div>
 
+              {/* Token Selection Header */}
               {allTokens.length > 0 && (
-                <div className="mb-4 flex items-center justify-between">
+                <div className="mb-6 flex items-center justify-between p-4 bg-gray-700/30 rounded-xl border border-gray-600/50">
                   <div className="flex items-center space-x-4">
-                    {/* <div className="flex items-center space-x-2">
-                      <input
-                        ref={selectAllRef}
-                        type="checkbox"
-                        checked={selectedTokens.size === allTokens.length}
-                        onChange={(e) => handleSelectAll(e.target.checked)}
-                        className="rounded bg-gray-700 border-gray-600 text-purple-500 focus:ring-purple-500 w-4 h-4"
-                      />
-                      <span className="text-sm text-gray-300">select all</span>
-                    </div> */}
                     {selectedTokens.size > 0 && (
-                      <span className="text-sm text-purple-400">
+                      <span className="text-sm text-purple-400 font-medium">
                         {selectedTokens.size} tokens selected (${selectedTokensValue.toLocaleString()})
                       </span>
                     )}
                   </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleSelectAll(true)}
-                      className="text-xs text-purple-400 hover:text-purple-300 transition-colors px-2 py-1"
-                    >
-                      select all
-                    </button>
-                    <button
-                      onClick={() => handleSelectAll(false)}
-                      className="text-xs text-gray-400 hover:text-gray-300 transition-colors px-2 py-1"
-                    >
-                      clear all
-                    </button>
-                  </div>
+               
                 </div>
               )}
-
+              {/* Liquidation Amount Section */}
               {selectedTokens.size > 0 && (
                 <CollapsibleSection 
                   title="liquidation amount"
                   defaultOpen={true}
-                  className="mb-6"
+                  className="mb-6 bg-gray-700/20 rounded-xl border border-gray-600/30"
                 >
                   <div className="flex flex-col sm:flex-row gap-4">
                     <div className="flex-1">
-                      <div className="flex space-x-2 mb-2">
+                      <div className="flex space-x-2 mb-3">
                         <button
                           onClick={() => setLiquidationType('percentage')}
-                          className={`px-3 py-1 rounded text-xs ${
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                             liquidationType === 'percentage' 
-                              ? 'bg-purple-600 text-white' 
+                              ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/25' 
                               : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                           }`}
                         >
@@ -1959,9 +1949,9 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
                         </button>
                         <button
                           onClick={() => setLiquidationType('dollar')}
-                          className={`px-3 py-1 rounded text-xs ${
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                             liquidationType === 'dollar' 
-                              ? 'bg-purple-600 text-white' 
+                              ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/25' 
                               : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                           }`}
                         >
@@ -1971,123 +1961,248 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
                       <div className="relative">
                         <input
                           type="number"
-                          placeholder={liquidationType === 'percentage' ? 'Enter percentage...' : 'Enter dollar amount...'}
+                          placeholder={liquidationType === 'percentage' ? 'enter percentage...' : 'enter dollar amount...'}
                           value={liquidationAmount}
                           onChange={(e) => setLiquidationAmount(e.target.value)}
-                          className="w-full pl-3 pr-8 py-2 bg-gray-600 border border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          className="w-full pl-4 pr-12 py-3 bg-gray-600 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm transition-all duration-200"
                         />
-                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                        <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
                           {liquidationType === 'percentage' ? '%' : '$'}
                         </span>
                       </div>
                     </div>
-                    <div className="text-sm text-gray-300 lowercase">
+                    <div className="text-sm text-gray-300 space-y-2">
                       {liquidationValue > 0 && (
                         <>
-                          <div>liquidating: <span className="text-green-400">${liquidationValue.toLocaleString()}</span></div>
-                          <div>remaining portfolio: <span className="text-blue-400">${remainingPortfolioValue.toLocaleString()}</span></div>
-                          <div>Of Selected: <span className="text-purple-400">{((liquidationValue / selectedTokensValue) * 100).toLocaleString()}%</span></div>
+                          <div>liquidating: <span className="text-green-400 font-semibold">${liquidationValue.toLocaleString()}</span></div>
+                          <div>remaining portfolio: <span className="text-blue-400 font-semibold">${remainingPortfolioValue.toLocaleString()}</span></div>
+                          <div>of selected: <span className="text-purple-400 font-semibold">{((liquidationValue / selectedTokensValue) * 100).toLocaleString()}%</span></div>
                         </>
                       )}
                     </div>
                   </div>
                 </CollapsibleSection>
               )}
-
-              {/* Shopping list actions */}
               {selectedTokens.size > 0 && (
                 <CollapsibleSection 
-                  title="shopping list actions"
+                  title="swap destination"
                   defaultOpen={true}
-                  className="mb-6"
+                  className="mb-6 bg-gray-700/20 rounded-xl border border-gray-600/30"
                 >
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={copyShoppingList}
-                      disabled={!selectedTokens.size}
-                      className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-colors"
-                    >
-                      {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      <span>{copied ? 'copied!' : 'copy shopping list'}</span>
-                    </button>
-                    <button
-                      onClick={downloadShoppingList}
-                      disabled={!selectedTokens.size}
-                      className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-colors"
-                    >
-                      <Download className="h-4 w-4" />
-                      <span>download txt</span>
-                    </button>
+                  <div className="space-y-4" data-search-area>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-200">
+                        search token to swap to
+                      </label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <input
+                          type="text"
+                          placeholder="search by symbol or name (e.g., USDC, SOL, etc.)"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-600 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm transition-all duration-200"
+                        />
+                        {isSearching && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Search Results Dropdown */}
+                      {searchResults.length > 0 && (
+                        <div className="mt-2 max-h-60 overflow-y-auto bg-gray-700 border border-gray-600 rounded-xl shadow-lg">
+                          {searchResults.map((token) => (
+                            <button
+                              key={token.mint}
+                              onClick={() => {
+                                setTargetToken(token);
+                                setSearchResults([]);
+                                setSearchQuery(token.symbol);
+                              }}
+                              className="w-full flex items-center space-x-3 p-3 hover:bg-gray-600 transition-colors duration-200 text-left"
+                            >
+                              {token.logoURI ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={token.logoURI}
+                                  alt={token.symbol}
+                                  className="w-6 h-6 rounded-full"
+                                />
+                              ) : (
+                                <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                  {token.symbol.slice(0, 3)}
+                                </div>
+                              )}
+                              <div className="flex-1">
+                                <div className="font-medium text-sm text-white">{token.symbol}</div>
+                                <div className="text-xs text-gray-400 truncate">{token.name}</div>
+                              </div>
+                              {targetToken?.mint === token.mint && (
+                                <CheckCircle className="h-4 w-4 text-green-400" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {/* Shopping List Actions Section */}
+                      {selectedTokens.size > 0 && (
+                        <CollapsibleSection 
+                          title="shopping list actions"
+                          defaultOpen={true}
+                          className="mb-6 mt-6 bg-gray-700/20 rounded-xl border border-gray-600/30"
+                        >
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              onClick={copyShoppingList}
+                              disabled={!selectedTokens.size}
+                              className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-sm font-medium shadow-lg hover:shadow-purple-500/25"
+                            >
+                              {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                              <span>{copied ? 'copied!' : 'copy shopping list'}</span>
+                            </button>
+                            <button
+                              onClick={downloadShoppingList}
+                              disabled={!selectedTokens.size}
+                              className="flex items-center space-x-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-500 hover:to-gray-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-sm font-medium shadow-lg hover:shadow-gray-500/25"
+                            >
+                              <Download className="h-4 w-4" />
+                              <span>download txt</span>
+                            </button>
+                          </div>
+                          
+                          {/* Preview of what will be included */}
+                          {selectedTokens.size > 0 && (
+                            <div className="mt-4 p-4 bg-gray-600/30 rounded-xl border border-gray-500/30">
+                              <h4 className="text-sm font-medium text-gray-200 mb-2">shopping list preview:</h4>
+                              <div className="text-xs text-gray-400 space-y-1">
+                                <div>• {selectedTokens.size} selected tokens from {results.length} wallets</div>
+                                <div>• total value: ${selectedTokensValue.toLocaleString()}</div>
+                                {targetToken && (
+                                  <div>• swapping to: {targetToken.symbol} ({targetToken.name})</div>
+                                )}
+                                {hasLiquidation && (
+                                  <div>• Liquidating: ${liquidationValue.toLocaleString()} ({((liquidationValue / selectedTokensValue) * 100).toFixed(1)}% of selected)</div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </CollapsibleSection>
+                      )}
+                    {/* Selected Target Token Display */}
+                    {targetToken && (
+                      <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-500/15 to-pink-500/15 border border-purple-500/30 rounded-xl">
+                        <div className="flex items-center space-x-3">
+                          {targetToken.logoURI ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={targetToken.logoURI}
+                              alt={targetToken.symbol}
+                              className="w-8 h-8 rounded-full"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                              {targetToken.symbol.slice(0, 3)}
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-semibold text-white">{targetToken.symbol}</div>
+                            <div className="text-xs text-gray-300">{targetToken.name}</div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setTargetToken(null);
+                            setSearchQuery('');
+                          }}
+                          className="p-1 hover:bg-red-500/20 rounded-lg transition-colors duration-200"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-400" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </CollapsibleSection>
               )}
 
+              {/* Tokens Table */}
               <CollapsibleSection 
-                title="tokens"
+                title={`tokens • ${allTokens.length} total`}
                 defaultOpen={true}
+                className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl overflow-hidden"
               >
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[800px]">
+                <div className="overflow-x-auto mobile-scroll">
+                     <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleSelectAll(true)}
+                      className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-95"
+                    >
+                      select all
+                    </button>
+                    <button
+                      onClick={() => handleSelectAll(false)}
+                      className="text-xs bg-gray-600 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-95"
+                    >
+                      clear all
+                    </button>
+                  </div>
+                  <table className="mt-2 w-full min-w-[800px]">
                     <thead>
-                      <tr className="border-b border-gray-700">
-                        <th className="text-left py-3 px-2 text-sm font-medium w-10">
-                          {/* <input
-                            ref={selectAllRef}
-                            type="checkbox"
-                            checked={selectedTokens.size === allTokens.length}
-                            onChange={(e) => handleSelectAll(e.target.checked)}
-                            className="rounded bg-gray-700 border-gray-600 text-purple-500 focus:ring-purple-500 w-4 h-4"
-                          /> */}
+                      <tr className="border-b border-gray-700/70 bg-gray-800/50 backdrop-blur-sm">
+                        <th className="text-left py-4 px-4 text-sm font-semibold text-gray-200 w-12">
+                          {/* Checkbox column */}
                         </th>
                         <th 
-                          className="text-left py-3 px-2 text-sm font-medium cursor-pointer hover:bg-gray-700/50 rounded transition-colors"
+                          className="text-left py-4 px-4 text-sm font-semibold text-gray-200 cursor-pointer hover:bg-gray-700/50 rounded-lg transition-all duration-200 group"
                           onClick={() => handleSort('symbol')}
                         >
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-2">
                             <span>token</span>
                             <SortIcon field="symbol" sortField={sortField} sortDirection={sortDirection} />
                           </div>
                         </th>
-                        <th className="text-left py-3 px-2 text-sm font-medium">
+                        <th className="text-left py-4 px-4 text-sm font-semibold text-gray-200">
                           source wallet
                         </th>
                         <th 
-                          className="text-right py-3 px-2 text-sm font-medium cursor-pointer hover:bg-gray-700/50 rounded transition-colors"
+                          className="text-right py-4 px-4 text-sm font-semibold text-gray-200 cursor-pointer hover:bg-gray-700/50 rounded-lg transition-all duration-200 group"
                           onClick={() => handleSort('balance')}
                         >
-                          <div className="flex items-center justify-end space-x-1">
+                          <div className="flex items-center justify-end space-x-2">
                             <span>balance</span>
                             <SortIcon field="balance" sortField={sortField} sortDirection={sortDirection} />
                           </div>
                         </th>
-                        <th className="text-right py-3 px-2 text-sm font-medium">Price</th>
+                        <th className="text-right py-4 px-4 text-sm font-semibold text-gray-200">price</th>
                         <th 
-                          className="text-right py-3 px-2 text-sm font-medium cursor-pointer hover:bg-gray-700/50 rounded transition-colors"
+                          className="text-right py-4 px-4 text-sm font-semibold text-gray-200 cursor-pointer hover:bg-gray-700/50 rounded-lg transition-all duration-200 group"
                           onClick={() => handleSort('value')}
                         >
-                          <div className="flex items-center justify-end space-x-1">
+                          <div className="flex items-center justify-end space-x-2">
                             <span>value</span>
                             <SortIcon field="value" sortField={sortField} sortDirection={sortDirection} />
                           </div>
                         </th>
                         <th 
-                          className="text-right py-3 px-2 text-sm font-medium cursor-pointer hover:bg-gray-700/50 rounded transition-colors"
+                          className="text-right py-4 px-4 text-sm font-semibold text-gray-200 cursor-pointer hover:bg-gray-700/50 rounded-lg transition-all duration-200 group"
                           onClick={() => handleSort('percentage')}
                         >
-                          <div className="flex items-center justify-end space-x-1">
+                          <div className="flex items-center justify-end space-x-2">
                             <span>portfolio %</span>
                             <SortIcon field="percentage" sortField={sortField} sortDirection={sortDirection} />
                           </div>
                         </th>
                         {hasLiquidation && (
-                          <th className="text-right py-3 px-2 text-sm font-medium text-green-400">
+                          <th className="text-right py-4 px-4 text-sm font-semibold text-green-400">
                             swap amount
                           </th>
                         )}
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedTokens.map((token) => {
+                      {sortedTokens.map((token, index) => {
                         const percentage = totalPortfolioValue > 0 ? ((token.value || 0) / totalPortfolioValue * 100) : 0;
                         const proRataToken = proRataTokens.find(t => t.mint === token.mint);
                         const isSelected = selectedTokens.has(token.mint);
@@ -2095,67 +2210,68 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
                         return (
                           <tr 
                             key={`${token.mint}-${token.sourceWallet}`} 
-                            className={`border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors ${
-                              isSelected ? 'bg-purple-500/10' : ''
+                            className={`border-b border-gray-700/30 hover:bg-gray-700/40 transition-all duration-200 group ${
+                              isSelected ? 'bg-purple-500/10' : index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'
                             }`}
                           >
-                            <td className="py-3 px-2">
+                            <td className="py-4 px-4">
                               <input
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => handleTokenSelect(token.mint)}
-                                className="rounded bg-gray-700 border-gray-600 text-purple-500 focus:ring-purple-500 w-4 h-4"
+                                className="rounded-lg bg-gray-700 border-gray-600 text-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-4 h-4 transition-all duration-200"
                               />
                             </td>
-                            <td className="py-3 px-2">
+                            <td className="py-4 px-4">
                               <div className="flex items-center space-x-3">
                                 {token.logoURI ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
                                   <img
                                     src={token.logoURI}
                                     alt={token.symbol}
-                                    className="w-6 h-6 rounded-full"
+                                    className="w-8 h-8 rounded-full"
                                   />
                                 ) : (
-                                  <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
                                     {token.symbol.slice(0, 3)}
                                   </div>
                                 )}
                                 <div>
-                                  <div className="font-medium text-sm lowercase">{token.symbol}</div>
-                                  <div className="text-xs text-gray-400 lowercase">{token.name}</div>
+                                  <div className="font-semibold text-sm text-white">{token.symbol}</div>
+                                  <div className="text-xs text-gray-400">{token.name}</div>
                                 </div>
                               </div>
                             </td>
-                            <td className="py-3 px-2">
+                            <td className="py-4 px-4">
                               <div className="flex items-center space-x-2">
-                                <Wallet className="h-3 w-3 text-purple-400" />
-                                <span className="text-xs text-gray-300 max-w-[120px] truncate">
+                                <Wallet className="h-4 w-4 text-purple-400" />
+                                <span className="text-sm text-gray-300 max-w-[120px] truncate">
                                   {token.sourceNickname}
                                 </span>
                               </div>
                             </td>
-                            <td className="text-right py-3 px-2 text-sm">
+                            <td className="text-right py-4 px-4 text-sm font-mono text-gray-200">
                               {token.uiAmount < 0.0001 ? token.uiAmount.toExponential(2) : token.uiAmount.toLocaleString()}
                             </td>
-                            <td className="text-right py-3 px-2 text-sm">
+                            <td className="text-right py-4 px-4 text-sm font-mono text-gray-200">
                               {token.price ? `$${token.price < 0.01 ? token.price.toExponential(2) : token.price.toLocaleString()}` : 'n/a'}
                             </td>
-                            <td className="text-right py-3 px-2 text-sm font-medium">
+                            <td className="text-right py-4 px-4 text-sm font-mono font-semibold text-green-400">
                               ${(token.value || 0).toLocaleString()}
                             </td>
-                            <td className="text-right py-3 px-2 text-sm">
-                              <div className="flex items-center justify-end space-x-2">
-                                <div className="w-16 bg-gray-700 rounded-full h-2">
+                            <td className="text-right py-4 px-4 text-sm">
+                              <div className="flex items-center justify-end space-x-3">
+                                <div className="w-20 bg-gray-700 rounded-full h-2">
                                   <div 
-                                    className="bg-green-400 h-2 rounded-full" 
+                                    className="bg-gradient-to-r from-green-400 to-emerald-400 h-2 rounded-full transition-all duration-300" 
                                     style={{ width: `${Math.min(percentage, 100)}%` }}
                                   />
                                 </div>
-                                <span className="w-12 text-right">{percentage.toFixed(2)}%</span>
+                                <span className="w-12 text-right font-medium text-gray-200">{percentage.toFixed(2)}%</span>
                               </div>
                             </td>
                             {hasLiquidation && proRataToken && (
-                              <td className="text-right py-3 px-2 text-sm text-green-400 font-medium">
+                              <td className="text-right py-4 px-4 text-sm font-mono font-semibold text-green-400">
                                 {proRataToken.swapAmount > 0.0001 ? proRataToken.swapAmount.toLocaleString() : proRataToken.swapAmount.toExponential(2)}
                                 <div className="text-xs text-gray-400">
                                   ${proRataToken.liquidationAmount.toLocaleString()}
@@ -2170,44 +2286,45 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
                 </div>
               </CollapsibleSection>
 
-              {/* Portfolio summary */}
+              {/* Portfolio Summary */}
               {results.length > 0 && (
                 <CollapsibleSection 
                   title="portfolio summary"
                   defaultOpen={true}
+                  className="bg-gray-800/30 mt-6 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div>
-                      <div className="text-gray-400">total portfolio</div>
-                      <div className="text-green-400 font-semibold">${totalPortfolioValue.toLocaleString()}</div>
+                      <div className="text-gray-400 text-xs font-medium mb-1">total portfolio</div>
+                      <div className="text-green-400 font-bold text-lg">${totalPortfolioValue.toLocaleString()}</div>
                     </div>
                     <div>
-                      <div className="text-gray-400">selected tokens</div>
-                      <div className="text-purple-400 font-semibold">
+                      <div className="text-gray-400 text-xs font-medium mb-1">selected tokens</div>
+                      <div className="text-purple-400 font-bold text-lg">
                         {selectedTokens.size}/{allTokens.length} (${selectedTokensValue.toLocaleString()})
                       </div>
                     </div>
                     <div>
-                      <div className="text-gray-400">wallets</div>
-                      <div className="text-blue-400 font-semibold">{results.length} active</div>
+                      <div className="text-gray-400 text-xs font-medium mb-1">wallets</div>
+                      <div className="text-blue-400 font-bold text-lg">{results.length} active</div>
                     </div>
                   </div>
                   
                   {hasLiquidation && (
-                    <div className="mt-3 pt-3 border-t border-purple-500/30">
+                    <div className="mt-4 pt-4 border-t border-purple-500/30">
                       <div className="flex flex-wrap gap-4 text-sm">
                         <div>
-                          <div className="text-gray-400">liquidating</div>
+                          <div className="text-gray-400 text-xs font-medium mb-1">liquidating</div>
                           <div className="text-green-400 font-semibold">${liquidationValue.toLocaleString()}</div>
                         </div>
                         <div>
-                          <div className="text-gray-400">of selected</div>
+                          <div className="text-gray-400 text-xs font-medium mb-1">of selected</div>
                           <div className="text-purple-400 font-semibold">
                             {((liquidationValue / selectedTokensValue) * 100).toFixed(1)}%
                           </div>
                         </div>
                         <div>
-                          <div className="text-gray-400">remaining</div>
+                          <div className="text-gray-400 text-xs font-medium mb-1">remaining</div>
                           <div className="text-blue-400 font-semibold">${remainingPortfolioValue.toLocaleString()}</div>
                         </div>
                       </div>
@@ -2216,32 +2333,27 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
                 </CollapsibleSection>
               )}
             </CollapsibleSection>
-           <HistoricalPortfolio 
+
+            {/* Historical Portfolio */}
+            <HistoricalPortfolio 
             mode="multisig"
             currentPortfolioValue={totalPortfolioValue}
-            onPortfolioSelect={(portfolio) => {
-              console.log('selected multi-wallet portfolio:', portfolio);
-            }}
           />
           </div>
         )}
 
-        {/* Error Display */}
-        {error && (
-          <div className="mt-4 p-3 bg-red-500/20 border border-red-500 rounded-lg">
-            <div className="flex items-center space-x-2 text-red-200">
-              <AlertCircle className="h-4 w-4" />
-              <span className="text-sm">{error}</span>
-            </div>
-          </div>
-        )}
+        {/* Empty State for Portfolio History */}
         {portfolioHistory.length === 0 && chartDataLoaded && (
-        <div className="text-center py-8 text-gray-500">
-            <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>no portfolio history available yet. analyze your wallets to generate chart data.</p>
-        </div>
+          <div className="text-center py-12 text-gray-400">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 bg-gray-700/50 rounded-2xl flex items-center justify-center">
+              <Clock className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400" />
+            </div>
+            <p className="text-sm sm:text-base font-medium">no portfolio history available yet</p>
+            <p className="text-gray-500 text-xs sm:text-sm mt-2">analyze your wallets to generate chart data</p>
+          </div>
         )}
       </div>
     </div>
-  );
+  </div>
+);
 }

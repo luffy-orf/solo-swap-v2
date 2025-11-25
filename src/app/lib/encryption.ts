@@ -1,6 +1,13 @@
 import CryptoJS from 'crypto-js';
 
 export class EncryptionService {
+
+  anonymizePublicKey(publicKey: string): string {
+    const salt = process.env.NEXT_PUBLIC_HASH_SALT || 'filename-salt';
+    const hash = CryptoJS.SHA256(publicKey + salt).toString();
+    return `user_${hash.slice(0, 16)}`;
+  }
+  
   private getEncryptionKey(publicKey: string): string {
     const appSecret = process.env.NEXT_PUBLIC_ENCRYPTION_SECRET || 'fallback-secret';
     return CryptoJS.SHA256(publicKey + appSecret).toString();

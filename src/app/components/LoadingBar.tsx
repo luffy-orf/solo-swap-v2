@@ -37,7 +37,6 @@ export function LoadingBar({
     }
 
     if (!startTimeRef.current || previousProcessedRef.current === 0) {
-      console.log('loadingbar initialized - totalitems:', totalItems, 'currentprocessed:', currentProcessed);
       startTimeRef.current = Date.now();
       previousProcessedRef.current = currentProcessed;
     }
@@ -84,11 +83,6 @@ export function LoadingBar({
   }, [totalItems, currentProcessed, durationPerItem]);
   useEffect(() => {
     if (currentProcessed !== previousProcessedRef.current) {
-      console.log('progress update:', {
-        currentProcessed,
-        totalItems,
-        progress: (currentProcessed / totalItems) * 100
-      });
       previousProcessedRef.current = currentProcessed;
     }
   }, [currentProcessed, totalItems]);
@@ -119,7 +113,7 @@ export function LoadingBar({
 
       <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
         <div 
-          className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-300 ease-out relative"
+          className="h-full bg-gradient-to-r from-gray-500 to-gray-200 rounded-full transition-all duration-300 ease-out relative"
           style={{ width: `${progress}%` }}
         >
           {!isComplete && (
@@ -148,23 +142,11 @@ export function LoadingBar({
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"
+                className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"
                 style={{ animationDelay: `${i * 0.2}s` }}
               />
             ))}
           </div>
-          <span className="text-xs text-purple-300">
-            fetching {itemType}...
-          </span>
-        </div>
-      )}
-
-      {isComplete && (
-        <div className="flex items-center justify-center mt-3 space-x-2">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-ping" />
-          <span className="text-xs text-green-300">
-            all {itemType} fetched successfully!
-          </span>
         </div>
       )}
 

@@ -58,13 +58,8 @@ export function PortfolioChart({
   portfolioHistory = [],
   livePortfolioValue,
   liveTokenCount,
-  liveWalletCount,
-  mode = 'default'
-}: PortfolioChartProps) {
+  liveWalletCount}: PortfolioChartProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
-  const lastRefresh = useMemo(() => (
-    portfolioHistory.length > 0 ? new Date() : null
-  ), [portfolioHistory]);
 
   const filterDataByTimeRange = (data: PortfolioHistory[]): PortfolioHistory[] => {
     if (data.length === 0) return [];
@@ -151,13 +146,11 @@ export function PortfolioChart({
           borderWidth: 3,
           fill: true,
           tension: 0.4,
-          // Remove points and hover effects for smoother appearance
           pointRadius: 0,
           pointHoverRadius: 0,
           pointBackgroundColor: 'transparent',
           pointBorderColor: 'transparent',
           pointBorderWidth: 0,
-          // Smooth the line further
           cubicInterpolationMode: 'monotone' as const,
         },
       ],
@@ -238,10 +231,9 @@ export function PortfolioChart({
       axis: 'x' as const,
       intersect: false,
     },
-    // Additional smoothing options
     elements: {
       line: {
-        tension: 0.4, // Smooth curve
+        tension: 0.4,
       },
     },
   };
@@ -289,23 +281,12 @@ export function PortfolioChart({
   const performanceStats = getPerformanceStats();
 
   return (
-    <div className={`bg-gray-800/50 rounded-xl p-6 border border-gray-700 ${className}`}>
+    <div className={`bg-gray-900/50 rounded-xl p-6 border border-gray-700 ${className}`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 space-y-3 sm:space-y-0">
         <div className="flex items-center space-x-3">
           <div className="p-2 bg-purple-500/20 rounded-lg">
             <TrendingUp className="h-5 w-5 text-purple-400" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold">portfolio performance</h2>
-            <p className="text-sm text-gray-400">
-              {portfolioHistory.length} records • {filterDataByTimeRange(portfolioHistory).length} shown
-              {lastRefresh && (
-                <span className="ml-2 text-gray-500 lowercase">
-                  • updated: {lastRefresh.toLocaleTimeString()}
-                </span>
-              )}
-            </p>
           </div>
         </div>
 
@@ -314,7 +295,7 @@ export function PortfolioChart({
           {performanceStats && (
             <div className={`px-3 py-1 rounded-lg ${
               performanceStats.isPositive 
-                ? 'bg-green-500/20 text-green-400' 
+                ? 'bg-green-600/20 text-green-400' 
                 : 'bg-red-500/20 text-red-400'
             }`}>
               <div className="text-sm font-medium">
@@ -333,8 +314,8 @@ export function PortfolioChart({
           {portfolioHistory.length > 0 && (
             <button
               onClick={downloadChartData}
-              className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-              title="Download CSV"
+              className="p-2 bg-gray-700 hover:bg-gray-600 rounded-m transition-colors"
+              title="download csv"
             >
               <Download className="h-4 w-4 text-gray-300" />
             </button>
@@ -350,7 +331,7 @@ export function PortfolioChart({
             onClick={() => setTimeRange(range)}
             className={`px-3 py-1 text-sm rounded-lg transition-colors ${
               timeRange === range
-                ? 'bg-purple-600 text-white'
+                ? 'bg-gray-600 text-white'
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
           >
@@ -383,7 +364,7 @@ export function PortfolioChart({
       {(livePortfolioValue !== undefined || portfolioHistory.length > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-700">
           <div className="text-center">
-            <div className="text-2xl font-bold text-green-400">
+            <div className="text-2xl font-bold text-green-500">
               ${(livePortfolioValue !== undefined ? livePortfolioValue : portfolioHistory[portfolioHistory.length - 1]?.totalValue || 0).toLocaleString(undefined, { 
                 minimumFractionDigits: 2, 
                 maximumFractionDigits: 2 
@@ -392,13 +373,13 @@ export function PortfolioChart({
             <div className="text-sm text-gray-400">current value</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-blue-400">
+            <div className="text-2xl font-bold text-gray-400">
               {liveWalletCount !== undefined ? liveWalletCount : (portfolioHistory[portfolioHistory.length - 1]?.walletCount || 1)}
             </div>
             <div className="text-sm text-gray-400">wallets</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-purple-400">
+            <div className="text-2xl font-bold text-gray-400">
               {liveTokenCount !== undefined ? liveTokenCount : (portfolioHistory[portfolioHistory.length - 1]?.tokenCount || 0)}
             </div>
             <div className="text-sm text-gray-400">tokens</div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
@@ -7,9 +8,8 @@ import { TokenBalance, PriceProgress } from './types/token';
 import { TokenService } from './lib/api';
 import { TokenTable } from './components/TokenTable';
 import { SwapInterface } from './components/SwapInterface';
-import { SettingsPanel } from './components/SettingsPannel';
 import { MultisigAnalyzer } from './components/enterWallet';
-import { Settings2, Wallet, Menu, X, Calculator } from 'lucide-react';
+import { Settings2, Wallet, Menu, X, Calculator, Search, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
 import { collection, doc, setDoc, getDocs, query, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from './lib/firebase';
@@ -38,7 +38,7 @@ export default function Home() {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [totalToProcess, setTotalToProcess] = useState(0);
   const [currentPortfolioData, setCurrentPortfolioData] = useState<PortfolioHistory[]>([]);
-
+  
   const tokenService = TokenService.getInstance();
 
   type SafeLogData = Record<string, unknown>;
@@ -46,7 +46,6 @@ export default function Home() {
   const secureLog = {
   info: (message: string, data?: SafeLogData) => {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[INFO] ${message}`, data ? { ...data, sensitive: '[REDACTED]' } : '');
     }
   },
   
@@ -58,11 +57,10 @@ export default function Home() {
     if (process.env.NODE_ENV === 'development') {
       const safeData = data ? {
         ...data,
-        balances: data.balances ? '[REDACTED]' : undefined,
-        values: data.values ? '[REDACTED]' : undefined,
+        balances: data.balances ? '[******]' : undefined,
+        values: data.values ? '[******]' : undefined,
         tokens: data.tokens ? `[${Array.isArray(data.tokens) ? data.tokens.length : '?'} tokens]` : undefined
       } : {};
-      console.log(`[WALLET] ${message}`, { publicKey: publicKey?.slice(0, 8) + '...', ...safeData });
     }
   }
 };
@@ -71,8 +69,9 @@ const loadPortfolioHistory = useCallback(async () => {
   if (!publicKey) return;
 
   try {
+    const anonymizedKey = encryptionService.anonymizePublicKey(publicKey.toString());
     const historyQuery = query(
-      collection(db, 'wallet-history', publicKey.toString(), 'records'),
+      collection(db, 'wallet-history', anonymizedKey, 'records'),
       orderBy('timestamp', 'asc')
     );
     const querySnapshot = await getDocs(historyQuery);
@@ -115,8 +114,6 @@ const loadPortfolioHistory = useCallback(async () => {
         }
       })
       .filter(record => record !== null && record.totalValue > 0) as PortfolioHistory[];
-    
-    console.log('loaded and decrypted wallet history:', history.length, 'records');
     setCurrentPortfolioData(history);
   } catch (err) {
     console.error('failed to load encrypted wallet history:', err);
@@ -130,11 +127,11 @@ const savePortfolioHistory = useCallback(async (totalValue: number, walletCount:
   }
 
   if (totalValue <= 0) {
-    console.log('skipping wallet history save: totalValue is 0');
     return;
   }
 
   try {
+    const anonymizedKey = encryptionService.anonymizePublicKey(publicKey.toString());
     const encryptedData = {
       totalValue: encryptionService.encryptData(totalValue, publicKey.toString()),
       walletCount: encryptionService.encryptData(walletCount, publicKey.toString()),
@@ -154,16 +151,8 @@ const savePortfolioHistory = useCallback(async (totalValue: number, walletCount:
       }
     };
 
-    console.log('saving encrypted wallet history:', {
-      timestamp: historyData.timestamp.toDate(),
-      publicKey: historyData.publicKey,
-      dataEncrypted: true
-    });
-
-    const historyRef = doc(collection(db, 'wallet-history', publicKey.toString(), 'records'));
+    const historyRef = doc(collection(db, 'wallet-history', anonymizedKey, 'records'));
     await setDoc(historyRef, historyData);
-    
-    console.log('successfully saved encrypted wallet history');
     
     setCurrentPortfolioData(prev => {
       const newHistory = [...prev, {
@@ -207,7 +196,6 @@ secureLog.info('portfolio history updated', {
   latestTimestamp: currentPortfolioData[currentPortfolioData.length - 1]?.timestamp
 });
     const tokenBalances = await tokenService.getTokenBalances(publicKey.toString());
-    console.log('raw token balances:', tokenBalances);
 
     const tokensWithBalance = tokenBalances.filter(token => token.uiAmount > 0);
     setTotalToProcess(tokensWithBalance.length);
@@ -215,13 +203,11 @@ secureLog.info('portfolio history updated', {
     const tokensWithPrices = await tokenService.getTokenPrices(
       tokensWithBalance,
       (progress: PriceProgress) => {
-        console.log(`progress callback: ${progress.current}/${progress.total} - ${progress.currentToken}`);
         setProcessingProgress(progress.current);
         setTotalToProcess(progress.total);
       }
     );
-    
-    console.log('final tokens with prices:', tokensWithPrices);
+
     setTokens(tokensWithPrices);
     
     const totalValue = tokensWithPrices.reduce((sum, token) => sum + (token.value || 0), 0);
@@ -231,10 +217,8 @@ secureLog.info('portfolio history updated', {
     }
     
   } catch (err) {
-    console.error('error fetching tokens:', err);
     setError(err instanceof Error ? err.message : 'failed to fetch tokens');
   } finally {
-    console.log('finished loading, resetting loading state');
     setLoading(false);
   }
 }, [publicKey, savePortfolioHistory]);
@@ -247,7 +231,6 @@ secureLog.info('portfolio history updated', {
     setError('');
     
     try {
-      console.log('refreshing prices for current tokens...');
       
       const tokensWithPositiveBalance = tokens.filter(token => token.uiAmount > 0);
       setTotalToProcess(tokensWithPositiveBalance.length);
@@ -255,7 +238,6 @@ secureLog.info('portfolio history updated', {
       const refreshedTokens = await tokenService.getTokenPrices(
         tokensWithPositiveBalance,
         (progress: PriceProgress) => {
-          console.log(`refresh progress: ${progress.current}/${progress.total}`);
           setProcessingProgress(progress.current);
         }
       );
@@ -270,7 +252,6 @@ secureLog.info('portfolio history updated', {
       const totalValue = updatedTokens.reduce((sum, token) => sum + (token.value || 0), 0);
       await savePortfolioHistory(totalValue, 1, updatedTokens.length);
       
-      console.log('prices refreshed successfully');
     } catch (err) {
       console.error('error refreshing prices:', err);
       setError('failed to refresh prices');
@@ -305,7 +286,6 @@ secureLog.info('portfolio history updated', {
   const [selectedOutputToken, setSelectedOutputToken] = useState<string>('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 
   const handleSwapComplete = () => {
-    console.log('swap completed, refreshing balances...');
     fetchTokenBalances(); 
   };
 
@@ -320,40 +300,9 @@ secureLog.info('portfolio history updated', {
   }, []);
 
   useEffect(() => {
-    const debugRpc = async () => {
-      console.log('=== rpc debug info ===');
-      console.log('NEXT_PUBLIC_HELIUS_API_KEY exists:', !!process.env.NEXT_PUBLIC_HELIUS_API_KEY);
-      console.log('NEXT_PUBLIC_SOLANA_RPC_URL:', process.env.NEXT_PUBLIC_SOLANA_RPC_URL);
-      
-      const testService = TokenService.getInstance();
-      await testService.getTokenBalances(publicKey?.toString() || 'Cj1jScR4V73qLmvWJiGiWs9jtcwCXEZsmS5cevWt9jNc');
-    };
-
-    if (connected) {
-      debugRpc();
-    }
-  }, [connected]);
-
-  useEffect(() => {
-    console.log('selected tokens updated:', {
-      count: selectedTokens.length,
-      tokens: selectedTokens.map(t => ({
-        symbol: t.symbol,
-        selected: t.selected,
-        balance: t.uiAmount,
-        value: t.value
-      })),
-      totalValue: totalSelectedValue
-    });
   }, [selectedTokens, totalSelectedValue]);
 
   useEffect(() => {
-    console.log('progress state update:', {
-      processingProgress,
-      totalToProcess,
-      loading,
-      progressPercentage: totalToProcess > 0 ? (processingProgress / totalToProcess) * 100 : 0
-    });
   }, [processingProgress, totalToProcess, loading]);
 
   const renderMainView = () => (
@@ -362,16 +311,16 @@ secureLog.info('portfolio history updated', {
       <div className="lg:col-span-2 order-2 lg:order-1">
         <div className="bg-gray-800/50 rounded-xl p-4 sm:p-6 backdrop-blur-sm border border-gray-700">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 space-y-3 sm:space-y-0">
-            <h2 className="text-lg sm:text-xl font-semibold flex items-center space-x-2">
+            <h2 className="text-m sm:text-xl font-semibold flex items-center space-x-2">
               <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span>tokens</span>
+              <span></span>
             </h2>
             
             <div className="flex items-center justify-between sm:justify-end space-x-2 sm:space-x-4">
               <div className="flex space-x-2">
                 <button
                   onClick={() => handleSelectAll(true)}
-                  className="text-xs sm:text-sm text-purple-400 hover:text-purple-300 transition-colors px-2 py-1"
+                  className="text-xs sm:text-sm text-gray-400 hover:text-gray-300 transition-colors px-2 py-1"
                 >
                   select all
                 </button>
@@ -385,17 +334,18 @@ secureLog.info('portfolio history updated', {
               <button
                 onClick={fetchTokenBalances}
                 disabled={loading}
-                className="text-xs sm:text-sm bg-purple-600 hover:bg-purple-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
+                className="text-xs sm:text-sm bg-gray-800 hover:bg-gray-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
               >
-                {loading ? 'refreshing...' : 'refresh all'}
+                {loading ? (
+                <div className="flex items-center space-x-2">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <RefreshCw className="h-4 w-4" />
+                </div>
+              )}
               </button>
-              {/* <button
-                onClick={handleRefreshPrices}
-                disabled={loading}
-                className="text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
-              >
-                {loading ? 'refreshing...' : 'refresh prices'}
-              </button> */}
             </div>
           </div>
 
@@ -421,46 +371,51 @@ secureLog.info('portfolio history updated', {
         </div>
       </div>
 
-      {/* Unified Swap Interface - Sticky on mobile */}
       <div className="lg:col-span-1 order-1 lg:order-2 mb-4 sm:mb-0">
-        <div className="sticky top-4">
-          <SwapInterface
-            selectedTokens={selectedTokens}
-            totalSelectedValue={totalSelectedValue}
-            allTokens={tokens}
-            onSwapComplete={handleSwapComplete}
-            onOutputTokenChange={handleOutputTokenChange}
-          />
-        </div>
-      </div>
+  <div className="sticky top-4">
+    <SwapInterface
+      selectedTokens={selectedTokens}
+      totalSelectedValue={totalSelectedValue}
+      allTokens={tokens}
+      onSwapComplete={handleSwapComplete}
+      onOutputTokenChange={handleOutputTokenChange}
+    />
+  </div>
+</div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white p-3 sm:p-4">
-      <div className="max-w-7xl mx-auto">
-        <header className="flex justify-between items-center mb-6 sm:mb-8 p-3 sm:p-4 bg-gray-800/50 rounded-lg backdrop-blur-sm relative z-30">
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            <div className="flex items-center space-x-2">
-              <Image
-                src={"/soloswap.png"}
-                alt="soloswap logo"
-                width={32}
-                height={32}
-                className="h-7 w-auto sm:h-8" 
-              />
-              <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                solo: swap
-              </h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white relative">
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-900/20 via-black to-black-900/20 pointer-events-none" />
+      
+      <div className="relative z-10 p-4 sm:p-6">
+        <div className="max-w-4xl mx-auto">
+          {/* Enhanced Header */}
+          <header className="flex justify-between items-center mb-6 sm:mb-8 p-4 sm:p-5 bg-gray-800/30 rounded-2xl backdrop-blur-xl border border-gray-700/50 shadow-lg">
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <Image
+                    src={"/soloswap.png"}
+                    alt="soloswap logo"
+                    width={40}
+                    height={40}
+                    className="h-8 w-8 sm:h-10 sm:w-10 drop-shadow-lg"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-gray-400 to-black-400 rounded-full opacity-20 blur-sm" />
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-300 via-black-300 to-gray-300 bg-clip-text text-transparent tracking-tight">
+                  solo: swap
+                </h1>
+              </div>
             </div>
-          </div>
-          
-          {/* Desktop Actions */}
-          <div className="hidden sm:flex items-center space-x-4">
+            
+            <div className="hidden sm:flex items-center space-x-3">
             {currentView === 'main' && (
               <button
                 onClick={() => setCurrentView('multisig')}
-                className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg transition-colors text-sm"
+                className="flex items-center space-x-2 bg-gradient-to-r from-gray-800 to-black-600 hover:from-gray-500 hover:to-black-500 px-4 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-gray-500/25 active:scale-95 relative z-50"
               >
                 <Calculator className="h-4 w-4" />
                 <span>solo: shop</span>
@@ -470,124 +425,113 @@ secureLog.info('portfolio history updated', {
             {currentView === 'multisig' && (
               <button
                 onClick={() => setCurrentView('main')}
-                className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded-lg transition-colors text-sm"
-              >
-                <span>← back to swap</span>
-              </button>
-            )}
-
-            {/* <button
-              onClick={() => setShowSettings(!showSettings)}
-              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <Settings2 className="h-5 w-5" />
-            </button> */}
-            <div className="relative z-40">
-              {isClient && (
-                <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm" />
-              )}
-            </div>
-          </div>
-
-          <div className="sm:hidden flex items-center space-x-2">
-            {currentView === 'main' ? (
-              <button
-                onClick={() => setCurrentView('multisig')}
-                className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded-lg transition-colors text-xs"
-              >
-                <Calculator className="h-3 w-3" />
-                <span>solo: shop</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => setCurrentView('main')}
-                className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded-lg transition-colors text-xs"
+                className="flex items-center space-x-2 bg-gradient-to-r from-gray-800 to-black-600 hover:from-gray-500 hover:to-black-500 px-4 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-gray-500/25 active:scale-95 relative z-50"
               >
                 <span>← back</span>
               </button>
             )}
 
-            <button
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              {showMobileMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
-          </div>
-        </header>
-
-        {/* Mobile Menu */}
-        {showMobileMenu && (
-          <div className="sm:hidden mb-4 p-4 bg-gray-800/80 rounded-lg backdrop-blur-sm border border-gray-700 relative z-30">
-            <div className="flex flex-col space-y-3">
-              {/* <button
-                onClick={() => {
-                  setShowSettings(true);
-                  setShowMobileMenu(false);
-                }}
-                className="flex items-center space-x-2 p-2 hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <Settings2 className="h-4 w-4" />
-                <span>settings</span>
-              </button> */}
-              <div className="flex justify-center relative z-40">
-                {isClient && (
-                  <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !transition-colors !text-sm !py-2 !px-4" />
-                )}
-              </div>
+            {/* Wallet button with proper stacking context */}
+            <div className="relative z-[100]">
+              {isClient && (
+                <WalletMultiButton className="!bg-gradient-to-r !from-gray-800 !to-black-600 hover:!from-gray-500 hover:!to-black-500 !transition-all !duration-200 !text-sm !px-4 !py-2.5 !rounded-xl !font-medium !shadow-lg hover:!shadow-gray-500/25 active:!scale-95 !relative !z-[100]" />
+              )}
             </div>
           </div>
-        )}
 
-        {/* Main Content */}
-        {currentView === 'main' ? renderMainView() : (
-          <MultisigAnalyzer onBack={() => setCurrentView('main')} />
-        )}
+            {/* Mobile Header Actions */}
+            <div className="sm:hidden flex items-center space-x-2">
+              {currentView === 'main' ? (
+                <button
+                  onClick={() => setCurrentView('multisig')}
+                  className="flex items-center space-x-2 bg-gradient-to-r from-black-800 to-gray-800 px-3 py-2 rounded-xl text-xs font-medium active:scale-95 transition-all duration-200"
+                >
+                  <Calculator className="h-3 w-3" />
+                  <span>solo: shop</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setCurrentView('main')}
+                  className="flex items-center space-x-2 bg-gradient-to-r from-black-800 to-gray-800 px-3 py-2 rounded-xl text-xs font-medium active:scale-95 transition-all duration-200"
+                >
+                  <span>← back</span>
+                </button>
+              )}
 
-        {/* Settings Panel */}
-        {showSettings && (
-          <SettingsPanel onClose={() => setShowSettings(false)} />
-        )}
-
-        <HistoricalPortfolio />
-        {/* Footer */}
-        <div className="mt-4 sm:mt-6 pt-4 border-t border-gray-700/50">
-          <div className="flex justify-center items-center space-x-6">
-            {/* Twitter Link */}
-            <a
-              href="https://twitter.com/ilovespectra"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center space-x-2 text-gray-400 hover:text-blue-400 transition-colors duration-200"
-              aria-label="follow on twitter"
-            >
-              <svg 
-                className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" 
-                fill="currentColor" 
-                viewBox="0 0 24 24"
-                aria-hidden="true"
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="p-2 bg-gray-700/50 hover:bg-gray-800/50 rounded-xl transition-all duration-200 active:scale-95 border border-gray-800"
               >
-                <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
-              </svg>
-            </a>
+                {showMobileMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+            </div>
+          </header>
 
-            <a
-              href="https://github.com/ilovespectra/solo-swap-v2"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center space-x-2 text-gray-400 hover:text-purple-400 transition-colors duration-200"
-              aria-label="view on gitHub"
-            >
-              <svg 
-                className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" 
-                fill="currentColor" 
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.337-3.369-1.337-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.022.8-.223 1.65-.334 2.5-.338.85.004 1.7.115 2.5.338 1.91-1.291 2.75-1.022 2.75-1.022.544 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
-              </svg>
-            </a>
+          {/* Enhanced Mobile Menu */}
+          {showMobileMenu && (
+            <div className="sm:hidden mb-6 p-5 bg-gray-800/50 rounded-2xl backdrop-blur-xl border border-gray-700/50 shadow-lg animate-in fade-in duration-200">
+              <div className="flex flex-col space-y-4">
+                <div className="flex justify-center">
+                  {isClient && (
+                    <WalletMultiButton className="!bg-gradient-to-r !from-gray-800 !to-black-600 hover:!from-gray-500 hover:!to-black-500 !transition-all !duration-200 !text-sm !py-3 !px-6 !rounded-xl !font-medium !w-full justify-center active:!scale-95" />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Main Content Area */}
+          <main className="mb-8">
+            <div className="shadow-xl overflow-visible"> 
+              {currentView === 'main' ? renderMainView() : (
+                <MultisigAnalyzer onBack={() => setCurrentView('main')} />
+              )}
+            </div>
+          </main>
+
+          {/* Historical Portfolio */}
+          <div className="mb-8">
+            <HistoricalPortfolio />
           </div>
+
+          {/* Enhanced Footer */}
+          <footer className="mt-8 pt-6 border-t border-gray-700/30">
+            <div className="flex justify-center items-center space-x-8">
+              {/* Twitter Link */}
+              <a
+                href="https://twitter.com/ilovespectra"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group p-3 bg-gray-800/30 hover:bg-gray-700/50 rounded-xl transition-all duration-200 backdrop-blur-sm border border-gray-700/50 hover:border-gray-400/30 active:scale-95"
+                aria-label="Follow on Twitter"
+              >
+                <svg 
+                  className="w-5 h-5 text-gray-400 group-hover:text-blue-400 group-hover:scale-110 transition-all duration-200" 
+                  fill="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
+                </svg>
+              </a>
+
+              {/* GitHub Link */}
+              <a
+                href="https://github.com/ilovespectra/solo-swap-v2"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group p-3 bg-gray-800/30 hover:bg-gray-700/50 rounded-xl transition-all duration-200 backdrop-blur-sm border border-gray-700/50 hover:border-gray-400/30 active:scale-95"
+                aria-label="View on GitHub"
+              >
+                <svg 
+                  className="w-5 h-5 text-gray-400 group-hover:text-gray-400 group-hover:scale-110 transition-all duration-200" 
+                  fill="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.337-3.369-1.337-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.022.8-.223 1.65-.334 2.5-.338.85.004 1.7.115 2.5.338 1.91-1.291 2.75-1.022 2.75-1.022.544 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+                </svg>
+              </a>
+            </div>
+          </footer>
         </div>
       </div>
     </div>

@@ -179,3 +179,50 @@ body {
 .wallet-adapter-modal-title {
   text-transform: lowercase !important;
 }
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 10;
+  transition: background-color 0.2s;
+}
+
+.resize-handle:hover {
+  background: theme('colors.purple.400');
+}
+
+.resize-handle-left {
+  left: 0;
+}
+
+.resize-handle-right {
+  right: 0;
+}
+
+.resizing * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+.dragging {
+  cursor: grabbing !important;
+}
+
+/* Ensure cart components stay below */
+.sticky.top-4,
+.bg-gray-800\/50 {
+  z-index: 10 !important;
+}
+
+
+/* Make sure wallet dropdown items are clickable */
+.wallet-adapter-dropdown-list-item {
+  pointer-events: all !important;
+  cursor: pointer !important;
+}

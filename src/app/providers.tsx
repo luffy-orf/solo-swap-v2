@@ -36,150 +36,172 @@ export function Providers({ children }: { children: ReactNode }) {
         <WalletProvider wallets={wallets} autoConnect>
           <WalletModalProvider>
             <style jsx global>{`
-              .wallet-adapter-modal-wrapper {
-                z-index: 10000 !important;
-              }
-              
-              .wallet-adapter-modal {
-                z-index: 10001 !important;
-              }
-              
-              .wallet-adapter-modal-overlay {
-                z-index: 9999 !important;
-                background-color: rgba(0, 0, 0, 0.8) !important;
-                backdrop-filter: blur(8px);
-              }
-              
-              .wallet-adapter-dropdown {
-                z-index: 10050 !important;
-              }
-              
-              .wallet-adapter-dropdown-list {
-                z-index: 10051 !important;
-                background: rgb(31, 41, 55) !important;
-                border: 1px solid rgb(55, 65, 81) !important;
-                border-radius: 0.75rem !important;
-                backdrop-filter: blur(8px) !important;
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
-              }
-              
-              .wallet-adapter-dropdown-list-item {
-                font-size: 0.875rem !important;
-                padding: 0.75rem 1rem !important;
-                min-height: 44px !important;
-                display: flex !important;
-                align-items: center !important;
-                transition: all 0.2s ease !important;
-                text-transform: lowercase !important;
-              }
-              
-              /* Keep wallet address normal case */
-              .wallet-adapter-button-trigger {
-                text-transform: none !important;
-              }
-              
-              .wallet-adapter-modal-wrapper .wallet-adapter-modal-title,
-              .wallet-adapter-modal-wrapper .wallet-adapter-modal-list li,
-              .wallet-adapter-modal-wrapper .wallet-adapter-modal-list-more {
-                text-transform: lowercase !important;
-              }
-              
-              /* But keep the wallet address in the button normal */
-              .wallet-adapter-modal-wrapper .wallet-adapter-button,
-              .wallet-adapter-button[data-connected="true"] {
-                text-transform: none !important;
-              }
-              
-              .wallet-adapter-button[data-connected="true"] span {
-                text-transform: none !important;
-                font-family: monospace !important;
-              }
-              
-              .wallet-adapter-modal-list .wallet-adapter-modal-button span {
-                text-transform: lowercase !important;
-              }
-              
-              .wallet-adapter-button-trigger span:not(:first-child) {
-                text-transform: none !important;
-                font-family: monospace !important;
-              }
-              
-              .wallet-adapter-dropdown-list-item:not([disabled]):hover {
-                background-color: rgba(139, 92, 246, 0.2) !important;
-                transform: translateX(2px) !important;
-              }
-              
-              .wallet-adapter-button {
-                border-radius: 0.75rem !important;
-                font-size: 0.875rem !important;
-                min-height: 44px !important;
-                padding: 0.5rem 1rem !important;
-                transition: all 0.2s ease !important;
-              }
-              
-              .wallet-adapter-button:not([disabled]):hover {
-                transform: scale(1.02) !important;
-              }
-              
-              /* Mobile optimizations */
-              @media (max-width: 768px) {
-                .wallet-adapter-modal {
-                  margin: 1rem !important;
-                  max-height: calc(100vh - 2rem) !important;
-                }
-                
-                .wallet-adapter-modal-title {
-                  font-size: 1.125rem !important;
-                  padding: 1rem 1.5rem 0.5rem !important;
-                }
-                
-                .wallet-adapter-modal-list {
-                  margin: 0 !important;
-                  padding: 0.5rem !important;
-                }
-                
-                .wallet-adapter-modal-list-more {
-                  font-size: 0.875rem !important;
-                  padding: 1rem 1.5rem !important;
-                }
-              }
-              
-              .wallet-adapter-dropdown-list {
-                z-index: 10050 !important;
-                position: fixed !important;
-              }
-              
-              @media (max-width: 768px) {
-                .wallet-adapter-dropdown {
-                  position: relative !important;
-                }
-                
-                .wallet-adapter-dropdown-list {
-                  position: absolute !important;
-                  right: 0 !important;
-                  top: 100% !important;
-                  margin-top: 0.5rem !important;
-                  min-width: 160px !important;
-                }
-              }
-              
-              .wallet-adapter-modal-button {
-                min-height: 60px !important;
-                padding: 1rem !important;
-              }
-              
-              @media (max-width: 768px) {
-                .wallet-adapter-modal-button {
-                  min-height: 56px !important;
-                  padding: 0.875rem !important;
-                }
-                
-                .wallet-adapter-modal-button-icon {
-                  width: 28px !important;
-                  height: 28px !important;
-                }
-              }
-            `}</style>
+  /* COMPLETELY RESET wallet adapter styles to fix dropdown */
+  .wallet-adapter-modal-wrapper {
+    z-index: 999999 !important;
+    position: fixed !important;
+  }
+  
+  .wallet-adapter-modal-overlay {
+    z-index: 999998 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background-color: rgba(0, 0, 0, 0.8) !important;
+    backdrop-filter: none !important; /* REMOVE backdrop-filter */
+    -webkit-backdrop-filter: none !important;
+  }
+  
+  .wallet-adapter-modal {
+    z-index: 999999 !important;
+    position: relative !important;
+  }
+  
+  .wallet-adapter-dropdown {
+    z-index: 1000000 !important;
+    position: relative !important;
+  }
+  
+  .wallet-adapter-dropdown-list {
+    z-index: 1000001 !important;
+    background: rgb(31, 41, 55) !important;
+    border: 1px solid rgb(55, 65, 81) !important;
+    border-radius: 0.75rem !important;
+    backdrop-filter: none !important; /* REMOVE backdrop-filter */
+    -webkit-backdrop-filter: none !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+  }
+  
+  .wallet-adapter-dropdown-list-item {
+    pointer-events: all !important;
+    cursor: pointer !important;
+    font-size: 0.875rem !important;
+    padding: 0.75rem 1rem !important;
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    transition: all 0.2s ease !important;
+    text-transform: lowercase !important;
+  }
+  
+  /* Ensure wallet button has proper stacking */
+  .wallet-adapter-button-trigger {
+    position: relative !important;
+    z-index: 1000000 !important;
+  }
+  
+  /* Keep wallet address normal case */
+  .wallet-adapter-button-trigger {
+    text-transform: none !important;
+  }
+  
+  .wallet-adapter-modal-wrapper .wallet-adapter-modal-title,
+  .wallet-adapter-modal-wrapper .wallet-adapter-modal-list li,
+  .wallet-adapter-modal-wrapper .wallet-adapter-modal-list-more {
+    text-transform: lowercase !important;
+  }
+  
+  /* But keep the wallet address in the button normal */
+  .wallet-adapter-modal-wrapper .wallet-adapter-button,
+  .wallet-adapter-button[data-connected="true"] {
+    text-transform: none !important;
+  }
+  
+  .wallet-adapter-button[data-connected="true"] span {
+    text-transform: none !important;
+    font-family: monospace !important;
+  }
+  
+  .wallet-adapter-modal-list .wallet-adapter-modal-button span {
+    text-transform: lowercase !important;
+  }
+  
+  .wallet-adapter-button-trigger span:not(:first-child) {
+    text-transform: none !important;
+    font-family: monospace !important;
+  }
+  
+  .wallet-adapter-dropdown-list-item:not([disabled]):hover {
+    background-color: rgba(139, 92, 246, 0.2) !important;
+    transform: translateX(2px) !important;
+  }
+  
+  .wallet-adapter-button {
+    border-radius: 0.75rem !important;
+    font-size: 0.875rem !important;
+    min-height: 44px !important;
+    padding: 0.5rem 1rem !important;
+    transition: all 0.2s ease !important;
+  }
+  
+  .wallet-adapter-button:not([disabled]):hover {
+    transform: scale(1.02) !important;
+  }
+  
+  /* DESKTOP: Proper dropdown positioning */
+  @media (min-width: 769px) {
+    .wallet-adapter-dropdown-list {
+      position: absolute !important;
+      top: 100% !important;
+      right: 0 !important;
+      left: auto !important;
+      margin-top: 0.5rem !important;
+      min-width: 200px !important;
+    }
+  }
+  
+  /* MOBILE: Proper dropdown positioning */
+  @media (max-width: 768px) {
+    .wallet-adapter-modal {
+      margin: 1rem !important;
+      max-height: calc(100vh - 2rem) !important;
+    }
+    
+    .wallet-adapter-modal-title {
+      font-size: 1.125rem !important;
+      padding: 1rem 1.5rem 0.5rem !important;
+    }
+    
+    .wallet-adapter-modal-list {
+      margin: 0 !important;
+      padding: 0.5rem !important;
+    }
+    
+    .wallet-adapter-modal-list-more {
+      font-size: 0.875rem !important;
+      padding: 1rem 1.5rem !important;
+    }
+    
+    .wallet-adapter-dropdown-list {
+      position: fixed !important;
+      right: 1rem !important;
+      left: 1rem !important;
+      top: auto !important;
+      bottom: 1rem !important;
+      margin-top: 0 !important;
+      min-width: auto !important;
+    }
+  }
+  
+  .wallet-adapter-modal-button {
+    min-height: 60px !important;
+    padding: 1rem !important;
+  }
+  
+  @media (max-width: 768px) {
+    .wallet-adapter-modal-button {
+      min-height: 56px !important;
+      padding: 0.875rem !important;
+    }
+    
+    .wallet-adapter-modal-button-icon {
+      width: 28px !important;
+      height: 28px !important;
+    }
+  }
+`}</style>
             {children}
           </WalletModalProvider>
         </WalletProvider>
