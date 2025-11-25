@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+* {
+  font-family: "Courier New", Courier, monospace !important;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
