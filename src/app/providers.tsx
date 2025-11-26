@@ -39,8 +39,9 @@ export function Providers({ children }: { children: ReactNode }) {
           if (span) {
             const text = span.textContent || '';
             if (text.match(/[0-9a-zA-Z]{32,44}/) || text.includes('...') || text.length > 20) {
-              span.style.textTransform = 'none';
-              button.style.textTransform = 'none';
+              // Type cast to HTMLElement to access style property
+              (span as HTMLElement).style.textTransform = 'none';
+              (button as HTMLElement).style.textTransform = 'none';
             }
           }
         });
@@ -64,6 +65,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <WalletProvider wallets={wallets} autoConnect>
           <WalletModalProvider>
             <style jsx global>{`
+              /* Global lowercase styling for user-facing text */
               .wallet-adapter-button {
                 text-transform: lowercase !important;
               }
@@ -84,6 +86,7 @@ export function Providers({ children }: { children: ReactNode }) {
                 text-transform: lowercase !important;
               }
 
+              /* But preserve wallet addresses and technical text */
               .wallet-address,
               .token-address,
               .mono,
@@ -92,9 +95,46 @@ export function Providers({ children }: { children: ReactNode }) {
                 text-transform: none !important;
               }
 
+              /* Ensure all user-facing button text is lowercase */
               button:not(.wallet-adapter-button):not([class*="mono"]), 
               [role="button"]:not([class*="mono"]) {
                 text-transform: lowercase !important;
+              }
+
+              /* Mobile text scaling */
+              @media (max-width: 767px) {
+                body {
+                  font-size: 18px !important;
+                  line-height: 1.6 !important;
+                }
+                
+                .wallet-adapter-button {
+                  font-size: 16px !important;
+                  min-height: 48px !important;
+                }
+                
+                .mobile-wallet-button .wallet-adapter-button {
+                  font-size: 16px !important;
+                  padding: 12px 16px !important;
+                }
+                
+                .wallet-adapter-dropdown-list-item {
+                  font-size: 16px !important;
+                  padding: 14px 16px !important;
+                  min-height: 48px !important;
+                }
+                
+                .wallet-adapter-modal-title {
+                  font-size: 20px !important;
+                }
+                
+                .wallet-adapter-modal-button {
+                  font-size: 16px !important;
+                }
+                
+                button:not(.wallet-adapter-button) {
+                  font-size: 16px !important;
+                }
               }
             `}</style>
             {children}
