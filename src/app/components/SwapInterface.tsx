@@ -651,7 +651,7 @@ export function SwapInterface({
       <div className="max-h-[calc(100vh-200px)] overflow-y-auto mobile-scroll pr-2 -mr-2">
 
         {selectedTokens.length === 0 ? (
-          <div className="text-center py-6 sm:py-8 text-gray-400">
+          <div className="text-center py-6 sm:py-8 text-gray-400 justify-items-center">
             <Calculator className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-50" />
             <p className="text-m sm:text-base">select tokens to enable liquidation</p>
           </div>
