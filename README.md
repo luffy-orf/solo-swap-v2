@@ -41,6 +41,11 @@ solo swap enables users to efficiently liquidate multiple solana tokens in a sin
 
 #### transaction history
 - **swap history**: with sell indicators on chart
+- **jito bundler** to wrap swap instructions in bundles of 5 swaps per signature
+- **fetch quotes** for multiple swap routes to ensure the best price
+- **token safety indicators** on search mechanisms (green, yellow, red warning levels)
+- **customizable columns** to allow users to organize how they wish
+- **mobile optimization** for text size and touch operability
 
 ### 🔥 transaction bundling (coming soon)
 - **atomic multi-token swaps**: bundle multiple token swaps into single transactions

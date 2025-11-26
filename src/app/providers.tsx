@@ -36,7 +36,6 @@ export function Providers({ children }: { children: ReactNode }) {
         <WalletProvider wallets={wallets} autoConnect>
           <WalletModalProvider>
             <style jsx global>{`
-  /* COMPLETELY RESET wallet adapter styles to fix dropdown */
   .wallet-adapter-modal-wrapper {
     z-index: 999999 !important;
     position: fixed !important;
@@ -50,7 +49,7 @@ export function Providers({ children }: { children: ReactNode }) {
     right: 0 !important;
     bottom: 0 !important;
     background-color: rgba(0, 0, 0, 0.8) !important;
-    backdrop-filter: none !important; /* REMOVE backdrop-filter */
+    backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
   
@@ -66,10 +65,11 @@ export function Providers({ children }: { children: ReactNode }) {
   
   .wallet-adapter-dropdown-list {
     z-index: 1000001 !important;
+    position: fixed !important;
     background: rgb(31, 41, 55) !important;
     border: 1px solid rgb(55, 65, 81) !important;
     border-radius: 0.75rem !important;
-    backdrop-filter: none !important; /* REMOVE backdrop-filter */
+    backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
   }
@@ -86,13 +86,11 @@ export function Providers({ children }: { children: ReactNode }) {
     text-transform: lowercase !important;
   }
   
-  /* Ensure wallet button has proper stacking */
   .wallet-adapter-button-trigger {
     position: relative !important;
     z-index: 1000000 !important;
   }
   
-  /* Keep wallet address normal case */
   .wallet-adapter-button-trigger {
     text-transform: none !important;
   }
@@ -103,7 +101,6 @@ export function Providers({ children }: { children: ReactNode }) {
     text-transform: lowercase !important;
   }
   
-  /* But keep the wallet address in the button normal */
   .wallet-adapter-modal-wrapper .wallet-adapter-button,
   .wallet-adapter-button[data-connected="true"] {
     text-transform: none !important;
@@ -140,19 +137,6 @@ export function Providers({ children }: { children: ReactNode }) {
     transform: scale(1.02) !important;
   }
   
-  /* DESKTOP: Proper dropdown positioning */
-  @media (min-width: 769px) {
-    .wallet-adapter-dropdown-list {
-      position: absolute !important;
-      top: 100% !important;
-      right: 0 !important;
-      left: auto !important;
-      margin-top: 0.5rem !important;
-      min-width: 200px !important;
-    }
-  }
-  
-  /* MOBILE: Proper dropdown positioning */
   @media (max-width: 768px) {
     .wallet-adapter-modal {
       margin: 1rem !important;
@@ -181,7 +165,6 @@ export function Providers({ children }: { children: ReactNode }) {
       top: auto !important;
       bottom: 1rem !important;
       margin-top: 0 !important;
-      min-width: auto !important;
     }
   }
   

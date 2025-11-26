@@ -208,7 +208,7 @@ export function LoadingBar({
 
       <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
         <div 
-          className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-300 ease-out relative"
+          className="h-full bg-gradient-to-r from-gray-500 to-gray-300 rounded-full transition-all duration-300 ease-out relative"
           style={{ width: `${progress}%` }}
         >
           {!isComplete && (
@@ -224,9 +224,6 @@ export function LoadingBar({
 
       <div className="flex justify-between items-center mt-2">
         <span className="text-xs text-gray-400">
-          {currentProcessed} of {totalItems} processed
-        </span>
-        <span className="text-xs text-gray-400">
           {Math.round(progress)}% complete
         </span>
       </div>
@@ -237,23 +234,17 @@ export function LoadingBar({
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"
+                className="w-2 h-2 bg-gray-300 rounded-full animate-pulse"
                 style={{ animationDelay: `${i * 0.2}s` }}
               />
             ))}
           </div>
-          <span className="text-xs text-purple-300">
-            fetching {itemType}...
-          </span>
         </div>
       )}
 
       {isComplete && (
         <div className="flex items-center justify-center mt-3 space-x-2">
           <div className="w-2 h-2 bg-green-400 rounded-full animate-ping" />
-          <span className="text-xs text-green-300">
-            all {itemType} fetched successfully!
-          </span>
         </div>
       )}
 
@@ -1518,7 +1509,7 @@ useEffect(() => {
         {loadingProgress.isActive && (
           <div className="mb-6 bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center space-x-3">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-300"></div>
               <span>analyzing wallets...</span>
             </h3>
             <LoadingBar
@@ -1531,7 +1522,7 @@ useEffect(() => {
             <div className="mt-4 text-sm text-gray-400 text-center">
               processing wallet {Math.min(loadingProgress.currentProcessed + 1, loadingProgress.totalItems)} of {loadingProgress.totalItems}
               {loadingProgress.currentProcessed > 0 && (
-                <span className="ml-2 text-purple-400 font-medium">
+                <span className="ml-2 text-gray-300 font-medium">
                   ({Math.round((loadingProgress.currentProcessed / loadingProgress.totalItems) * 100)}%)
                 </span>
               )}

@@ -311,7 +311,7 @@ secureLog.info('portfolio history updated', {
       <div className="lg:col-span-2 order-2 lg:order-1">
         <div className="bg-gray-800/50 rounded-xl p-4 sm:p-6 backdrop-blur-sm border border-gray-700">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 space-y-3 sm:space-y-0">
-            <h2 className="text-m sm:text-xl font-semibold flex items-center space-x-2">
+            <h2 className="text-l sm:text-xl font-semibold flex items-center space-x-2">
               <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />
               <span></span>
             </h2>
@@ -320,13 +320,13 @@ secureLog.info('portfolio history updated', {
               <div className="flex space-x-2">
                 <button
                   onClick={() => handleSelectAll(true)}
-                  className="text-xs sm:text-sm text-gray-400 hover:text-gray-300 transition-colors px-2 py-1"
+                  className="text-s sm:text-l text-gray-400 hover:text-gray-300 transition-colors px-2 py-1"
                 >
                   select all
                 </button>
                 <button
                   onClick={() => handleSelectAll(false)}
-                  className="text-xs sm:text-sm text-gray-400 hover:text-gray-300 transition-colors px-2 py-1"
+                  className="text-s sm:text-l text-gray-400 hover:text-gray-300 transition-colors px-2 py-1"
                 >
                   clear all
                 </button>
@@ -334,7 +334,7 @@ secureLog.info('portfolio history updated', {
               <button
                 onClick={fetchTokenBalances}
                 disabled={loading}
-                className="text-xs sm:text-sm bg-gray-800 hover:bg-gray-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
+                className="text-xs sm:text-l bg-gray-800 hover:bg-gray-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
               >
                 {loading ? (
                 <div className="flex items-center space-x-2">
@@ -350,7 +350,7 @@ secureLog.info('portfolio history updated', {
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg text-red-200 text-sm">
+            <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg text-red-200 text-l">
               {error}
             </div>
           )}
@@ -415,7 +415,7 @@ secureLog.info('portfolio history updated', {
             {currentView === 'main' && (
               <button
                 onClick={() => setCurrentView('multisig')}
-                className="flex items-center space-x-2 bg-gradient-to-r from-gray-800 to-black-600 hover:from-gray-500 hover:to-black-500 px-4 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-gray-500/25 active:scale-95 relative z-50"
+                className="flex items-center space-x-2 bg-gradient-to-r from-gray-800 to-black-600 hover:from-gray-500 hover:to-black-500 px-4 py-2.5 rounded-xl transition-all duration-200 text-l font-medium shadow-lg hover:shadow-gray-500/25 active:scale-95 relative z-50"
               >
                 <Calculator className="h-4 w-4" />
                 <span>solo: shop</span>
@@ -425,7 +425,7 @@ secureLog.info('portfolio history updated', {
             {currentView === 'multisig' && (
               <button
                 onClick={() => setCurrentView('main')}
-                className="flex items-center space-x-2 bg-gradient-to-r from-gray-800 to-black-600 hover:from-gray-500 hover:to-black-500 px-4 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-gray-500/25 active:scale-95 relative z-50"
+                className="flex items-center space-x-2 bg-gradient-to-r from-gray-800 to-black-600 hover:from-gray-500 hover:to-black-500 px-4 py-2.5 rounded-xl transition-all duration-200 text-l font-medium shadow-lg hover:shadow-gray-500/25 active:scale-95 relative z-50"
               >
                 <span>← back</span>
               </button>
@@ -434,7 +434,7 @@ secureLog.info('portfolio history updated', {
             {/* Wallet button with proper stacking context */}
             <div className="relative z-[100]">
               {isClient && (
-                <WalletMultiButton className="!bg-gradient-to-r !from-gray-800 !to-black-600 hover:!from-gray-500 hover:!to-black-500 !transition-all !duration-200 !text-sm !px-4 !py-2.5 !rounded-xl !font-medium !shadow-lg hover:!shadow-gray-500/25 active:!scale-95 !relative !z-[100]" />
+                <WalletMultiButton className="!bg-gradient-to-r !from-gray-800 !to-black-600 hover:!from-gray-500 hover:!to-black-500 !transition-all !duration-200 !text-l !px-4 !py-2.5 !rounded-xl !font-medium !shadow-lg hover:!shadow-gray-500/25 active:!scale-95 !relative !z-[100]" />
               )}
             </div>
           </div>
@@ -473,7 +473,7 @@ secureLog.info('portfolio history updated', {
               <div className="flex flex-col space-y-4">
                 <div className="flex justify-center">
                   {isClient && (
-                    <WalletMultiButton className="!bg-gradient-to-r !from-gray-800 !to-black-600 hover:!from-gray-500 hover:!to-black-500 !transition-all !duration-200 !text-sm !py-3 !px-6 !rounded-xl !font-medium !w-full justify-center active:!scale-95" />
+                    <WalletMultiButton className="!bg-gradient-to-r !from-gray-800 !to-black-600 hover:!from-gray-500 hover:!to-black-500 !transition-all !duration-200 !text-l !py-3 !px-6 !rounded-xl !font-medium !w-full justify-center active:!scale-95" />
                   )}
                 </div>
               </div>

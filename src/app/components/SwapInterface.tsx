@@ -611,7 +611,7 @@ export function SwapInterface({
       <TokenLogo token={token} size={8} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center space-x-2 mb-1">
-          <span className="font-semibold text-sm text-white truncate">{token.symbol}</span>
+          <span className="font-semibold text-m text-white truncate">{token.symbol}</span>
           {isSelected && (
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
           )}
@@ -654,24 +654,24 @@ export function SwapInterface({
         {selectedTokens.length === 0 ? (
           <div className="text-center py-6 sm:py-8 text-gray-400">
             <Calculator className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-50" />
-            <p className="text-sm sm:text-base">select tokens to enable liquidation</p>
+            <p className="text-m sm:text-base">select tokens to enable liquidation</p>
           </div>
         ) : (
           <>
             {/* Summary Section */}
             <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
-              <div className="flex justify-between text-xs sm:text-sm">
+              <div className="flex justify-between text-xs sm:text-m">
                 <span>tokens selected:</span>
                 <span>{selectedTokens.length}</span>
               </div>
-              <div className="flex justify-between text-xs sm:text-sm">
+              <div className="flex justify-between text-xs sm:text-m">
                 <span>value:</span>
                 <span>${totalSelectedValue.toFixed(2)}</span>
               </div>
 
               {/* Percentage Selector */}
               <div className="space-y-2 sm:space-y-3">
-                <div className="flex justify-between text-xs sm:text-sm">
+                <div className="flex justify-between text-xs sm:text-m">
                   <span className="text-gray-300">percentage:</span>
                   <span className="text-gray-300 font-medium">
                     {liquidationPercentage}%
@@ -708,13 +708,13 @@ export function SwapInterface({
 
               {/* Liquidation Summary */}
               <div className="bg-gray-700/50 rounded-lg p-3 sm:p-4 space-y-2">
-                <div className="flex justify-between text-xs sm:text-sm">
+                <div className="flex justify-between text-xs sm:text-m">
                   <span className="text-gray-300">to liquidate</span>
                   <span className="text-red-500 font-medium">
                     ${liquidationValue.toFixed(2)}
                   </span>
                 </div>
-                <div className="flex justify-between text-xs sm:text-sm">
+                <div className="flex justify-between text-xs sm:text-m">
                   <span className="text-gray-300">receive in {outputTokenSymbol}</span>
                   <span className="text-green-500 font-medium">
                     ~${liquidationValue.toFixed(2)}
@@ -726,7 +726,7 @@ export function SwapInterface({
               <div className="border-t border-gray-600 pt-3">
                 <button
                   onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex items-center space-x-2 text-xs sm:text-sm text-gray-300 hover:text-white transition-colors w-full mobile-optimized"
+                  className="flex items-center space-x-2 text-xs sm:text-m text-gray-300 hover:text-white transition-colors w-full mobile-optimized"
                 >
                   <span>advanced settings</span>
                   <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
@@ -738,16 +738,16 @@ export function SwapInterface({
                 <div className="space-y-3 sm:space-y-4 animate-slideDown">
                   {/* Output Token Selection with Search */}
                   <div className="relative" ref={tokenSelectorRef}>
-                    <label className="block text-xs sm:text-sm font-medium mb-2">output token</label>
+                    <label className="block text-xs sm:text-m font-medium mb-2">output token</label>
                     <button
                       type="button"
                       onClick={() => setShowTokenSearch(!showTokenSearch)}
-                      className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent mobile-optimized flex items-center justify-between hover:bg-gray-600/50 transition-all duration-200"
+                      className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-m focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent mobile-optimized flex items-center justify-between hover:bg-gray-600/50 transition-all duration-200"
                     >
                       <div className="flex items-center space-x-3">
                         <TokenLogo token={outputTokenInfo} size={6} />
                         <div className="text-left">
-                          <div className="font-medium text-sm text-white">{outputTokenSymbol}</div>
+                          <div className="font-medium text-m text-white">{outputTokenSymbol}</div>
                           <div className="text-xs text-gray-400">click to search tokens</div>
                         </div>
                       </div>
@@ -768,7 +768,7 @@ export function SwapInterface({
                                 setSearchQuery(e.target.value);
                                 searchTokens(e.target.value);
                               }}
-                              className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent text-sm placeholder-gray-400"
+                              className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent text-m placeholder-gray-400"
                             />
                             {searchQuery && (
                               <button
@@ -811,7 +811,7 @@ export function SwapInterface({
                               {isSearching ? (
                                 <div className="flex justify-center items-center py-8">
                                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
-                                  <span className="ml-2 text-sm text-gray-400">searching...</span>
+                                  <span className="ml-2 text-m text-gray-400">searching...</span>
                                 </div>
                               ) : searchResults.length > 0 ? (
                                 searchResults.map(token => (
@@ -823,7 +823,7 @@ export function SwapInterface({
                                   />
                                 ))
                               ) : (
-                                <div className="text-center py-8 text-gray-400 text-sm">
+                                <div className="text-center py-8 text-gray-400 text-m">
                                   no tokens found matching {searchQuery}
                                 </div>
                               )}
@@ -853,7 +853,7 @@ export function SwapInterface({
 
                   {/* Slippage Tolerance */}
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-2">
+                    <label className="block text-xs sm:text-m font-medium mb-2">
                       slippage tolerance: {slippage}%
                     </label>
                     <input
@@ -876,12 +876,12 @@ export function SwapInterface({
 
             {/* Token Breakdown */}
             <div className="mb-4 sm:mb-6">
-              <h3 className="font-medium text-sm sm:text-base mb-2 sm:mb-3">liquidation breakdown</h3>
+              <h3 className="font-medium text-m sm:text-base mb-2 sm:mb-3">liquidation breakdown</h3>
               <div className="space-y-2 max-h-32 sm:max-h-48 overflow-y-auto mobile-scroll">
                 {proRataTokens
                   .sort((a, b) => b.liquidationAmount - a.liquidationAmount)
                   .map((token) => (
-                    <div key={token.mint} className="flex justify-between items-center text-xs sm:text-sm bg-gray-700/30 p-2 rounded">
+                    <div key={token.mint} className="flex justify-between items-center text-xs sm:text-m bg-gray-700/30 p-2 rounded">
                       <div className="flex items-center space-x-2 min-w-0 flex-1">
                         <TokenLogo token={token} size={6} />
                         <span className="truncate">{token.symbol}</span>
@@ -903,7 +903,7 @@ export function SwapInterface({
             {swapResults.length > 0 && (
               <div className="mb-4 p-3 bg-gray-700/50 border border-gray-600 rounded-lg">
                 <div className="flex justify-between items-center mb-2">
-                  <h4 className="font-medium text-sm sm:text-base">liquidation results</h4>
+                  <h4 className="font-medium text-m sm:text-base">liquidation results</h4>
                   {hasFailedSwaps && (
                     <button
                       onClick={() => {/* Add retry logic */}}
@@ -917,7 +917,7 @@ export function SwapInterface({
                 </div>
                 <div className="space-y-2 max-h-32 overflow-y-auto mobile-scroll">
                   {swapResults.map((result, index) => (
-                    <div key={index} className="flex justify-between items-center text-xs sm:text-sm">
+                    <div key={index} className="flex justify-between items-center text-xs sm:text-m">
                       <div className="flex items-center space-x-2 min-w-0 flex-1">
                         <span className={`truncate ${result.error ? 'text-red-400' : 'text-green-400'}`}>
                           {result.symbol}
@@ -955,7 +955,7 @@ export function SwapInterface({
             {swapping && currentStep && (
               <div className="mb-4 p-3 bg-blue-500/20 border border-blue-500 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs sm:text-sm text-blue-200">{currentStep}</span>
+                  <span className="text-xs sm:text-m text-blue-200">{currentStep}</span>
                   <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
                 </div>
               </div>
@@ -965,9 +965,9 @@ export function SwapInterface({
               <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg">
                 <div className="flex items-center space-x-2 text-red-200 mb-2">
                   <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="text-xs sm:text-sm font-medium">liquidation error</span>
+                  <span className="text-xs sm:text-m font-medium">liquidation error</span>
                 </div>
-                <span className="text-xs sm:text-sm">{error}</span>
+                <span className="text-xs sm:text-m">{error}</span>
               </div>
             )}
 
@@ -976,17 +976,17 @@ export function SwapInterface({
               <button
                 onClick={executeLiquidation}
                 disabled={swapping || selectedTokens.length === 0 || !publicKey || liquidationPercentage === 0}
-                className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2 mobile-optimized text-sm sm:text-base min-h-[44px]"
+                className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2 mobile-optimized text-m sm:text-base min-h-[44px]"
               >
                 {swapping ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span className="text-xs sm:text-sm">liquidating... ({swapResults.filter(r => !r.error).length}/{selectedTokens.length})</span>
+                    <span className="text-xs sm:text-m">liquidating... ({swapResults.filter(r => !r.error).length}/{selectedTokens.length})</span>
                   </>
                 ) : (
                   <>
                     <DollarSign className="h-4 w-4" />
-                    <span className="text-xs sm:text-sm">liquidate {liquidationPercentage}% to {outputTokenSymbol}</span>
+                    <span className="text-xs sm:text-m">liquidate {liquidationPercentage}% to {outputTokenSymbol}</span>
                     {isLedgerConnected && <Shield className="h-4 w-4 ml-1" />}
                   </>
                 )}

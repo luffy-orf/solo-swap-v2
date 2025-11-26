@@ -298,7 +298,7 @@ export function PortfolioChart({
                 ? 'bg-green-600/20 text-green-400' 
                 : 'bg-red-500/20 text-red-400'
             }`}>
-              <div className="text-sm font-medium">
+              <div className="text-l font-medium">
                 {performanceStats.isPositive ? '+' : ''}{performanceStats.percentageChange.toFixed(2)}%
               </div>
               <div className="text-xs">
@@ -329,7 +329,7 @@ export function PortfolioChart({
           <button
             key={range}
             onClick={() => setTimeRange(range)}
-            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+            className={`px-3 py-1 text-l rounded-lg transition-colors ${
               timeRange === range
                 ? 'bg-gray-600 text-white'
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
@@ -352,7 +352,7 @@ export function PortfolioChart({
             <div className="text-center">
               <Calendar className="h-12 w-12 text-gray-500 mx-auto mb-3" />
               <p className="text-gray-400">no portfolio history available</p>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-l text-gray-500 mt-1">
                 analyze your portfolio to start tracking performance
               </p>
             </div>
@@ -370,19 +370,19 @@ export function PortfolioChart({
                 maximumFractionDigits: 2 
               })}
             </div>
-            <div className="text-sm text-gray-400">current value</div>
+            <div className="text-l text-gray-400">current value</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-gray-400">
               {liveWalletCount !== undefined ? liveWalletCount : (portfolioHistory[portfolioHistory.length - 1]?.walletCount || 1)}
             </div>
-            <div className="text-sm text-gray-400">wallets</div>
+            <div className="text-l text-gray-400">wallets</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-gray-400">
               {liveTokenCount !== undefined ? liveTokenCount : (portfolioHistory[portfolioHistory.length - 1]?.tokenCount || 0)}
             </div>
-            <div className="text-sm text-gray-400">tokens</div>
+            <div className="text-l text-gray-400">tokens</div>
           </div>
         </div>
       )}

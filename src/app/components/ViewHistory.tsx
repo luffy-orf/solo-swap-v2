@@ -244,8 +244,8 @@ export function HistoricalPortfolio({
           <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-purple-400" />
         </div>
         <div>
-          <h3 className="text-base sm:text-sm font-bold text-white">history</h3>
-          <p className="text-xs sm:text-sm text-gray-400 mt-1 lowercase">({mode})</p>
+          <h3 className="text-base sm:text-l font-bold text-white">history</h3>
+          <p className="text-xs sm:text-l text-gray-400 mt-1 lowercase">({mode})</p>
         </div>
       </div>
       <div className="flex items-center space-x-3">
@@ -255,7 +255,7 @@ export function HistoricalPortfolio({
               e.stopPropagation();
               downloadHistoryAsCSV();
             }}
-            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-black-600/80 to-gray-800/80 hover:from-gray-500 hover:to-gray-400 border border-gray-500/50 rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-xs sm:text-sm font-medium text-white shadow-lg hover:shadow-blue-500/25 cursor-pointer"
+            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-black-600/80 to-gray-800/80 hover:from-gray-500 hover:to-gray-400 border border-gray-500/50 rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-xs sm:text-l font-medium text-white shadow-lg hover:shadow-blue-500/25 cursor-pointer"
           >
             <Download className="h-3 w-3 sm:h-4 sm:w-4" />
           </div>
@@ -273,15 +273,15 @@ export function HistoricalPortfolio({
         {loading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-500 mx-auto mb-4"></div>
-            <p className="text-gray-400 text-sm font-medium">loading {mode} history...</p>
+            <p className="text-gray-400 text-l font-medium">loading {mode} history...</p>
           </div>
         ) : portfolioHistory.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 bg-gray-700/50 rounded-2xl flex items-center justify-center">
               <Calendar className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400" />
             </div>
-            <p className="text-gray-400 text-sm sm:text-base font-medium">no {mode} history available yet</p>
-            <p className="text-gray-500 text-xs sm:text-sm mt-2">analyze your wallets to generate historical data</p>
+            <p className="text-gray-400 text-l sm:text-base font-medium">no {mode} history available yet</p>
+            <p className="text-gray-500 text-xs sm:text-l mt-2">analyze your wallets to generate historical data</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -290,7 +290,7 @@ export function HistoricalPortfolio({
               <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl p-4 sm:p-5 backdrop-blur-sm">
                 <div className="flex items-center space-x-3 mb-3">
                   <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
-                  <span className="text-xs sm:text-sm font-semibold text-gray-200">first record</span>
+                  <span className="text-xs sm:text-l font-semibold text-gray-200">first record</span>
                 </div>
                 <div className="text-lg sm:text-xl font-bold text-blue-400 lowercase">
                   {formatDate(portfolioHistory[portfolioHistory.length - 1].timestamp)}
@@ -300,7 +300,7 @@ export function HistoricalPortfolio({
               <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-xl p-4 sm:p-5 backdrop-blur-sm">
                 <div className="flex items-center space-x-3 mb-3">
                   <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-green-400" />
-                  <span className="text-xs sm:text-sm font-semibold text-gray-200">average value</span>
+                  <span className="text-xs sm:text-l font-semibold text-gray-200">average value</span>
                 </div>
                 <div className="text-lg sm:text-xl font-bold text-green-400">
                   {formatCurrency(
@@ -312,7 +312,7 @@ export function HistoricalPortfolio({
               <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-xl p-4 sm:p-5 backdrop-blur-sm">
                 <div className="flex items-center space-x-3 mb-3">
                   <Wallet className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400" />
-                  <span className="text-xs sm:text-sm font-semibold text-gray-200">total snapshots</span>
+                  <span className="text-xs sm:text-l font-semibold text-gray-200">total snapshots</span>
                 </div>
                 <div className="text-lg sm:text-xl font-bold text-purple-400">
                   {portfolioHistory.length}
@@ -348,7 +348,7 @@ export function HistoricalPortfolio({
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-3 mb-2">
-                            <span className="font-semibold text-sm sm:text-base text-white lowercase truncate">
+                            <span className="font-semibold text-l sm:text-base text-white lowercase truncate">
                               {formatDate(portfolio.timestamp)}
                             </span>
                             {currentPortfolioValue && (
@@ -428,7 +428,7 @@ export function HistoricalPortfolio({
                     clear selection
                   </button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-l">
                   <div>
                     <div className="text-gray-400 text-xs font-medium mb-1">date recorded</div>
                     <div className="text-white font-semibold lowercase">{formatDate(selectedPortfolio.timestamp)}</div>
