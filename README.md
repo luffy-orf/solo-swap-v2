@@ -23,6 +23,7 @@ solo swap enables users to efficiently liquidate multiple solana tokens in a sin
 - **transaction tracking**: real-time swap progress with detailed success/failure reporting
 - **slippage control**: configurable slippage tolerance (0.5% - 10%)
 - **output token selection**: convert to usdc, usdt, or sol
+- **multi-route quote comparison**: automatically fetches and compares multiple swap routes to ensure the best price
 
 ### 🔄 advanced rpc management
 - **load balancing**: automatic distribution across multiple rpc endpoints
@@ -42,7 +43,6 @@ solo swap enables users to efficiently liquidate multiple solana tokens in a sin
 #### transaction history
 - **swap history**: with sell indicators on chart
 - **jito bundler** to wrap swap instructions in bundles of 5 swaps per signature
-- **fetch quotes** for multiple swap routes to ensure the best price
 - **token safety indicators** on search mechanisms (green, yellow, red warning levels)
 - **customizable columns** to allow users to organize how they wish
 - **mobile optimization** for text size and touch operability
