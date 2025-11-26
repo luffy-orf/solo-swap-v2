@@ -406,20 +406,18 @@ secureLog.info('portfolio history updated', {
                   <div className="absolute inset-0 bg-gradient-to-r from-gray-400 to-black-400 rounded-full opacity-20 blur-sm" />
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-300 via-black-300 to-gray-300 bg-clip-text text-transparent tracking-tight">
-                  solo: swap
+                  solo:
                 </h1>
               </div>
             </div>
             
-            {/* Desktop buttons - hidden on mobile */}
             <div className="hidden sm:flex items-center space-x-3">
               {currentView === 'main' && (
                 <button
                   onClick={() => setCurrentView('multisig')}
                   className="flex items-center space-x-2 bg-gradient-to-r from-gray-800 to-black-600 hover:from-gray-500 hover:to-black-500 px-4 py-2.5 rounded-xl transition-all duration-200 text-l font-medium shadow-lg hover:shadow-gray-500/25 active:scale-95"
                 >
-                  <Calculator className="h-4 w-4" />
-                  <span>solo: shop</span>
+                  <span>swap</span>
                 </button>
               )}
               
@@ -428,7 +426,7 @@ secureLog.info('portfolio history updated', {
                   onClick={() => setCurrentView('main')}
                   className="flex items-center space-x-2 bg-gradient-to-r from-gray-800 to-black-600 hover:from-gray-500 hover:to-black-500 px-4 py-2.5 rounded-xl transition-all duration-200 text-l font-medium shadow-lg hover:shadow-gray-500/25 active:scale-95"
                 >
-                  <span>← back</span>
+                  <span>shop</span>
                 </button>
               )}
 
@@ -446,14 +444,14 @@ secureLog.info('portfolio history updated', {
                   onClick={() => setCurrentView('multisig')}
                   className="flex items-center space-x-2 bg-gradient-to-r from-black-800 to-gray-800 px-3 py-2 rounded-xl text-xs font-medium active:scale-95 transition-all duration-200"
                 >
-                  <span>solo: shop</span>
+                  <span>swap</span>
                 </button>
               ) : (
                 <button
                   onClick={() => setCurrentView('main')}
                   className="flex items-center space-x-2 bg-gradient-to-r from-black-800 to-gray-800 px-3 py-2 rounded-xl text-xs font-medium active:scale-95 transition-all duration-200"
                 >
-                  <span>← back</span>
+                  <span>shop</span>
                 </button>
               )}
 

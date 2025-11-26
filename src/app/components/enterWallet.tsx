@@ -1590,7 +1590,7 @@ useEffect(() => {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gradient-to-br from-gray-500/20 to-cyan-500/20 rounded-xl border border-gray-500/30">
+                <div className="p-2 bg-gradient-to-br from-gray-500/20 to-gray-600/20 rounded-xl border border-gray-500/30">
                   <Clock className="h-5 w-5 text-gray-400" />
                 </div>
                 <div>
