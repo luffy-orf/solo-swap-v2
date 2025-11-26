@@ -734,7 +734,7 @@ export function SwapInterface({
 
               {/* Advanced Settings */}
               {showAdvanced && (
-                <div className="space-y-3 sm:space-y-4 animate-slideDown">
+                <div className="space-y-3 sm:space-y-4 animate-slideDown ml-2 mr-2">
                   {/* Output Token Selection with Search */}
                   <div className="relative" ref={tokenSelectorRef}>
                     <label className="block text-xs sm:text-m font-medium mb-2">output token</label>
