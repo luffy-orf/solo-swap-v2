@@ -659,25 +659,25 @@ export function SwapInterface({
           <>
             {/* Summary Section */}
             <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
-              <div className="flex justify-between text-xs sm:text-m">
+              <div className="flex justify-between text-xs sm:text-m ml-3 mr-3">
                 <span>tokens selected:</span>
                 <span>{selectedTokens.length}</span>
               </div>
-              <div className="flex justify-between text-xs sm:text-m">
+              <div className="flex justify-between text-xs sm:text-m ml-3 mr-3">
                 <span>value:</span>
                 <span>${totalSelectedValue.toFixed(2)}</span>
               </div>
 
               {/* Percentage Selector */}
               <div className="space-y-2 sm:space-y-3">
-                <div className="flex justify-between text-xs sm:text-m">
+                <div className="flex justify-between text-xs sm:text-m ml-3 mr-3">
                   <span className="text-gray-300">percentage:</span>
                   <span className="text-gray-300 font-medium">
                     {liquidationPercentage}%
                   </span>
                 </div>
                 
-                <div className="space-y-2">
+                <div className="space-y-2 ml-2 mr-2">
                   <input
                     type="range"
                     min="0"
@@ -706,7 +706,7 @@ export function SwapInterface({
               </div>
 
               {/* Liquidation Summary */}
-              <div className="bg-gray-700/50 rounded-lg p-3 sm:p-4 space-y-2">
+              <div className="bg-gray-700/50 rounded-lg p-3 sm:p-4 space-y-2 ml-2 mr-2">
                 <div className="flex justify-between text-xs sm:text-m">
                   <span className="text-gray-300">to liquidate</span>
                   <span className="text-red-500 font-medium">
@@ -725,7 +725,7 @@ export function SwapInterface({
               <div className="border-t border-gray-600 pt-3">
                 <button
                   onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex items-center space-x-2 text-xs sm:text-m text-gray-300 hover:text-white transition-colors w-full mobile-optimized"
+                  className="flex items-center space-x-2 text-xs sm:text-m text-gray-300 hover:text-white transition-colors w-full mobile-optimized ml-3"
                 >
                   <span>advanced settings</span>
                   <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
@@ -833,7 +833,7 @@ export function SwapInterface({
                           {!searchQuery && sortedOutputTokens.length > 0 && (
                             <div className="p-2 border-t border-gray-700">
                               <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                                Your Tokens
+                                your Tokens
                               </div>
                               {sortedOutputTokens.map(token => (
                                 <TokenSearchResult 
@@ -874,7 +874,7 @@ export function SwapInterface({
             </div>
 
             {/* Token Breakdown */}
-            <div className="mb-4 sm:mb-6">
+            <div className="mb-4 sm:mb-6 ml-3 mr-3">
               <h3 className="font-medium text-m sm:text-base mb-2 sm:mb-3">liquidation breakdown</h3>
               <div className="space-y-2 max-h-32 sm:max-h-48 overflow-y-auto mobile-scroll">
                 {proRataTokens
@@ -971,7 +971,7 @@ export function SwapInterface({
             )}
 
             {/* Action Buttons */}
-            <div className="space-y-3">
+            <div className="space-y-3 ml-2 mr-2">
               <button
                 onClick={executeLiquidation}
                 disabled={swapping || selectedTokens.length === 0 || !publicKey || liquidationPercentage === 0}
