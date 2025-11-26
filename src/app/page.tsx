@@ -492,7 +492,7 @@ secureLog.info('portfolio history updated', {
           <footer className="mt-8 pt-6 border-t border-gray-700/30 relative z-20 mobile-full-width">
             <div className="flex justify-center items-center space-x-8">
               <a
-                href="https://twitter.com/ilovespectra"
+                href="https://twitter.com/soloexplorerxyz"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group p-3 bg-gray-800/30 hover:bg-gray-700/50 rounded-xl transition-all duration-200 border border-gray-700/50 hover:border-gray-400/30 active:scale-95"
