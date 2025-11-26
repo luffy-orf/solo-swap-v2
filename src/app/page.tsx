@@ -312,7 +312,7 @@ secureLog.info('portfolio history updated', {
         <div className="bg-gray-800/50 rounded-xl p-4 sm:p-6 border border-gray-700 relative z-10">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 space-y-3 sm:space-y-0">
             <h2 className="text-l sm:text-xl font-semibold flex items-center space-x-2">
-              <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />
+              <Wallet className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
               <span></span>
             </h2>
             
@@ -334,7 +334,7 @@ secureLog.info('portfolio history updated', {
               <button
                 onClick={fetchTokenBalances}
                 disabled={loading}
-                className="text-xs sm:text-l bg-gray-800 hover:bg-gray-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
+                className="text-xs sm:text-l bg-gray-800 hover:bg-gray-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap mr-2"
               >
                 {loading ? (
                 <div className="flex items-center space-x-2">
@@ -386,97 +386,101 @@ secureLog.info('portfolio history updated', {
   );
 
   return (
-  <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white relative">
-    <div className="absolute inset-0 bg-gradient-to-br from-gray-900/20 via-black to-black-900/20 pointer-events-none" />
-    <div className="relative z-10 p-4 sm:p-6">
-      <div className="max-w-4xl mx-auto">
-        <header className="flex justify-between items-center mb-6 sm:mb-8 p-4 sm:p-5 bg-gray-800/30 rounded-2xl border border-gray-700/50 shadow-lg relative z-40">
-          <div className="flex items-center space-x-3">
+  <div className="mobile-full-screen bg-gradient-to-br from-gray-1000 via-black to-black-1000 text-white relative">
+    <div className="mobile-full-screen absolute inset-0 bg-gradient-to-br from-gray-1000/20 via-black to-black-1000/20 pointer-events-none" />
+    <div className="relative z-10 h-full">
+      {/* Mobile-optimized container */}
+      <div className="mobile-container">
+        <div className="mobile-content">
+          <header className="flex justify-between items-center mb-6 p-4 bg-gray-1000/30 border border-gray-700/50 shadow-lg relative z-40 mobile-full-width">
             <div className="flex items-center space-x-3">
-              <div className="relative">
-                <Image
-                  src={"/soloswap.png"}
-                  alt="soloswap logo"
-                  width={40}
-                  height={40}
-                  className="h-8 w-8 sm:h-10 sm:w-10 drop-shadow-lg"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-gray-400 to-black-400 rounded-full opacity-20 blur-sm" />
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <Image
+                    src={"/soloswap.png"}
+                    alt="soloswap logo"
+                    width={40}
+                    height={40}
+                    className="h-8 w-8 sm:h-10 sm:w-10 drop-shadow-lg"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-gray-400 to-black-400 rounded-full opacity-20 blur-sm" />
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-300 via-black-300 to-gray-300 bg-clip-text text-transparent tracking-tight">
+                  solo: swap
+                </h1>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-300 via-black-300 to-gray-300 bg-clip-text text-transparent tracking-tight">
-                solo: swap
-              </h1>
             </div>
-          </div>
-          
-          <div className="hidden sm:flex items-center space-x-3">
-            {currentView === 'main' && (
-              <button
-                onClick={() => setCurrentView('multisig')}
-                className="flex items-center space-x-2 bg-gradient-to-r from-gray-800 to-black-600 hover:from-gray-500 hover:to-black-500 px-4 py-2.5 rounded-xl transition-all duration-200 text-l font-medium shadow-lg hover:shadow-gray-500/25 active:scale-95"
-              >
-                <Calculator className="h-4 w-4" />
-                <span>solo: shop</span>
-              </button>
-            )}
             
-            {currentView === 'multisig' && (
-              <button
-                onClick={() => setCurrentView('main')}
-                className="flex items-center space-x-2 bg-gradient-to-r from-gray-800 to-black-600 hover:from-gray-500 hover:to-black-500 px-4 py-2.5 rounded-xl transition-all duration-200 text-l font-medium shadow-lg hover:shadow-gray-500/25 active:scale-95"
-              >
-                <span>← back</span>
-              </button>
-            )}
-
-            <div className="desktop-wallet-button">
-              {isClient && (
-                <WalletMultiButton className="!bg-gradient-to-r !from-gray-800 !to-black-600 hover:!from-gray-500 hover:!to-black-500 !transition-all !duration-200 !text-sm !px-4 !py-2.5 !rounded-xl !font-medium !shadow-lg hover:!shadow-gray-500/25 active:!scale-95" />
+            {/* Desktop buttons - hidden on mobile */}
+            <div className="hidden sm:flex items-center space-x-3">
+              {currentView === 'main' && (
+                <button
+                  onClick={() => setCurrentView('multisig')}
+                  className="flex items-center space-x-2 bg-gradient-to-r from-gray-800 to-black-600 hover:from-gray-500 hover:to-black-500 px-4 py-2.5 rounded-xl transition-all duration-200 text-l font-medium shadow-lg hover:shadow-gray-500/25 active:scale-95"
+                >
+                  <Calculator className="h-4 w-4" />
+                  <span>solo: shop</span>
+                </button>
               )}
+              
+              {currentView === 'multisig' && (
+                <button
+                  onClick={() => setCurrentView('main')}
+                  className="flex items-center space-x-2 bg-gradient-to-r from-gray-800 to-black-600 hover:from-gray-500 hover:to-black-500 px-4 py-2.5 rounded-xl transition-all duration-200 text-l font-medium shadow-lg hover:shadow-gray-500/25 active:scale-95"
+                >
+                  <span>← back</span>
+                </button>
+              )}
+
+              <div className="desktop-wallet-button">
+                {isClient && (
+                  <WalletMultiButton className="!bg-gradient-to-r !from-gray-800 !to-black-600 hover:!from-gray-500 hover:!to-black-500 !transition-all !duration-200 !text-sm !px-4 !py-2.5 !rounded-xl !font-medium !shadow-lg hover:!shadow-gray-500/25 active:!scale-95" />
+                )}
+              </div>
             </div>
-          </div>
 
-          <div className="sm:hidden flex items-center space-x-2">
-            {currentView === 'main' ? (
+            {/* Mobile buttons */}
+            <div className="sm:hidden flex items-center space-x-2">
+              {currentView === 'main' ? (
+                <button
+                  onClick={() => setCurrentView('multisig')}
+                  className="flex items-center space-x-2 bg-gradient-to-r from-black-800 to-gray-800 px-3 py-2 rounded-xl text-xs font-medium active:scale-95 transition-all duration-200"
+                >
+                  <span>solo: shop</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setCurrentView('main')}
+                  className="flex items-center space-x-2 bg-gradient-to-r from-black-800 to-gray-800 px-3 py-2 rounded-xl text-xs font-medium active:scale-95 transition-all duration-200"
+                >
+                  <span>← back</span>
+                </button>
+              )}
+
               <button
-                onClick={() => setCurrentView('multisig')}
-                className="flex items-center space-x-2 bg-gradient-to-r from-black-800 to-gray-800 px-3 py-2 rounded-xl text-xs font-medium active:scale-95 transition-all duration-200"
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="p-2 bg-gray-700/50 hover:bg-gray-800/50 rounded-xl transition-all duration-200 active:scale-95 border border-gray-800"
               >
-                <Calculator className="h-3 w-3" />
-                <span>solo: shop</span>
+                {showMobileMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
-            ) : (
-              <button
-                onClick={() => setCurrentView('main')}
-                className="flex items-center space-x-2 bg-gradient-to-r from-black-800 to-gray-800 px-3 py-2 rounded-xl text-xs font-medium active:scale-95 transition-all duration-200"
-              >
-                <span>← back</span>
-              </button>
-            )}
+            </div>
+          </header>
 
-            <button
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="p-2 bg-gray-700/50 hover:bg-gray-800/50 rounded-xl transition-all duration-200 active:scale-95 border border-gray-800"
-            >
-              {showMobileMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
-          </div>
-        </header>
-
-        {showMobileMenu && (
-  <div className="md:hidden mb-6 p-5 bg-gray-800/50 rounded-2xl border border-gray-700/50 shadow-lg animate-in fade-in duration-200">
-    <div className="flex flex-col space-y-4">
-      <div className="mobile-wallet-button flex justify-center">
-        {isClient && (
-          <WalletMultiButton className="!bg-gradient-to-r !from-gray-800 !to-black-600 hover:!from-gray-500 hover:!to-black-500 !transition-all !duration-200 !text-sm !py-3 !px-6 !rounded-xl !font-medium !w-full max-w-xs justify-center active:!scale-95" />
+          {showMobileMenu && (
+            <div className="sm:hidden mb-6 p-5 bg-gray-800/50 border border-gray-700/50 shadow-lg animate-in fade-in duration-200 mobile-full-width">
+              <div className="flex flex-col space-y-4">
+                <div className="mobile-wallet-button flex justify-center">
+                  {isClient && (
+                    <WalletMultiButton className="!bg-gradient-to-r !from-gray-800 !to-black-600 hover:!from-gray-500 hover:!to-black-500 !transition-all !duration-200 !text-sm !py-3 !px-6 !rounded-xl !font-medium !w-full max-w-xs justify-center active:!scale-95" />
                   )}
                 </div>
               </div>
             </div>
           )}
 
-          <main className="mb-8 relative z-20">
-            <div className="shadow-xl overflow-visible"> 
+          {/* Main content area - full height on mobile */}
+          <main className="mb-8 relative z-20 mobile-full-height ml-2 mr-2">
+            <div className="shadow-xl overflow-visible h-full"> 
               {currentView === 'main' ? renderMainView() : (
                 <MultisigAnalyzer onBack={() => setCurrentView('main')} />
               )}
@@ -487,7 +491,7 @@ secureLog.info('portfolio history updated', {
             <HistoricalPortfolio />
           </div>
 
-          <footer className="mt-8 pt-6 border-t border-gray-700/30 relative z-20">
+          <footer className="mt-8 pt-6 border-t border-gray-700/30 relative z-20 mobile-full-width">
             <div className="flex justify-center items-center space-x-8">
               <a
                 href="https://twitter.com/ilovespectra"
@@ -525,5 +529,6 @@ secureLog.info('portfolio history updated', {
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }

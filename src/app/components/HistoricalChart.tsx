@@ -51,7 +51,7 @@ interface PortfolioChartProps {
   mode?: string; 
 }
 
-type TimeRange = '7d' | '30d' | '90d' | '1y' | 'all';
+type TimeRange = '1d' | '30d' | '90d' | '1y' | 'all';
 
 export function PortfolioChart({ 
   className = '', 
@@ -59,7 +59,7 @@ export function PortfolioChart({
   livePortfolioValue,
   liveTokenCount,
   liveWalletCount}: PortfolioChartProps) {
-  const [timeRange, setTimeRange] = useState<TimeRange>('30d');
+  const [timeRange, setTimeRange] = useState<TimeRange>('1d');
 
   const filterDataByTimeRange = (data: PortfolioHistory[]): PortfolioHistory[] => {
     if (data.length === 0) return [];
@@ -68,8 +68,8 @@ export function PortfolioChart({
     const cutoffDate = new Date();
 
     switch (timeRange) {
-      case '7d':
-        cutoffDate.setDate(now.getDate() - 7);
+      case '1d':
+        cutoffDate.setDate(now.getDate() - 1);
         break;
       case '30d':
         cutoffDate.setDate(now.getDate() - 30);
@@ -94,7 +94,7 @@ export function PortfolioChart({
 
     let formattedDate: string;
 
-    if (diffDays <= 7) {
+    if (diffDays <= 1) {
       formattedDate = date.toLocaleDateString('en-US', { 
         month: 'short', 
         day: 'numeric',
@@ -126,7 +126,7 @@ export function PortfolioChart({
           {
             label: 'total portfolio value',
             data: [0],
-            borderColor: 'rgb(139, 92, 246)',
+            borderColor: 'rgba(119, 92, 182, 0.76)',
             backgroundColor: 'rgba(139, 92, 246, 0.1)',
             fill: true,
             tension: 0.4,
@@ -136,7 +136,7 @@ export function PortfolioChart({
     }
 
     return {
-      labels: filteredData.map(item => formatDate(item.timestamp)),
+       labels: filteredData.map(() => ''),
       datasets: [
         {
           label: 'total portfolio value',
@@ -285,8 +285,8 @@ export function PortfolioChart({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 space-y-3 sm:space-y-0">
         <div className="flex items-center space-x-3">
-          <div className="p-2 bg-purple-500/20 rounded-lg">
-            <TrendingUp className="h-5 w-5 text-purple-400" />
+          <div className="p-2 bg-gray-500/20 rounded-lg">
+            <TrendingUp className="h-5 w-5 text-gray-400" />
           </div>
         </div>
 
@@ -323,22 +323,22 @@ export function PortfolioChart({
         </div>
       </div>
 
-      {/* Time Range Selector */}
-      <div className="flex space-x-2 mb-6">
-        {(['7d', '30d', '90d', '1y', 'all'] as TimeRange[]).map((range) => (
+     {/* Time Range Selector */}
+      <div className="flex space-x-0.5 mb-4">
+        {(['1d', '30d', '90d', '1y', 'all'] as TimeRange[]).map((range) => (
           <button
             key={range}
             onClick={() => setTimeRange(range)}
-            className={`px-3 py-1 text-l rounded-lg transition-colors ${
+            className={`px-1.5 py-0.5 text-xs rounded transition-colors flex-1 text-center min-w-0 ${
               timeRange === range
                 ? 'bg-gray-600 text-white'
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
           >
-            {range === '7d' ? '7d' : 
-             range === '30d' ? '1m' : 
-             range === '90d' ? '3m' : 
-             range === '1y' ? '1y' : 'all'}
+            {range === '1d' ? '1d' : 
+            range === '30d' ? '1m' : 
+            range === '90d' ? '3m' : 
+            range === '1y' ? '1y' : 'all'}
           </button>
         ))}
       </div>

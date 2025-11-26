@@ -41,12 +41,12 @@ interface SortIconProps {
 
 const SortIcon = ({ field, sortField, sortDirection }: SortIconProps) => {
   if (sortField !== field) {
-    return <ArrowUpDown className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />;
+    return <ArrowUpDown className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500" />;
   }
   
   return sortDirection === 'asc' 
-    ? <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4 text-purple-400" />
-    : <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 text-purple-400" />;
+    ? <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
+    : <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />;
 };
 
 interface TokenLogoProps {
@@ -74,7 +74,7 @@ const TokenLogo = ({ token, size = 8 }: TokenLogoProps) => {
   }
   
   return (
-    <div className={`bg-gradient-to-br from-purple-500 to-pink-500 rounded-full ${logoClasses} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
+    <div className={`bg-gradient-to-br from-purple-500 to-gray-500 rounded-full ${logoClasses} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
       {token.symbol.slice(0, 3)}
     </div>
   );
@@ -194,7 +194,7 @@ function ResizableTableHeader({
       <div className="flex items-center justify-between h-full">
         {column.resizable && (
           <div
-            className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-purple-400 active:bg-purple-400 z-10"
+            className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-gray-500 active:bg-gray-400 z-10"
             onMouseDown={handleMouseDown}
           />
         )}
@@ -218,7 +218,7 @@ function ResizableTableHeader({
                 {column.label}
               </span>
               {column.sortable && sortField === column.field && (
-                <span className="text-purple-400">
+                <span className="text-gray-400">
                   {sortDirection === 'asc' ? '↑' : '↓'}
                 </span>
               )}
@@ -237,7 +237,6 @@ function ResizableTableHeader({
   );
 }
 
-// Column Customization Panel
 interface ColumnCustomizationPanelProps {
   columns: ColumnConfig[];
   onToggleVisibility: (columnId: string) => void;
@@ -478,16 +477,6 @@ const filteredAndSortedTokens = useMemo(() => {
     }
   };
 
-  // const visibleTokens = excludeTokenMint 
-  //   ? tokens.filter(token => token.mint !== excludeTokenMint)
-  //   : tokens;
-  // const visibleSelectedTokens = excludeTokenMint
-  //   ? selectedTokens.filter(token => token.mint !== excludeTokenMint)
-  //   : selectedTokens;
-  
-  // const allSelected = visibleTokens.length > 0 && visibleSelectedTokens.length === visibleTokens.length;
-  // const someSelected = visibleSelectedTokens.length > 0 && visibleSelectedTokens.length < visibleTokens.length;
-
   const failedTokens = useMemo(() => 
     tokens.filter(token => token.value === 0 && token.uiAmount > 0),
     [tokens]
@@ -546,7 +535,7 @@ const filteredAndSortedTokens = useMemo(() => {
             type="checkbox"
             checked={token.selected}
             onChange={(e) => onTokenSelect(token.mint, e.target.checked)}
-            className="rounded-lg bg-gray-700 border-gray-600 text-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200"
+            className="rounded-lg bg-gray-700 border-gray-600 text-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200"
           />
         );
       
@@ -648,7 +637,7 @@ const filteredAndSortedTokens = useMemo(() => {
               placeholder="search tokens by name or symbol..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="lowercase w-full pl-10 pr-4 py-3 sm:py-3.5 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base placeholder-gray-400 transition-all duration-200"
+              className="lowercase w-full pl-10 pr-4 py-3 sm:py-3.5 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm sm:text-base placeholder-gray-400 transition-all duration-200"
             />
           </div>
           
@@ -673,15 +662,15 @@ const filteredAndSortedTokens = useMemo(() => {
         </div>
 
         {selectedTokens.length > 0 && (
-          <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-4 mt-4">
+          <div className="bg-gradient-to-r from-gray-700/20 to-gray-600/20 border border-gray-500/30 rounded-xl p-4 mt-4">
             <div className="flex justify-between items-center text-sm sm:text-base">
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-gradient-to-r from-gray-400 to-gray-400 rounded-full animate-pulse"></div>
                 <span className="text-gray-200 font-medium">
                   {selectedTokens.length} token{selectedTokens.length !== 1 ? 's' : ''} selected
                 </span>
               </div>
-              <span className="text-green-400 font-bold text-lg">
+              <span className="text-green-500 font-bold text-lg">
                 ${totalSelectedValue.toFixed(2)}
               </span>
             </div>

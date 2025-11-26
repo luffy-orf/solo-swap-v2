@@ -76,8 +76,8 @@ const SortIcon = ({ field, sortField, sortDirection }: SortIconProps) => {
   }
   
   return sortDirection === 'asc' 
-    ? <ChevronUp className="h-3 w-3 text-purple-400" />
-    : <ChevronDown className="h-3 w-3 text-purple-400" />;
+    ? <ChevronUp className="h-3 w-3 text-gray-400" />
+    : <ChevronDown className="h-3 w-3 text-gray-400" />;
 };
 
 interface LoadingBarProps {
@@ -1499,7 +1499,7 @@ useEffect(() => {
       <div className="max-w-7xl mx-auto">
         {/* Enhanced Header */}
         <div className="flex items-center justify-between mb-6 sm:mb-8 p-4 sm:p-5 bg-gray-800/30 rounded-2xl backdrop-blur-xl border border-gray-700/50 shadow-lg">
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-300 via-pink-300 to-purple-300 bg-clip-text text-transparent tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-300 via-gray-200 to-gray-300 bg-clip-text text-transparent tracking-tight">
             solo: shop
           </h1>
           <div className="w-20"></div>
@@ -1507,7 +1507,7 @@ useEffect(() => {
 
         {/* Loading Progress */}
         {loadingProgress.isActive && (
-          <div className="mb-6 bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl p-6">
+          <div className=" mobile-full-screen mb-6 bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center space-x-3">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-300"></div>
               <span>analyzing wallets...</span>
@@ -1549,31 +1549,31 @@ useEffect(() => {
           </div>
           
           {showHelp && (
-            <div className="mt-4 p-4 bg-gradient-to-r from-purple-500/15 to-pink-500/15 border border-purple-500/30 rounded-xl backdrop-blur-sm">
-              <h4 className="font-semibold text-sm mb-3 text-purple-400">how to use:</h4>
+            <div className="mt-4 p-4 bg-gradient-to-r from-gray-500/15 to-gray-400/15 border border-gray-500/30 rounded-xl backdrop-blur-sm">
+              <h4 className="font-semibold text-sm mb-3 text-gray-400">how to use:</h4>
               <ul className="text-sm text-gray-300 space-y-2 lowercase">
                 <li className="flex items-center space-x-2">
-                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
                   <span>add individual wallets or upload a csv with multiple addresses</span>
                 </li>
                 <li className="flex items-center space-x-2">
-                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
                   <span>wallets are saved to your account for future use</span>
                 </li>
                 <li className="flex items-center space-x-2">
-                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
                   <span>analyze all wallets at once to see combined portfolio</span>
                 </li>
                 <li className="flex items-center space-x-2">
-                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
                   <span>select tokens from any wallet for pro-rata calculations</span>
                 </li>
                 <li className="flex items-center space-x-2">
-                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
                   <span>generate shopping lists that maintain weights across all selected tokens</span>
                 </li>
                 <li className="flex items-center space-x-2">
-                  <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
                   <span>each token shows which wallet it comes from</span>
                 </li>
               </ul>
@@ -1590,8 +1590,8 @@ useEffect(() => {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl border border-blue-500/30">
-                  <Clock className="h-5 w-5 text-blue-400" />
+                <div className="p-2 bg-gradient-to-br from-gray-500/20 to-cyan-500/20 rounded-xl border border-gray-500/30">
+                  <Clock className="h-5 w-5 text-gray-400" />
                 </div>
                 <div>
                   <h3 className="font-medium text-sm text-gray-200">last loaded total</h3>
@@ -1601,7 +1601,7 @@ useEffect(() => {
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-lg sm:text-xl font-bold text-blue-400">
+                <div className="text-lg sm:text-xl font-bold text-gray-400">
                   ${lastLoadedPortfolioValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 {results.length > 0 && (
@@ -1633,7 +1633,7 @@ useEffect(() => {
                   value={walletInput}
                   onChange={(e) => setWalletInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && addWallet()}
-                  className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm placeholder-gray-400 transition-all duration-200"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm placeholder-gray-400 transition-all duration-200"
                 />
               </div>
               <div className="flex flex-wrap gap-2 mt-3">
@@ -1642,7 +1642,7 @@ useEffect(() => {
                   <button
                     key={domain}
                     onClick={() => setWalletInput(`example${domain}`)}
-                    className="text-xs text-purple-400 hover:text-purple-300 transition-colors px-2 py-1 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg"
+                    className="text-xs text-gray-400 hover:text-gray-300 transition-colors px-2 py-1 bg-gray-500/10 hover:bg-gray-500/20 rounded-lg"
                   >
                     {domain}
                   </button>
@@ -1658,7 +1658,7 @@ useEffect(() => {
                 placeholder="my treasury"
                 value={walletNickname}
                 onChange={(e) => setWalletNickname(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm transition-all duration-200"
+                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm transition-all duration-200"
               />
             </div>
           </div>
@@ -1669,7 +1669,7 @@ useEffect(() => {
             <button
               onClick={addWallet}
               disabled={addingWallet || analyzing || !walletInput.trim()}
-              className="flex items-center justify-center sm:justify-start space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-3 rounded-2xl transition-transform duration-200 active:scale-95 text-sm font-semibold shadow-md hover:shadow-lg text-white w-full sm:w-auto"
+              className="flex items-center justify-center sm:justify-start space-x-2 bg-gradient-to-r from-gray-600 to-gray-500 hover:from-gray-500 hover:to-gray-400 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-3 rounded-2xl transition-transform duration-200 active:scale-95 text-sm font-semibold shadow-md hover:shadow-lg text-white w-full sm:w-auto"
             >
               {addingWallet ? (
                 <>
@@ -1688,7 +1688,7 @@ useEffect(() => {
             <button
               onClick={analyzeAllWallets}
               disabled={analyzing || savedWallets.length === 0 || loadingProgress.isActive}
-              className="flex items-center justify-center sm:justify-start space-x-2 bg-gradient-to-r from-green-700 to-emerald-700 hover:from-green-600 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-3 rounded-2xl transition-transform duration-200 active:scale-95 text-sm font-semibold shadow-md hover:shadow-lg text-white w-full sm:w-auto"
+              className="flex items-center justify-center sm:justify-start space-x-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-500 hover:to-gray-600 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-3 rounded-2xl transition-transform duration-200 active:scale-95 text-sm font-semibold shadow-md hover:shadow-lg text-white w-full sm:w-auto"
             >
               {loadingProgress.isActive ? (
                 <>
@@ -1748,7 +1748,7 @@ useEffect(() => {
           {savedWallets.length > 0 && (
             <div className="mt-6">
               <h4 className="text-sm font-medium mb-4 text-gray-200 flex items-center space-x-2">
-                <Wallet className="h-4 w-4 text-purple-400" />
+                <Wallet className="h-4 w-4 text-gray-400" />
                 <span>saved wallets ({savedWallets.length})</span>
               </h4>
               <div className="space-y-3 max-h-60 overflow-y-auto mobile-scroll pr-2 -mr-2">
@@ -1758,8 +1758,8 @@ useEffect(() => {
                     className="flex items-center justify-between p-4 bg-gray-700/30 rounded-xl border border-gray-600/50 hover:bg-gray-700/50 hover:border-gray-500/50 transition-all duration-200 group"
                   >
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <div className="p-2 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-lg border border-purple-500/30">
-                        <Wallet className="h-4 w-4 text-purple-400" />
+                      <div className="p-2 bg-gradient-to-br from-gray-500/20 to-gray-400/20 rounded-lg border border-gray-500/30">
+                        <Wallet className="h-4 w-4 text-gray-400" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm text-white truncate">
@@ -1826,7 +1826,7 @@ useEffect(() => {
             <CollapsibleSection 
               title="analysis"
               defaultOpen={true}
-              className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl"
+              className="mobile-full-screen bg-gray-800/30 backdrop-blur-sm border border-gray-700/30 shadow-xl"
             >
               <div className="flex justify-between items-start mb-6">
                 <div>
@@ -1845,35 +1845,35 @@ useEffect(() => {
               </div>
 
               {/* Portfolio History Summary */}
-              {portfolioHistory.length > 0 && (
-                <div className="mb-6 p-4 bg-gradient-to-r from-blue-500/15 to-cyan-500/15 border border-blue-500/30 rounded-xl backdrop-blur-sm">
+              {/* {portfolioHistory.length > 0 && (
+                <div className="mb-6 p-4 bg-gradient-to-r from-gray-500/15 to-cyan-500/15 border border-gray-500/30 rounded-xl backdrop-blur-sm">
                   <div className="flex items-center space-x-2 mb-3">
-                    <Clock className="h-4 w-4 text-blue-400" />
-                    <h3 className="font-medium text-sm text-blue-400">portfolio history</h3>
+                    <Clock className="h-4 w-4 text-gray-400" />
+                    <h3 className="font-medium text-sm text-gray-400">portfolio history</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div>
                       <div className="text-gray-400 text-xs font-medium mb-1">records</div>
-                      <div className="text-blue-400 font-semibold">{portfolioHistory.length}</div>
+                      <div className="text-gray-400 font-semibold">{portfolioHistory.length}</div>
                     </div>
                     <div>
                       <div className="text-gray-400 text-xs font-medium mb-1">first record</div>
-                      <div className="text-blue-400 font-semibold lowercase">
+                      <div className="text-gray-400 font-semibold lowercase">
                         {formatTimestamp(portfolioHistory[0]?.timestamp)}
                       </div>
                     </div>
                     <div>
                       <div className="text-gray-400 text-xs font-medium mb-1">refreshed on</div>
-                      <div className="text-blue-400 font-semibold lowercase">
+                      <div className="text-gray-400 font-semibold lowercase">
                         {formatTimestamp(portfolioHistory[portfolioHistory.length - 1]?.timestamp)}
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                </div> */}
+              {/* )} */}
 
               {/* Wallet Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              <div className="mobile-full-screen grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 {results
                   .sort((a, b) => b.totalValue - a.totalValue)
                   .map((result) => (
@@ -1909,7 +1909,7 @@ useEffect(() => {
                 <div className="mb-6 flex items-center justify-between p-4 bg-gray-700/30 rounded-xl border border-gray-600/50">
                   <div className="flex items-center space-x-4">
                     {selectedTokens.size > 0 && (
-                      <span className="text-sm text-purple-400 font-medium">
+                      <span className="text-sm text-gray-400 font-medium">
                         {selectedTokens.size} tokens selected (${selectedTokensValue.toLocaleString()})
                       </span>
                     )}
@@ -1930,7 +1930,7 @@ useEffect(() => {
                           onClick={() => setLiquidationType('percentage')}
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                             liquidationType === 'percentage' 
-                              ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/25' 
+                              ? 'bg-gradient-to-r from-gray-600 to-gray-500 text-white shadow-lg shadow-gray-500/25' 
                               : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                           }`}
                         >
@@ -1940,7 +1940,7 @@ useEffect(() => {
                           onClick={() => setLiquidationType('dollar')}
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                             liquidationType === 'dollar' 
-                              ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/25' 
+                              ? 'bg-gradient-to-r from-gray-600 to-gray-500 text-white shadow-lg shadow-gray-500/25' 
                               : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                           }`}
                         >
@@ -1953,7 +1953,7 @@ useEffect(() => {
                           placeholder={liquidationType === 'percentage' ? 'enter percentage...' : 'enter dollar amount...'}
                           value={liquidationAmount}
                           onChange={(e) => setLiquidationAmount(e.target.value)}
-                          className="w-full pl-4 pr-12 py-3 bg-gray-600 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm transition-all duration-200"
+                          className="w-full pl-4 pr-12 py-3 bg-gray-600 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm transition-all duration-200"
                         />
                         <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
                           {liquidationType === 'percentage' ? '%' : '$'}
@@ -1964,8 +1964,8 @@ useEffect(() => {
                       {liquidationValue > 0 && (
                         <>
                           <div>liquidating: <span className="text-green-400 font-semibold">${liquidationValue.toLocaleString()}</span></div>
-                          <div>remaining portfolio: <span className="text-blue-400 font-semibold">${remainingPortfolioValue.toLocaleString()}</span></div>
-                          <div>of selected: <span className="text-purple-400 font-semibold">{((liquidationValue / selectedTokensValue) * 100).toLocaleString()}%</span></div>
+                          <div>remaining portfolio: <span className="text-gray-400 font-semibold">${remainingPortfolioValue.toLocaleString()}</span></div>
+                          <div>of selected: <span className="text-gray-400 font-semibold">{((liquidationValue / selectedTokensValue) * 100).toLocaleString()}%</span></div>
                         </>
                       )}
                     </div>
@@ -1990,11 +1990,11 @@ useEffect(() => {
                           placeholder="search by symbol or name (e.g., USDC, SOL, etc.)"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 bg-gray-600 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm transition-all duration-200"
+                          className="w-full pl-10 pr-4 py-3 bg-gray-600 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm transition-all duration-200"
                         />
                         {isSearching && (
                           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500"></div>
                           </div>
                         )}
                       </div>
@@ -2020,7 +2020,7 @@ useEffect(() => {
                                   className="w-6 h-6 rounded-full"
                                 />
                               ) : (
-                                <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                <div className="w-6 h-6 bg-gradient-to-br from-gray-500 to-gray-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
                                   {token.symbol.slice(0, 3)}
                                 </div>
                               )}
@@ -2046,7 +2046,7 @@ useEffect(() => {
                             <button
                               onClick={copyShoppingList}
                               disabled={!selectedTokens.size}
-                              className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-sm font-medium shadow-lg hover:shadow-purple-500/25"
+                              className="flex items-center space-x-2 bg-gradient-to-r from-gray-600 to-gray-500 hover:from-gray-500 hover:to-gray-400 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-sm font-medium shadow-lg hover:shadow-gray-500/25"
                             >
                               {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                               <span>{copied ? 'copied!' : 'copy shopping list'}</span>
@@ -2080,7 +2080,7 @@ useEffect(() => {
                         </CollapsibleSection>
                       )}
                     {targetToken && (
-                      <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-500/15 to-pink-500/15 border border-purple-500/30 rounded-xl">
+                      <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-500/15 to-gray-400/15 border border-gray-500/30 rounded-xl">
                         <div className="flex items-center space-x-3">
                           {targetToken.logoURI ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -2090,7 +2090,7 @@ useEffect(() => {
                               className="w-8 h-8 rounded-full"
                             />
                           ) : (
-                            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                            <div className="w-8 h-8 bg-gradient-to-br from-gray-500 to-gray-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
                               {targetToken.symbol.slice(0, 3)}
                             </div>
                           )}
@@ -2123,7 +2123,7 @@ useEffect(() => {
                      <div className="flex space-x-2">
                     <button
                       onClick={() => handleSelectAll(true)}
-                      className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-95"
+                      className="text-xs bg-gray-500 hover:bg-gray-400 text-white px-3 py-2 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-95"
                     >
                       select all
                     </button>
@@ -2196,7 +2196,7 @@ useEffect(() => {
                           <tr 
                             key={`${token.mint}-${token.sourceWallet}`} 
                             className={`border-b border-gray-700/30 hover:bg-gray-700/40 transition-all duration-200 group ${
-                              isSelected ? 'bg-purple-500/10' : index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'
+                              isSelected ? 'bg-gray-500/10' : index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'
                             }`}
                           >
                             <td className="py-4 px-4">
@@ -2204,7 +2204,7 @@ useEffect(() => {
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => handleTokenSelect(token.mint)}
-                                className="rounded-lg bg-gray-700 border-gray-600 text-purple-500 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-4 h-4 transition-all duration-200"
+                                className="rounded-lg bg-gray-700 border-gray-600 text-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-4 h-4 transition-all duration-200"
                               />
                             </td>
                             <td className="py-4 px-4">
@@ -2217,7 +2217,7 @@ useEffect(() => {
                                     className="w-8 h-8 rounded-full"
                                   />
                                 ) : (
-                                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                  <div className="w-8 h-8 bg-gradient-to-br from-gray-500 to-gray-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
                                     {token.symbol.slice(0, 3)}
                                   </div>
                                 )}
@@ -2229,7 +2229,7 @@ useEffect(() => {
                             </td>
                             <td className="py-4 px-4">
                               <div className="flex items-center space-x-2">
-                                <Wallet className="h-4 w-4 text-purple-400" />
+                                <Wallet className="h-4 w-4 text-gray-400" />
                                 <span className="text-sm text-gray-300 max-w-[120px] truncate">
                                   {token.sourceNickname}
                                 </span>
@@ -2248,7 +2248,7 @@ useEffect(() => {
                               <div className="flex items-center justify-end space-x-3">
                                 <div className="w-20 bg-gray-700 rounded-full h-2">
                                   <div 
-                                    className="bg-gradient-to-r from-green-400 to-emerald-400 h-2 rounded-full transition-all duration-300" 
+                                    className="bg-gradient-to-r from-gray-400 to-gray-300 h-2 rounded-full transition-all duration-300" 
                                     style={{ width: `${Math.min(percentage, 100)}%` }}
                                   />
                                 </div>
@@ -2285,18 +2285,18 @@ useEffect(() => {
                     </div>
                     <div>
                       <div className="text-gray-400 text-xs font-medium mb-1">selected tokens</div>
-                      <div className="text-purple-400 font-bold text-lg">
+                      <div className="text-gray-400 font-bold text-lg">
                         {selectedTokens.size}/{allTokens.length} (${selectedTokensValue.toLocaleString()})
                       </div>
                     </div>
                     <div>
                       <div className="text-gray-400 text-xs font-medium mb-1">wallets</div>
-                      <div className="text-blue-400 font-bold text-lg">{results.length} active</div>
+                      <div className="text-gray-400 font-bold text-lg">{results.length} active</div>
                     </div>
                   </div>
                   
                   {hasLiquidation && (
-                    <div className="mt-4 pt-4 border-t border-purple-500/30">
+                    <div className="mt-4 pt-4 border-t border-gray-500/30">
                       <div className="flex flex-wrap gap-4 text-sm">
                         <div>
                           <div className="text-gray-400 text-xs font-medium mb-1">liquidating</div>
@@ -2304,13 +2304,13 @@ useEffect(() => {
                         </div>
                         <div>
                           <div className="text-gray-400 text-xs font-medium mb-1">of selected</div>
-                          <div className="text-purple-400 font-semibold">
+                          <div className="text-gray-400 font-semibold">
                             {((liquidationValue / selectedTokensValue) * 100).toFixed(1)}%
                           </div>
                         </div>
                         <div>
                           <div className="text-gray-400 text-xs font-medium mb-1">remaining</div>
-                          <div className="text-blue-400 font-semibold">${remainingPortfolioValue.toLocaleString()}</div>
+                          <div className="text-gray-400 font-semibold">${remainingPortfolioValue.toLocaleString()}</div>
                         </div>
                       </div>
                     </div>

@@ -240,8 +240,8 @@ export function HistoricalPortfolio({
       className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-700/40 transition-all duration-200 rounded-2xl mobile-optimized group"
     >
       <div className="flex items-center space-x-4">
-        <div className="p-2 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl border border-purple-500/30">
-          <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-purple-400" />
+        <div className="p-2 bg-gradient-to-br from-gray-500/20 to-gray-500/20 rounded-xl border border-gray-500/30">
+          <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-gray-400" />
         </div>
         <div>
           <h3 className="text-base sm:text-l font-bold text-white">history</h3>
@@ -255,7 +255,7 @@ export function HistoricalPortfolio({
               e.stopPropagation();
               downloadHistoryAsCSV();
             }}
-            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-black-600/80 to-gray-800/80 hover:from-gray-500 hover:to-gray-400 border border-gray-500/50 rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-xs sm:text-l font-medium text-white shadow-lg hover:shadow-blue-500/25 cursor-pointer"
+            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-black-600/80 to-gray-800/80 hover:from-gray-500 hover:to-gray-400 border border-gray-500/50 rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-xs sm:text-l font-medium text-white shadow-lg hover:shadow-gray-500/25 cursor-pointer"
           >
             <Download className="h-3 w-3 sm:h-4 sm:w-4" />
           </div>
@@ -272,7 +272,7 @@ export function HistoricalPortfolio({
       <div className="px-6 pb-6">
         {loading ? (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-500 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-500 mx-auto mb-4"></div>
             <p className="text-gray-400 text-l font-medium">loading {mode} history...</p>
           </div>
         ) : portfolioHistory.length === 0 ? (
@@ -287,34 +287,34 @@ export function HistoricalPortfolio({
           <div className="space-y-6">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl p-4 sm:p-5 backdrop-blur-sm">
+              <div className="bg-gradient-to-br from-gray-500/10 to-gray-500/10 border border-gray-500/30 rounded-xl p-4 sm:p-5 backdrop-blur-sm">
                 <div className="flex items-center space-x-3 mb-3">
-                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
+                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                   <span className="text-xs sm:text-l font-semibold text-gray-200">first record</span>
                 </div>
-                <div className="text-lg sm:text-xl font-bold text-blue-400 lowercase">
+                <div className="text-lg sm:text-xl font-bold text-gray-400 lowercase">
                   {formatDate(portfolioHistory[portfolioHistory.length - 1].timestamp)}
                 </div>
               </div>
               
-              <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-xl p-4 sm:p-5 backdrop-blur-sm">
+              <div className="bg-gradient-to-br from-gray-500/10 to-gray-500/10 border border-gray-500/30 rounded-xl p-4 sm:p-5 backdrop-blur-sm">
                 <div className="flex items-center space-x-3 mb-3">
-                  <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-green-400" />
+                  <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                   <span className="text-xs sm:text-l font-semibold text-gray-200">average value</span>
                 </div>
-                <div className="text-lg sm:text-xl font-bold text-green-400">
+                <div className="text-lg sm:text-xl font-bold text-gray-400">
                   {formatCurrency(
                     portfolioHistory.reduce((sum, record) => sum + record.totalValue, 0) / portfolioHistory.length
                   )}
                 </div>
               </div>
               
-              <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-xl p-4 sm:p-5 backdrop-blur-sm">
+              <div className="bg-gradient-to-br from-gray-500/10 to-gray-500/10 border border-gray-500/30 rounded-xl p-4 sm:p-5 backdrop-blur-sm">
                 <div className="flex items-center space-x-3 mb-3">
-                  <Wallet className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400" />
+                  <Wallet className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                   <span className="text-xs sm:text-l font-semibold text-gray-200">total snapshots</span>
                 </div>
-                <div className="text-lg sm:text-xl font-bold text-purple-400">
+                <div className="text-lg sm:text-xl font-bold text-gray-400">
                   {portfolioHistory.length}
                 </div>
               </div>
@@ -331,7 +331,7 @@ export function HistoricalPortfolio({
                     key={portfolio.id}
                     className={`p-4 sm:p-5 rounded-xl border transition-all duration-200 cursor-pointer group ${
                       isSelected
-                        ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-500/50 shadow-lg shadow-purple-500/20'
+                        ? 'bg-gradient-to-r from-gray-500/20 to-gray-500/20 border-gray-500/50 shadow-lg shadow-gray-500/20'
                         : 'bg-gray-700/30 border-gray-600/50 hover:bg-gray-700/50 hover:border-gray-500/50'
                     }`}
                     onClick={() => handlePortfolioSelect(portfolio)}
@@ -341,7 +341,7 @@ export function HistoricalPortfolio({
                         <div className="flex-shrink-0">
                           <div className={`w-3 h-3 rounded-full transition-all duration-200 ${
                             isSelected 
-                              ? 'bg-gradient-to-r from-purple-400 to-pink-400 shadow-lg shadow-purple-400/50' 
+                              ? 'bg-gradient-to-r from-gray-400 to-gray-400 shadow-lg shadow-gray-400/50' 
                               : 'bg-gray-500 group-hover:bg-gray-400'
                           }`} />
                         </div>
@@ -354,7 +354,7 @@ export function HistoricalPortfolio({
                             {currentPortfolioValue && (
                               <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                                 change >= 0 
-                                  ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                                  ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' 
                                   : 'bg-red-500/20 text-red-400 border border-red-500/30'
                               }`}>
                                 {change >= 0 ? '↗' : '↘'} {change >= 0 ? '+' : ''}{change.toFixed(1)}%
@@ -381,7 +381,7 @@ export function HistoricalPortfolio({
                       
                       <div className="flex items-center space-x-3 ml-4 flex-shrink-0">
                         {isSelected ? (
-                          <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400" />
+                          <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                         ) : (
                           <EyeOff className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 group-hover:text-gray-300" />
                         )}
@@ -409,9 +409,9 @@ export function HistoricalPortfolio({
 
             {/* Selected Portfolio Details */}
             {selectedPortfolio && (
-              <div className="mt-6 p-5 bg-gradient-to-r from-purple-500/15 to-pink-500/15 border border-purple-500/30 rounded-xl backdrop-blur-sm">
+              <div className="mt-6 p-5 bg-gradient-to-r from-gray-500/15 to-gray-500/15 border border-gray-500/30 rounded-xl backdrop-blur-sm">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-bold text-lg text-purple-400 flex items-center space-x-2">
+                  <h4 className="font-bold text-lg text-gray-400 flex items-center space-x-2">
                     <Eye className="h-5 w-5" />
                     <span>selected snapshot</span>
                   </h4>
@@ -435,7 +435,7 @@ export function HistoricalPortfolio({
                   </div>
                   <div>
                     <div className="text-gray-400 text-xs font-medium mb-1">total portfolio value</div>
-                    <div className="text-green-400 font-bold text-lg">
+                    <div className="text-gray-400 font-bold text-lg">
                       {formatCurrency(selectedPortfolio.totalValue)}
                     </div>
                   </div>

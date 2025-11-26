@@ -305,7 +305,6 @@ export function SwapInterface({
   };
 
   const TokenLogo = ({ token, size = 8 }: { token?: TokenBalance; size?: number }) => {
-  // Handle undefined token
   if (!token) {
     const logoClasses = size === 6 
       ? "w-6 h-6 sm:w-6 sm:h-6" 
@@ -338,7 +337,7 @@ export function SwapInterface({
   }
   
   return (
-    <div className={`bg-gradient-to-br from-purple-500 to-pink-500 rounded-full ${logoClasses} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
+    <div className={`bg-gradient-to-br from-gray-500 to-gray-400 rounded-full ${logoClasses} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
       {token.symbol.slice(0, 3)}
     </div>
   );
@@ -605,7 +604,7 @@ export function SwapInterface({
       type="button"
       onClick={() => onSelect(token)}
       className={`w-full px-4 py-3 text-left hover:bg-gray-700/50 transition-all duration-200 flex items-center space-x-3 mobile-optimized group ${
-        isSelected ? 'bg-purple-500/20 border-r-2 border-gray-500' : ''
+        isSelected ? 'bg-gray-600/20 border-r-2 border-gray-500' : ''
       }`}
     >
       <TokenLogo token={token} size={8} />
@@ -645,7 +644,7 @@ export function SwapInterface({
     <div className="bg-gray-800/50 rounded-xl p-4 sm:p-6 backdrop-blur-sm border border-gray-700 h-fit mobile-optimized relative z-10">
       
       <h2 className="text-m sm:text-l font-semibold mb-4 sm:mb-6 flex items-center space-x-2">
-        <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
+        <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
         <span>cart</span>
       </h2>
 
@@ -742,7 +741,7 @@ export function SwapInterface({
                     <button
                       type="button"
                       onClick={() => setShowTokenSearch(!showTokenSearch)}
-                      className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-m focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent mobile-optimized flex items-center justify-between hover:bg-gray-600/50 transition-all duration-200"
+                      className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-m focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent mobile-optimized flex items-center justify-between hover:bg-gray-600/50 transition-all duration-200"
                     >
                       <div className="flex items-center space-x-3">
                         <TokenLogo token={outputTokenInfo} size={6} />
@@ -810,7 +809,7 @@ export function SwapInterface({
                               </div>
                               {isSearching ? (
                                 <div className="flex justify-center items-center py-8">
-                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
+                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-500"></div>
                                   <span className="ml-2 text-m text-gray-400">searching...</span>
                                 </div>
                               ) : searchResults.length > 0 ? (
@@ -976,7 +975,7 @@ export function SwapInterface({
               <button
                 onClick={executeLiquidation}
                 disabled={swapping || selectedTokens.length === 0 || !publicKey || liquidationPercentage === 0}
-                className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2 mobile-optimized text-m sm:text-base min-h-[44px]"
+                className="w-full bg-gradient-to-r from-gray-600 to-gray-600 hover:from-gray-500 hover:to-gray-400 disabled:opacity-50 disabled:cursor-not-allowed py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2 mobile-optimized text-m sm:text-base min-h-[44px]"
               >
                 {swapping ? (
                   <>
