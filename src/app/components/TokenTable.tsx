@@ -386,7 +386,6 @@ export function TokenTable({
   tokens,
   loading, 
   onTokenSelect, 
-  // onSelectAll,
   selectedTokens, 
   totalSelectedValue,
   onRefreshPrices,
@@ -501,15 +500,6 @@ const filteredAndSortedTokens = useMemo(() => {
     setRetryProgress({ current: 0, total: failedTokens.length });
     
     try {
-      // const retriedTokens = await tokenService.retryFailedTokens(
-      //   failedTokens,
-      //   (progress: PriceProgress) => {
-      //     setRetryProgress({
-      //       current: progress.current,
-      //       total: progress.total
-      //     });
-      //   }
-      // );
       
       if (onRefreshPrices) {
         onRefreshPrices();
@@ -627,188 +617,181 @@ const filteredAndSortedTokens = useMemo(() => {
   }
 
   return (
-  <div className="space-y-4 sm:space-y-6 mobile-optimized">
-    {/* Performance Chart */}
-    {portfolioHistory && portfolioHistory.length > 0 && (
-      <CollapsibleSection 
-        title="performance"
-        defaultOpen={true}
-        className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-900/30 shadow-xl"
-      >
-        <PortfolioChart 
-          className="w-full"
-          portfolioHistory={portfolioHistory}
-          livePortfolioValue={totalPortfolioValue}
-          liveTokenCount={tokens.length}
-          liveWalletCount={1}
-          mode="tokentable"
-        />
-      </CollapsibleSection>
-    )}
-
-    {/* Search */}
-    <CollapsibleSection 
-      title="search"
-      defaultOpen={true}
-      className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl"
-    >
-      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 sm:h-5 sm:w-5" />
-          <input
-            type="text"
-            placeholder="search tokens by name or symbol..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="lowercase w-full pl-10 pr-4 py-3 sm:py-3.5 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base placeholder-gray-400 transition-all duration-200 backdrop-blur-sm"
+    <div className="space-y-4 sm:space-y-6 mobile-optimized relative z-10">
+      {portfolioHistory && portfolioHistory.length > 0 && (
+        <CollapsibleSection 
+          title="performance"
+          defaultOpen={true}
+          className="bg-gray-800/30 rounded-2xl border border-gray-900/30 shadow-xl relative z-10"
+        >
+          <PortfolioChart 
+            className="w-full"
+            portfolioHistory={portfolioHistory}
+            livePortfolioValue={totalPortfolioValue}
+            liveTokenCount={tokens.length}
+            liveWalletCount={1}
+            mode="tokentable"
           />
-        </div>
-        
-        {failedTokens.length > 0 && (
-          <button
-            onClick={handleRetryFailedTokens}
-            disabled={retryLoading}
-            className="px-4 py-3 sm:py-3.5 bg-gradient-to-r from-gray-600/80 to-black-600/80 border border-gray-500/50 rounded-xl hover:from-gray-600 hover:to-black-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-sm font-medium text-white shadow-lg hover:shadow-gray-500/25 mobile-optimized"
-          >
-            {retryLoading ? (
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                <span className="text-xs sm:text-sm">retrying...</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 sm:gap-3">
-                <RefreshCw className="h-4 w-4" />
-              </div>
-            )}
-          </button>
-        )}
-      </div>
+        </CollapsibleSection>
+      )}
 
-      {/* Selected Summary */}
-      {selectedTokens.length > 0 && (
-        <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-4 mt-4 backdrop-blur-sm">
-          <div className="flex justify-between items-center text-sm sm:text-base">
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full animate-pulse"></div>
-              <span className="text-gray-200 font-medium">
-                {selectedTokens.length} token{selectedTokens.length !== 1 ? 's' : ''} selected
+      <CollapsibleSection 
+        title="search"
+        defaultOpen={true}
+        className="bg-gray-800/30 rounded-2xl border border-gray-700/30 shadow-xl relative z-10"
+      >
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 sm:h-5 sm:w-5" />
+            <input
+              type="text"
+              placeholder="search tokens by name or symbol..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="lowercase w-full pl-10 pr-4 py-3 sm:py-3.5 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base placeholder-gray-400 transition-all duration-200"
+            />
+          </div>
+          
+          {failedTokens.length > 0 && (
+            <button
+              onClick={handleRetryFailedTokens}
+              disabled={retryLoading}
+              className="px-4 py-3 sm:py-3.5 bg-gradient-to-r from-gray-600/80 to-black-600/80 border border-gray-500/50 rounded-xl hover:from-gray-600 hover:to-black-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-sm font-medium text-white shadow-lg hover:shadow-gray-500/25 mobile-optimized"
+            >
+              {retryLoading ? (
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span className="text-xs sm:text-sm">retrying...</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <RefreshCw className="h-4 w-4" />
+                </div>
+              )}
+            </button>
+          )}
+        </div>
+
+        {selectedTokens.length > 0 && (
+          <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-4 mt-4">
+            <div className="flex justify-between items-center text-sm sm:text-base">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full animate-pulse"></div>
+                <span className="text-gray-200 font-medium">
+                  {selectedTokens.length} token{selectedTokens.length !== 1 ? 's' : ''} selected
+                </span>
+              </div>
+              <span className="text-green-400 font-bold text-lg">
+                ${totalSelectedValue.toFixed(2)}
               </span>
             </div>
-            <span className="text-green-400 font-bold text-lg">
-              ${totalSelectedValue.toFixed(2)}
-            </span>
           </div>
-        </div>
-      )}
-    </CollapsibleSection>
+        )}
+      </CollapsibleSection>
 
-    {/* Token Table */}
-    <CollapsibleSection 
-      title={`tokens • ${filteredAndSortedTokens.length} of ${tokens.length}`}
-      defaultOpen={true}
-      className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl overflow-hidden"
-    >
-      <div className="flex items-center space-x-2">
-  <button
-    onClick={() => setHideZeroValueTokens(!hideZeroValueTokens)}
-    className="flex items-center space-x-1 p-1 hover:bg-gray-700/50 rounded transition-colors text-gray-400"
-  >
-    <span>hide zero value</span>
-    <ChevronDown
-      className={`h-4 w-4 transition-transform duration-200 ${
-        hideZeroValueTokens ? 'rotate-180' : ''
-      }`}
-    />
-  </button>
-</div>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleHeaderDragEnd}
+      <CollapsibleSection 
+        title={`tokens • ${filteredAndSortedTokens.length} of ${tokens.length}`}
+        defaultOpen={true}
+        className="bg-gray-800/30 rounded-2xl border border-gray-700/30 shadow-xl overflow-hidden relative z-10"
       >
-        <SortableContext 
-          items={visibleColumns.map(col => col.id)} 
-          strategy={horizontalListSortingStrategy}
-        >
-          <div className="overflow-x-auto mobile-scroll">
-            <table className="w-full min-w-[500px] sm:min-w-full token-table-mobile">
-              <thead>
-                <tr className="border-b border-gray-700/70 bg-gray-800/50 backdrop-blur-sm">
-                  
-                  {/* Render only <th> elements */}
-                  {visibleColumns.map((column) => (
-                    <ResizableTableHeader
-                      key={column.id}
-                      column={column}
-                      onResize={updateColumnWidth}
-                      onSort={handleSort}
-                      sortField={sortField}
-                      sortDirection={sortDirection}
-                    />
-                  ))}
-
-                  {/* Settings column */}
-                  <th className="py-3 sm:py-4 px-2 sm:px-4 w-12 bg-gray-800/50">
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowColumnPanel(!showColumnPanel)}
-                        className="p-1 hover:bg-gray-700/50 rounded transition-colors"
-                      >
-                        <Settings className="h-4 w-4 text-gray-400" />
-                      </button>
-                      
-                      <ColumnCustomizationPanel
-                        columns={columns}
-                        onToggleVisibility={toggleColumnVisibility}
-                        onReorder={reorderColumns}
-                        onReset={resetColumns}
-                        isOpen={showColumnPanel}
-                        onClose={() => setShowColumnPanel(false)}
-                      />
-                    </div>
-                  </th>
-
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredAndSortedTokens.map((token, index) => (
-                  <tr 
-                    key={token.mint} 
-                    className={`border-b border-gray-700/30 hover:bg-gray-700/40 transition-all duration-200 group ${
-                      token.value === 0 && token.uiAmount > 0 ? 'opacity-70' : ''
-                    } ${index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'}`}
-                  >
-                    {visibleColumns.map(column => (
-                      <td 
-                        key={column.id}
-                        style={{ width: column.width }}
-                        className="py-3 sm:py-4 px-2 sm:px-4"
-                      >
-                        {renderTableCell(token, column.id)}
-                      </td>
-                    ))}
-                    
-                    {/* Empty cell for settings column */}
-                    <td className="py-3 sm:py-4 px-2 sm:px-4"></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </SortableContext>
-      </DndContext>
-
-      {/* Mobile Footer */}
-      <div className="sm:hidden text-center text-xs text-gray-500 pt-3 pb-2 border-t border-gray-700/30 mt-2">
-        <div className="flex items-center justify-center space-x-2">
-          <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
-          <span>scroll horizontally to view all columns</span>
-          <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setHideZeroValueTokens(!hideZeroValueTokens)}
+            className="flex items-center space-x-1 p-1 hover:bg-gray-700/50 rounded transition-colors text-gray-400"
+          >
+            <span>hide zero value</span>
+            <ChevronDown
+              className={`h-4 w-4 transition-transform duration-200 ${
+                hideZeroValueTokens ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
         </div>
-      </div>
+        
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleHeaderDragEnd}
+        >
+          <SortableContext 
+            items={visibleColumns.map(col => col.id)} 
+            strategy={horizontalListSortingStrategy}
+          >
+            <div className="overflow-x-auto mobile-scroll">
+              <table className="w-full min-w-[500px] sm:min-w-full token-table-mobile">
+                <thead>
+                  <tr className="border-b border-gray-700/70 bg-gray-800/50">
+                    
+                    {visibleColumns.map((column) => (
+                      <ResizableTableHeader
+                        key={column.id}
+                        column={column}
+                        onResize={updateColumnWidth}
+                        onSort={handleSort}
+                        sortField={sortField}
+                        sortDirection={sortDirection}
+                      />
+                    ))}
 
-    </CollapsibleSection>
-  </div>
-);
+                    <th className="py-3 sm:py-4 px-2 sm:px-4 w-12 bg-gray-800/50 relative z-20"> 
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowColumnPanel(!showColumnPanel)}
+                          className="p-1 hover:bg-gray-700/50 rounded transition-colors"
+                        >
+                          <Settings className="h-4 w-4 text-gray-400" />
+                        </button>
+                        
+                        <ColumnCustomizationPanel
+                          columns={columns}
+                          onToggleVisibility={toggleColumnVisibility}
+                          onReorder={reorderColumns}
+                          onReset={resetColumns}
+                          isOpen={showColumnPanel}
+                          onClose={() => setShowColumnPanel(false)}
+                        />
+                      </div>
+                    </th>
+
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {filteredAndSortedTokens.map((token, index) => (
+                    <tr 
+                      key={token.mint} 
+                      className={`border-b border-gray-700/30 hover:bg-gray-700/40 transition-all duration-200 group ${
+                        token.value === 0 && token.uiAmount > 0 ? 'opacity-70' : ''
+                      } ${index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'}`}
+                    >
+                      {visibleColumns.map(column => (
+                        <td 
+                          key={column.id}
+                          style={{ width: column.width }}
+                          className="py-3 sm:py-4 px-2 sm:px-4"
+                        >
+                          {renderTableCell(token, column.id)}
+                        </td>
+                      ))}
+                      
+                      <td className="py-3 sm:py-4 px-2 sm:px-4"></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </SortableContext>
+        </DndContext>
+
+        <div className="sm:hidden text-center text-xs text-gray-500 pt-3 pb-2 border-t border-gray-700/30 mt-2">
+          <div className="flex items-center justify-center space-x-2">
+            <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
+            <span>scroll horizontally to view all columns</span>
+            <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
+          </div>
+        </div>
+
+      </CollapsibleSection>
+    </div>
+  );
 }

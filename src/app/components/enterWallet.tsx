@@ -1786,7 +1786,7 @@ useEffect(() => {
                       <button
                         onClick={() => analyzeWallet(wallet.address, wallet.nickname, wallet.isDomain)}
                         disabled={analyzing}
-                        className="p-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 hover:border-green-500/50 rounded-lg transition-all duration-200 text-green-400 hover:text-green-300 disabled:opacity-50"
+                        className="p-2 bg-gray-500/20 hover:bg-gray-400/30 border border-gray-500/30 hover:border-gray-400/50 rounded-lg transition-all duration-200 text-gray-300 hover:text-gray-100 disabled:opacity-50"
                       >
                         <Calculator className="h-4 w-4" />
                       </button>
@@ -1905,7 +1905,6 @@ useEffect(() => {
                   ))}
               </div>
 
-              {/* Token Selection Header */}
               {allTokens.length > 0 && (
                 <div className="mb-6 flex items-center justify-between p-4 bg-gray-700/30 rounded-xl border border-gray-600/50">
                   <div className="flex items-center space-x-4">
@@ -1918,7 +1917,6 @@ useEffect(() => {
                
                 </div>
               )}
-              {/* Liquidation Amount Section */}
               {selectedTokens.size > 0 && (
                 <CollapsibleSection 
                   title="liquidation amount"
@@ -2038,7 +2036,6 @@ useEffect(() => {
                         </div>
                       )}
                     </div>
-                    {/* Shopping List Actions Section */}
                       {selectedTokens.size > 0 && (
                         <CollapsibleSection 
                           title="shopping list actions"
@@ -2082,7 +2079,6 @@ useEffect(() => {
                           )}
                         </CollapsibleSection>
                       )}
-                    {/* Selected Target Token Display */}
                     {targetToken && (
                       <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-500/15 to-pink-500/15 border border-purple-500/30 rounded-xl">
                         <div className="flex items-center space-x-3">
@@ -2118,7 +2114,6 @@ useEffect(() => {
                 </CollapsibleSection>
               )}
 
-              {/* Tokens Table */}
               <CollapsibleSection 
                 title={`tokens • ${allTokens.length} total`}
                 defaultOpen={true}
@@ -2143,7 +2138,6 @@ useEffect(() => {
                     <thead>
                       <tr className="border-b border-gray-700/70 bg-gray-800/50 backdrop-blur-sm">
                         <th className="text-left py-4 px-4 text-sm font-semibold text-gray-200 w-12">
-                          {/* Checkbox column */}
                         </th>
                         <th 
                           className="text-left py-4 px-4 text-sm font-semibold text-gray-200 cursor-pointer hover:bg-gray-700/50 rounded-lg transition-all duration-200 group"
@@ -2325,7 +2319,6 @@ useEffect(() => {
               )}
             </CollapsibleSection>
 
-            {/* Historical Portfolio */}
             <HistoricalPortfolio 
             mode="multisig"
             currentPortfolioValue={totalPortfolioValue}
@@ -2333,7 +2326,6 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Empty State for Portfolio History */}
         {portfolioHistory.length === 0 && chartDataLoaded && (
           <div className="text-center py-12 text-gray-400">
             <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 bg-gray-700/50 rounded-2xl flex items-center justify-center">

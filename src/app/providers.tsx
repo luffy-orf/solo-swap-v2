@@ -10,7 +10,7 @@ import {
 } from '@solana/wallet-adapter-wallets';
 import { clusterApiUrl } from '@solana/web3.js';
 import { ThemeProvider } from 'next-themes';
-import { ReactNode, useMemo } from 'react';
+import { ReactNode, useMemo, useEffect } from 'react';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
 
@@ -18,7 +18,7 @@ export function Providers({ children }: { children: ReactNode }) {
   const endpoint = useMemo(() => {
     return process.env.NEXT_PUBLIC_RPC_ENDPOINT_1 || 
            process.env.NEXT_PUBLIC_RPC_ENDPOINT_2 ||
-           'https://api.mainnet-beta.solana.com'; 
+           'https://api.mainnet-beta.solana.com';
   }, []);
 
   const wallets = useMemo(
@@ -30,161 +30,73 @@ export function Providers({ children }: { children: ReactNode }) {
     []
   );
 
+  useEffect(() => {
+    const preserveWalletAddressCase = () => {
+      setTimeout(() => {
+        const walletButtons = document.querySelectorAll('.wallet-adapter-button');
+        walletButtons.forEach(button => {
+          const span = button.querySelector('span');
+          if (span) {
+            const text = span.textContent || '';
+            if (text.match(/[0-9a-zA-Z]{32,44}/) || text.includes('...') || text.length > 20) {
+              span.style.textTransform = 'none';
+              button.style.textTransform = 'none';
+            }
+          }
+        });
+      }, 100);
+    };
+
+    preserveWalletAddressCase();
+    
+    const observer = new MutationObserver(preserveWalletAddressCase);
+    observer.observe(document.body, { 
+      childList: true, 
+      subtree: true 
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <ThemeProvider attribute="class" defaultTheme="dark">
       <ConnectionProvider endpoint={endpoint}>
         <WalletProvider wallets={wallets} autoConnect>
           <WalletModalProvider>
             <style jsx global>{`
-  .wallet-adapter-modal-wrapper {
-    z-index: 999999 !important;
-    position: fixed !important;
-  }
-  
-  .wallet-adapter-modal-overlay {
-    z-index: 999998 !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    background-color: rgba(0, 0, 0, 0.8) !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-  
-  .wallet-adapter-modal {
-    z-index: 999999 !important;
-    position: relative !important;
-  }
-  
-  .wallet-adapter-dropdown {
-    z-index: 1000000 !important;
-    position: relative !important;
-  }
-  
-  .wallet-adapter-dropdown-list {
-    z-index: 1000001 !important;
-    position: fixed !important;
-    background: rgb(31, 41, 55) !important;
-    border: 1px solid rgb(55, 65, 81) !important;
-    border-radius: 0.75rem !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
-  }
-  
-  .wallet-adapter-dropdown-list-item {
-    pointer-events: all !important;
-    cursor: pointer !important;
-    font-size: 0.875rem !important;
-    padding: 0.75rem 1rem !important;
-    min-height: 44px !important;
-    display: flex !important;
-    align-items: center !important;
-    transition: all 0.2s ease !important;
-    text-transform: lowercase !important;
-  }
-  
-  .wallet-adapter-button-trigger {
-    position: relative !important;
-    z-index: 1000000 !important;
-  }
-  
-  .wallet-adapter-button-trigger {
-    text-transform: none !important;
-  }
-  
-  .wallet-adapter-modal-wrapper .wallet-adapter-modal-title,
-  .wallet-adapter-modal-wrapper .wallet-adapter-modal-list li,
-  .wallet-adapter-modal-wrapper .wallet-adapter-modal-list-more {
-    text-transform: lowercase !important;
-  }
-  
-  .wallet-adapter-modal-wrapper .wallet-adapter-button,
-  .wallet-adapter-button[data-connected="true"] {
-    text-transform: none !important;
-  }
-  
-  .wallet-adapter-button[data-connected="true"] span {
-    text-transform: none !important;
-    font-family: monospace !important;
-  }
-  
-  .wallet-adapter-modal-list .wallet-adapter-modal-button span {
-    text-transform: lowercase !important;
-  }
-  
-  .wallet-adapter-button-trigger span:not(:first-child) {
-    text-transform: none !important;
-    font-family: monospace !important;
-  }
-  
-  .wallet-adapter-dropdown-list-item:not([disabled]):hover {
-    background-color: rgba(139, 92, 246, 0.2) !important;
-    transform: translateX(2px) !important;
-  }
-  
-  .wallet-adapter-button {
-    border-radius: 0.75rem !important;
-    font-size: 0.875rem !important;
-    min-height: 44px !important;
-    padding: 0.5rem 1rem !important;
-    transition: all 0.2s ease !important;
-  }
-  
-  .wallet-adapter-button:not([disabled]):hover {
-    transform: scale(1.02) !important;
-  }
-  
-  @media (max-width: 768px) {
-    .wallet-adapter-modal {
-      margin: 1rem !important;
-      max-height: calc(100vh - 2rem) !important;
-    }
-    
-    .wallet-adapter-modal-title {
-      font-size: 1.125rem !important;
-      padding: 1rem 1.5rem 0.5rem !important;
-    }
-    
-    .wallet-adapter-modal-list {
-      margin: 0 !important;
-      padding: 0.5rem !important;
-    }
-    
-    .wallet-adapter-modal-list-more {
-      font-size: 0.875rem !important;
-      padding: 1rem 1.5rem !important;
-    }
-    
-    .wallet-adapter-dropdown-list {
-      position: fixed !important;
-      right: 1rem !important;
-      left: 1rem !important;
-      top: auto !important;
-      bottom: 1rem !important;
-      margin-top: 0 !important;
-    }
-  }
-  
-  .wallet-adapter-modal-button {
-    min-height: 60px !important;
-    padding: 1rem !important;
-  }
-  
-  @media (max-width: 768px) {
-    .wallet-adapter-modal-button {
-      min-height: 56px !important;
-      padding: 0.875rem !important;
-    }
-    
-    .wallet-adapter-modal-button-icon {
-      width: 28px !important;
-      height: 28px !important;
-    }
-  }
-`}</style>
+              .wallet-adapter-button {
+                text-transform: lowercase !important;
+              }
+              
+              .wallet-adapter-modal-button span {
+                text-transform: lowercase !important;
+              }
+              
+              .wallet-adapter-modal-list-more {
+                text-transform: lowercase !important;
+              }
+            
+              .wallet-adapter-dropdown-list-item {
+                text-transform: lowercase !important;
+              }
+                
+              .wallet-adapter-modal-title {
+                text-transform: lowercase !important;
+              }
+
+              .wallet-address,
+              .token-address,
+              .mono,
+              code,
+              pre {
+                text-transform: none !important;
+              }
+
+              button:not(.wallet-adapter-button):not([class*="mono"]), 
+              [role="button"]:not([class*="mono"]) {
+                text-transform: lowercase !important;
+              }
+            `}</style>
             {children}
           </WalletModalProvider>
         </WalletProvider>

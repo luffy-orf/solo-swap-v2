@@ -46,6 +46,7 @@ solo swap enables users to efficiently liquidate multiple solana tokens in a sin
 - **token safety indicators** on search mechanisms (green, yellow, red warning levels)
 - **customizable columns** to allow users to organize how they wish
 - **mobile optimization** for text size and touch operability
+- **re-apply cron job** for periodic auto-fetch of portfolio values
 
 ### 🔥 transaction bundling (coming soon)
 - **atomic multi-token swaps**: bundle multiple token swaps into single transactions
