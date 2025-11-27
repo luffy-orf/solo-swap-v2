@@ -2,9 +2,11 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey, VersionedTransaction } from '@solana/web3.js';
+import { VersionedTransaction } from '@solana/web3.js';
 import { TokenBalance } from '../types/token';
 import { TokenService } from '../lib/api';
+import { SwapBatchRecord, SwapTokenInput } from '../types/history';
+import { encryptionService } from '../lib/encryption';
 import { ArrowUpDown, Calculator, AlertCircle, ExternalLink, RefreshCw, DollarSign, ShoppingCart, Shield, ChevronDown, Search, X } from 'lucide-react';
 
 interface SwapInterfaceProps {
@@ -17,15 +19,21 @@ interface SwapInterfaceProps {
 
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
+const HISTORY_ENABLED = process.env.NEXT_PUBLIC_ENABLE_HISTORY === 'true';
 
 interface SwapResult {
   symbol: string;
+  mint: string;
+  decimals: number;
   signature?: string;
   amount: number;
   error?: string;
   inputAmount: number;
   outputAmount?: number;
   retryCount?: number;
+  priceUsd?: number;
+  outputUsd?: number;
+  quoteImprovementPct?: number;
 }
 
 interface ProRataToken extends TokenBalance {
@@ -46,6 +54,11 @@ interface QuoteComparison {
   quote: JupiterQuoteResponse;
   outAmount: number;
   index: number;
+}
+
+interface QuoteSelectionResult {
+  quote: JupiterQuoteResponse;
+  improvementPct?: number;
 }
 
 interface JupiterSwapResponse {
@@ -411,7 +424,7 @@ export function SwapInterface({
     }
   };
 
-  const getBestSwapQuote = async (token: ProRataToken): Promise<JupiterQuoteResponse> => {
+  const getBestSwapQuote = async (token: ProRataToken): Promise<QuoteSelectionResult> => {
     try {
       setCurrentStep(`fetching best quote for ${token.symbol}...`);
       
@@ -437,15 +450,19 @@ export function SwapInterface({
 
       // Sort by output amount (descending) to get the best price
       validQuotes.sort((a, b) => b.outAmount - a.outAmount);
-      const bestQuote = validQuotes[0].quote;
-
+      const bestQuote = validQuotes[0];
+      const worstQuote = validQuotes[validQuotes.length - 1];
+      const improvementPct =
+        validQuotes.length > 1 && worstQuote.outAmount > 0
+          ? ((bestQuote.outAmount - worstQuote.outAmount) / worstQuote.outAmount) * 100
+          : undefined;
+      
       // Log comparison for debugging
       if (validQuotes.length > 1) {
-        const improvement = ((validQuotes[0].outAmount - validQuotes[validQuotes.length - 1].outAmount) / validQuotes[validQuotes.length - 1].outAmount * 100).toFixed(2);
-        console.log(`✓ Found ${validQuotes.length} quotes for ${token.symbol}, best quote is ${improvement}% better`);
+        console.log(`✓ Found ${validQuotes.length} quotes for ${token.symbol}, best quote is ${improvementPct?.toFixed(2)}% better`);
       }
 
-      return bestQuote;
+      return { quote: bestQuote.quote, improvementPct };
 
     } catch (err) {
       console.error(`quote comparison failed for ${token.symbol}:`, err);
@@ -454,7 +471,108 @@ export function SwapInterface({
       if (!fallbackQuote) {
         throw new Error(`failed to fetch quote for ${token.symbol}: ${err instanceof Error ? err.message : 'unknown error'}`);
       }
-      return fallbackQuote;
+      return { quote: fallbackQuote };
+    }
+  };
+
+  const buildHistoryRecord = (
+    successfulSwaps: SwapResult[],
+    status: 'success' | 'partial',
+  ): SwapBatchRecord | null => {
+    if (!publicKey || successfulSwaps.length === 0 || !HISTORY_ENABLED) {
+      return null;
+    }
+
+    const wallet = publicKey.toBase58();
+    const timestamp = Date.now();
+    const hashedWallet = encryptionService.anonymizePublicKey(wallet);
+
+    const tokensIn: SwapTokenInput[] = successfulSwaps.map((swap) => {
+      const priceUsd =
+        swap.priceUsd ??
+        (swap.inputAmount > 0 ? swap.amount / swap.inputAmount : 0);
+
+      return {
+        mint: swap.mint,
+        symbol: swap.symbol,
+        decimals: swap.decimals,
+        uiAmount: swap.inputAmount,
+        valueUsd: swap.amount,
+        priceUsd,
+        signature: swap.signature,
+        outputAmount: swap.outputAmount,
+        outputUsd: swap.outputUsd ?? swap.amount,
+        quoteImprovementPct: swap.quoteImprovementPct,
+      };
+    });
+
+    const totals = tokensIn.reduce(
+      (acc, token) => {
+        acc.valueUsdIn += token.valueUsd;
+        acc.valueUsdOut += token.outputUsd ?? token.valueUsd;
+        return acc;
+      },
+      { valueUsdIn: 0, valueUsdOut: 0 },
+    );
+
+    const improvementValues = successfulSwaps
+      .map((swap) => swap.quoteImprovementPct)
+      .filter(
+        (value): value is number =>
+          typeof value === 'number' && !Number.isNaN(value),
+      );
+
+    const averageImprovement =
+      improvementValues.length > 0
+        ? improvementValues.reduce((sum, value) => sum + value, 0) /
+          improvementValues.length
+        : undefined;
+
+    return {
+      batchId:
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${timestamp}`,
+      wallet,
+      hashedWallet,
+      timestamp,
+      outputToken: {
+        mint: outputToken,
+        symbol: outputTokenInfo?.symbol || outputTokenSymbol,
+      },
+      liquidationPct: liquidationPercentage,
+      slippage,
+      totals,
+      tokensIn,
+      status,
+      quoteImprovementPct: averageImprovement,
+      chartIndicators: successfulSwaps
+        .filter((swap) => Boolean(swap.signature))
+        .map((swap) => ({
+          mint: swap.mint,
+          symbol: swap.symbol,
+          amount: swap.inputAmount,
+          valueUsd: swap.amount,
+          timestamp,
+          signature: swap.signature as string,
+        })),
+    };
+  };
+
+  const submitSwapHistory = async (record: SwapBatchRecord | null) => {
+    if (!record || !HISTORY_ENABLED) return;
+
+    try {
+      await fetch('/api/history', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet': record.wallet,
+        },
+        body: JSON.stringify(record),
+      });
+    } catch (error) {
+      console.error('swap history submission failed:', error);
     }
   };
 
@@ -479,7 +597,8 @@ export function SwapInterface({
             await new Promise(resolve => setTimeout(resolve, backoffDelay));
           }
 
-          const quoteData = await getBestSwapQuote(token);
+          const quoteSelection = await getBestSwapQuote(token);
+          const quoteData = quoteSelection.quote;
           const { blockhash, lastValidBlockHeight } = await getFreshBlockhash();
 
           const swapResponse = await fetch('https://lite-api.jup.ag/swap/v1/swap', {
@@ -552,13 +671,24 @@ export function SwapInterface({
 
           const outputDecimals = outputTokenInfo?.decimals || (outputToken === SOL_MINT ? 9 : 6);
           
+          const outputAmount =
+            parseInt(quoteData.outAmount) / Math.pow(10, outputDecimals);
+          const outputUsd =
+            outputAmount *
+            (outputTokenInfo?.price || (outputToken === USDC_MINT ? 1 : token.price || 0));
+
           const result: SwapResult = {
             symbol: token.symbol,
+            mint: token.mint,
+            decimals: token.decimals,
             signature,
             amount: token.liquidationAmount,
             inputAmount: token.swapAmount,
-            outputAmount: parseInt(quoteData.outAmount) / Math.pow(10, outputDecimals),
-            retryCount
+            outputAmount,
+            outputUsd,
+            retryCount,
+            priceUsd: token.price,
+            quoteImprovementPct: quoteSelection.improvementPct,
           };
 
           results.push(result);
@@ -621,6 +751,13 @@ export function SwapInterface({
 
       const successfulSwaps = results.filter(result => !result.error);
       const failedSwaps = results.filter(result => result.error);
+
+      if (HISTORY_ENABLED && successfulSwaps.length > 0) {
+        const statusLabel: 'success' | 'partial' =
+          failedSwaps.length === 0 ? 'success' : 'partial';
+        const record = buildHistoryRecord(successfulSwaps, statusLabel);
+        void submitSwapHistory(record);
+      }
 
       if (successfulSwaps.length > 0) {
         const totalSwapped = successfulSwaps.reduce((sum, swap) => sum + (swap.amount || 0), 0);

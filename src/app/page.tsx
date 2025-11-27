@@ -15,6 +15,7 @@ import { collection, doc, setDoc, getDocs, query, orderBy, limit, Timestamp } fr
 import { db } from './lib/firebase';
 import { encryptionService } from './lib/encryption';
 import { HistoricalPortfolio } from './components/ViewHistory';
+import { SwapHistoryPanel } from './components/SwapHistoryPanel';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
 
@@ -485,8 +486,9 @@ secureLog.info('portfolio history updated', {
             </div>
           </main>
 
-          <div className="mb-8 relative z-20">
+          <div className="mb-8 relative z-20 space-y-6">
             <HistoricalPortfolio />
+            <SwapHistoryPanel />
           </div>
 
           <footer className="mt-8 pt-6 border-t border-gray-700/30 relative z-20 mobile-full-width">

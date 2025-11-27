@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { TokenBalance, PriceProgress } from '../types/token';
 import { TokenService } from '../lib/api';
 import { ArrowUpDown, Search, Image, ChevronDown, ChevronUp, ChevronRight, RefreshCw, Settings, Eye, EyeOff, GripVertical } from 'lucide-react';
@@ -300,10 +300,13 @@ function ColumnCustomizationPanel({
   isOpen,
   onClose,
 }: ColumnCustomizationPanelProps) {
-  const [isMounted, setIsMounted] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
+  // React hydration requires the server and client markup to match, so
+  // we enable the drag-and-drop UI only after the first client render.
   useEffect(() => {
-    setIsMounted(true);
+    const id = requestAnimationFrame(() => setIsClient(true));
+    return () => cancelAnimationFrame(id);
   }, []);
 
   const sensors = useSensors(
@@ -324,7 +327,7 @@ function ColumnCustomizationPanel({
     }
   };
 
-  if (!isOpen || !isMounted) return null;
+  if (!isOpen || !isClient) return null;
 
   return (
     <div className="absolute top-full right-0 mt-2 w-80 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl z-50 backdrop-blur-sm">
@@ -405,7 +408,12 @@ export function TokenTable({
   const [retryLoading, setRetryLoading] = useState(false);
   const [retryProgress, setRetryProgress] = useState({ current: 0, total: 0 });
   const [showColumnPanel, setShowColumnPanel] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+  const [isTableInteractive, setIsTableInteractive] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setIsTableInteractive(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   
   const {
   columns,
@@ -414,13 +422,6 @@ export function TokenTable({
   reorderColumns,
   resetColumns,
 } = useColumnState();
-
-  // Prevent hydration mismatch by only rendering drag-and-drop after mount
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {}, [loading, processingProgress, totalToProcess, tokens]);
 
   const totalPortfolioValue = useMemo(() => {
     return tokens.reduce((total, token) => total + (token.value || 0), 0);
@@ -713,7 +714,7 @@ const filteredAndSortedTokens = useMemo(() => {
           </button>
         </div>
         
-        {isMounted ? (
+        {isTableInteractive ? (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}

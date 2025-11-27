@@ -23,6 +23,7 @@ solo swap enables users to efficiently liquidate multiple solana tokens in a sin
 - **transaction tracking**: real-time swap progress with detailed success/failure reporting
 - **slippage control**: configurable slippage tolerance (0.5% - 10%)
 - **output token selection**: convert to usdc, usdt, or sol
+- **swap history tracking**: automatically logs each liquidation and draws sell indicators on the history chart (firebase required)
 - **multi-route quote comparison**: automatically fetches and compares multiple swap routes to ensure the best price
 
 ### 🔄 advanced rpc management
@@ -41,7 +42,6 @@ solo swap enables users to efficiently liquidate multiple solana tokens in a sin
 ## 🚧 planned features
 
 #### transaction history
-- **swap history**: with sell indicators on chart
 - **jito bundler** to wrap swap instructions in bundles of 5 swaps per signature
 - **token safety indicators** on search mechanisms (green, yellow, red warning levels)
 - **customizable columns** to allow users to organize how they wish
@@ -111,7 +111,17 @@ environment configuration
 
     NEXT_PUBLIC_ENCRYPTION_SECRET=""
     NEXT_PUBLIC_HASH_SALT=""
+    NEXT_PUBLIC_ENABLE_HISTORY="false"
     ```
+
+### transaction history setup
+
+swap history + sell indicators require firebase firestore:
+
+1. enable firestore in your firebase project (rules can stay in test mode for local work)
+2. fill in every `NEXT_PUBLIC_FIREBASE_*` variable plus `NEXT_PUBLIC_ENCRYPTION_SECRET` and `NEXT_PUBLIC_HASH_SALT`
+3. set `NEXT_PUBLIC_ENABLE_HISTORY=true` to activate logging
+4. firestore automatically creates a `swapHistory` collection after your first liquidation; no manual indexes are required for the default queries, but if prompted, create the wallet+timestamp composite index suggested in the firebase console
 
 4. run development server
 
