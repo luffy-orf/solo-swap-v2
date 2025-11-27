@@ -300,6 +300,12 @@ function ColumnCustomizationPanel({
   isOpen,
   onClose,
 }: ColumnCustomizationPanelProps) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -318,7 +324,7 @@ function ColumnCustomizationPanel({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !isMounted) return null;
 
   return (
     <div className="absolute top-full right-0 mt-2 w-80 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl z-50 backdrop-blur-sm">
@@ -399,6 +405,7 @@ export function TokenTable({
   const [retryLoading, setRetryLoading] = useState(false);
   const [retryProgress, setRetryProgress] = useState({ current: 0, total: 0 });
   const [showColumnPanel, setShowColumnPanel] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   
   const {
   columns,
@@ -407,6 +414,11 @@ export function TokenTable({
   reorderColumns,
   resetColumns,
 } = useColumnState();
+
+  // Prevent hydration mismatch by only rendering drag-and-drop after mount
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {}, [loading, processingProgress, totalToProcess, tokens]);
 
@@ -580,7 +592,11 @@ const filteredAndSortedTokens = useMemo(() => {
     }
   };
 
-  if (loading || isRetryLoading) {
+  // Check if loading is actually complete (progress matches total)
+  const isProgressComplete = totalToProcess > 0 && processingProgress >= totalToProcess;
+  const shouldShowLoading = (loading || isRetryLoading) && !isProgressComplete;
+
+  if (shouldShowLoading) {
     const currentProgress = isRetryLoading ? retryProgress.current : processingProgress;
     const currentTotal = isRetryLoading ? retryProgress.total : totalToProcess;
     const loadingText = isRetryLoading ? 'retrying failed tokens...' : 'fetching prices...';
@@ -697,80 +713,173 @@ const filteredAndSortedTokens = useMemo(() => {
           </button>
         </div>
         
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleHeaderDragEnd}
-        >
-          <SortableContext 
-            items={visibleColumns.map(col => col.id)} 
-            strategy={horizontalListSortingStrategy}
+        {isMounted ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleHeaderDragEnd}
           >
-            <div className="overflow-x-auto mobile-scroll">
-              <table className="w-full min-w-[500px] sm:min-w-full token-table-mobile">
-                <thead>
-                  <tr className="border-b border-gray-700/70 bg-gray-800/50">
-                    
-                    {visibleColumns.map((column) => (
-                      <ResizableTableHeader
-                        key={column.id}
-                        column={column}
-                        onResize={updateColumnWidth}
-                        onSort={handleSort}
-                        sortField={sortField}
-                        sortDirection={sortDirection}
-                      />
-                    ))}
-
-                    <th className="py-3 sm:py-4 px-2 sm:px-4 w-12 bg-gray-800/50 relative z-20"> 
-                      <div className="relative">
-                        <button
-                          onClick={() => setShowColumnPanel(!showColumnPanel)}
-                          className="p-1 hover:bg-gray-700/50 rounded transition-colors"
-                        >
-                          <Settings className="h-4 w-4 text-gray-400" />
-                        </button>
-                        
-                        <ColumnCustomizationPanel
-                          columns={columns}
-                          onToggleVisibility={toggleColumnVisibility}
-                          onReorder={reorderColumns}
-                          onReset={resetColumns}
-                          isOpen={showColumnPanel}
-                          onClose={() => setShowColumnPanel(false)}
+            <SortableContext 
+              items={visibleColumns.map(col => col.id)} 
+              strategy={horizontalListSortingStrategy}
+            >
+              <div className="overflow-x-auto mobile-scroll">
+                <table className="w-full min-w-[500px] sm:min-w-full token-table-mobile">
+                  <thead>
+                    <tr className="border-b border-gray-700/70 bg-gray-800/50">
+                      
+                      {visibleColumns.map((column) => (
+                        <ResizableTableHeader
+                          key={column.id}
+                          column={column}
+                          onResize={updateColumnWidth}
+                          onSort={handleSort}
+                          sortField={sortField}
+                          sortDirection={sortDirection}
                         />
+                      ))}
+
+                      <th className="py-3 sm:py-4 px-2 sm:px-4 w-12 bg-gray-800/50 relative z-20"> 
+                        <div className="relative">
+                          <button
+                            onClick={() => setShowColumnPanel(!showColumnPanel)}
+                            className="p-1 hover:bg-gray-700/50 rounded transition-colors"
+                          >
+                            <Settings className="h-4 w-4 text-gray-400" />
+                          </button>
+                          
+                          <ColumnCustomizationPanel
+                            columns={columns}
+                            onToggleVisibility={toggleColumnVisibility}
+                            onReorder={reorderColumns}
+                            onReset={resetColumns}
+                            isOpen={showColumnPanel}
+                            onClose={() => setShowColumnPanel(false)}
+                          />
+                        </div>
+                      </th>
+
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredAndSortedTokens.map((token, index) => (
+                      <tr 
+                        key={token.mint} 
+                        className={`border-b border-gray-700/30 hover:bg-gray-700/40 transition-all duration-200 group ${
+                          token.value === 0 && token.uiAmount > 0 ? 'opacity-70' : ''
+                        } ${index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'}`}
+                      >
+                        {visibleColumns.map(column => (
+                          <td 
+                            key={column.id}
+                            style={{ width: column.width }}
+                            className="py-3 sm:py-4 px-2 sm:px-4"
+                          >
+                            {renderTableCell(token, column.id)}
+                          </td>
+                        ))}
+                        
+                        <td className="py-3 sm:py-4 px-2 sm:px-4"></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          // Render non-interactive version during SSR to prevent hydration mismatch
+          <div className="overflow-x-auto mobile-scroll">
+            <table className="w-full min-w-[500px] sm:min-w-full token-table-mobile">
+              <thead>
+                <tr className="border-b border-gray-700/70 bg-gray-800/50">
+                  
+                  {visibleColumns.map((column) => (
+                    <th
+                      key={column.id}
+                      style={{ width: column.width }}
+                      className="relative py-3 sm:py-4 px-2 sm:px-4 bg-gray-800/50 group select-none"
+                    >
+                      <div className="flex items-center justify-between h-full">
+                        {column.resizable && (
+                          <div
+                            className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-gray-500 active:bg-gray-400 z-10"
+                          />
+                        )}
+                        
+                        <div className="flex items-center space-x-2 flex-1 h-full">
+                          {column.resizable && (
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <GripVertical className="h-4 w-4 text-gray-400" />
+                            </div>
+                          )}
+                          
+                          <div
+                            onClick={() => column.sortable && handleSort(column.field)}
+                            className={`flex-1 h-full flex items-center ${column.sortable ? 'cursor-pointer hover:text-white' : ''}`}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs sm:text-sm font-semibold text-gray-200 lowercase">
+                                {column.label}
+                              </span>
+                              {column.sortable && sortField === column.field && (
+                                <span className="text-gray-400">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {column.resizable && (
+                          <div
+                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-purple-400 active:bg-purple-400 z-10"
+                          />
+                        )}
                       </div>
                     </th>
-
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {filteredAndSortedTokens.map((token, index) => (
-                    <tr 
-                      key={token.mint} 
-                      className={`border-b border-gray-700/30 hover:bg-gray-700/40 transition-all duration-200 group ${
-                        token.value === 0 && token.uiAmount > 0 ? 'opacity-70' : ''
-                      } ${index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'}`}
-                    >
-                      {visibleColumns.map(column => (
-                        <td 
-                          key={column.id}
-                          style={{ width: column.width }}
-                          className="py-3 sm:py-4 px-2 sm:px-4"
-                        >
-                          {renderTableCell(token, column.id)}
-                        </td>
-                      ))}
-                      
-                      <td className="py-3 sm:py-4 px-2 sm:px-4"></td>
-                    </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </SortableContext>
-        </DndContext>
+
+                  <th className="py-3 sm:py-4 px-2 sm:px-4 w-12 bg-gray-800/50 relative z-20"> 
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowColumnPanel(!showColumnPanel)}
+                        className="p-1 hover:bg-gray-700/50 rounded transition-colors"
+                      >
+                        <Settings className="h-4 w-4 text-gray-400" />
+                      </button>
+                    </div>
+                  </th>
+
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredAndSortedTokens.map((token, index) => (
+                  <tr 
+                    key={token.mint} 
+                    className={`border-b border-gray-700/30 hover:bg-gray-700/40 transition-all duration-200 group ${
+                      token.value === 0 && token.uiAmount > 0 ? 'opacity-70' : ''
+                    } ${index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'}`}
+                  >
+                    {visibleColumns.map(column => (
+                      <td 
+                        key={column.id}
+                        style={{ width: column.width }}
+                        className="py-3 sm:py-4 px-2 sm:px-4"
+                      >
+                        {renderTableCell(token, column.id)}
+                      </td>
+                    ))}
+                    
+                    <td className="py-3 sm:py-4 px-2 sm:px-4"></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         <div className="sm:hidden text-center text-xs text-gray-500 pt-3 pb-2 border-t border-gray-700/30 mt-2">
           <div className="flex items-center justify-center space-x-2">
