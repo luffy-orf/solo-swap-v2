@@ -795,7 +795,7 @@ export function SwapInterface({
 
               {/* Advanced Settings */}
               {showAdvanced && (
-                <div className="space-y-3 sm:space-y-4 animate-slideDown ml-2 mr-2">
+                <div className="space-y-3 sm:space-y-4 animate-slideDown ml-3 mr-3">
                   {/* Output Token Selection with Search */}
                   <div className="relative" ref={tokenSelectorRef}>
                     <label className="block text-xs sm:text-m font-medium mb-2">output token</label>
@@ -1013,9 +1013,9 @@ export function SwapInterface({
 
             {/* Current Step Indicator */}
             {swapping && currentStep && (
-              <div className="mb-4 p-3 bg-blue-500/20 border border-blue-500 rounded-lg">
+              <div className="mb-4 p-3 bg-gray-500/20 border border-gray-400 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs sm:text-m text-blue-200">{currentStep}</span>
+                  <span className="text-xs sm:text-m text-gray-200">{currentStep}</span>
                   <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
                 </div>
               </div>

@@ -312,7 +312,7 @@ secureLog.info('portfolio history updated', {
         <div className="bg-gray-800/50 rounded-xl p-4 sm:p-6 relative z-10">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 space-y-3 sm:space-y-0">
             <h2 className="text-l sm:text-xl font-semibold flex items-center space-x-2">
-              <Wallet className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
+              <Wallet className="h-4 w-4 sm:h-5 sm:w-5 ml-3" />
               <span></span>
             </h2>
             
