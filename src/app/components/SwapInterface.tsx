@@ -37,7 +37,15 @@ interface ProRataToken extends TokenBalance {
 
 interface JupiterQuoteResponse {
   outAmount: string;
+  priceImpactPct?: string;
+  routePlan?: unknown[];
   [key: string]: unknown;
+}
+
+interface QuoteComparison {
+  quote: JupiterQuoteResponse;
+  outAmount: number;
+  index: number;
 }
 
 interface JupiterSwapResponse {
@@ -353,13 +361,21 @@ export function SwapInterface({
     }
   };
 
-  const getSwapQuote = async (token: ProRataToken): Promise<JupiterQuoteResponse> => {
+  const fetchSingleQuote = async (
+    token: ProRataToken, 
+    attemptNumber: number = 0
+  ): Promise<JupiterQuoteResponse | null> => {
     try {
       const slippageBps = Math.floor(slippage * 100);
       const rawAmount = Math.floor(token.swapAmount * Math.pow(10, token.decimals));
 
       if (rawAmount <= 0) {
-        throw new Error(`invalid amount for ${token.symbol}: ${rawAmount}`);
+        return null;
+      }
+
+      // Add small delay between requests to potentially get different routes
+      if (attemptNumber > 0) {
+        await new Promise(resolve => setTimeout(resolve, 100 * attemptNumber));
       }
 
       const quoteUrl = `https://lite-api.jup.ag/swap/v1/quote?` + new URLSearchParams({
@@ -374,26 +390,71 @@ export function SwapInterface({
       
       if (!response.ok) {
         if (response.status === 429) {
-          throw new Error(`rate limited. please wait a moment and try again.`);
+          return null;
         } else if (response.status === 400) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(`invalid request for ${token.symbol}: ${errorData.error || response.statusText}`);
+          return null;
         } else {
-          throw new Error(`quote failed for ${token.symbol}: ${response.status} ${response.statusText}`);
+          return null;
         }
       }
 
       const quoteData: JupiterQuoteResponse = await response.json();
       
       if (!quoteData || !quoteData.outAmount) {
-        throw new Error(`invalid quote response for ${token.symbol}`);
+        return null;
       }
 
       return quoteData;
 
     } catch (err) {
-      console.error(`quote failed for ${token.symbol}:`, err);
-      throw err;
+      return null;
+    }
+  };
+
+  const getBestSwapQuote = async (token: ProRataToken): Promise<JupiterQuoteResponse> => {
+    try {
+      setCurrentStep(`fetching best quote for ${token.symbol}...`);
+      
+      // Fetch multiple quotes in parallel to find the best price
+      const quotePromises = Array.from({ length: 3 }, (_, i) => 
+        fetchSingleQuote(token, i)
+      );
+
+      const quotes = await Promise.all(quotePromises);
+      
+      // Filter out null results and compare output amounts
+      const validQuotes: QuoteComparison[] = quotes
+        .filter((quote): quote is JupiterQuoteResponse => quote !== null)
+        .map((quote, index) => ({
+          quote,
+          outAmount: parseInt(quote.outAmount),
+          index
+        }));
+
+      if (validQuotes.length === 0) {
+        throw new Error(`no valid quotes found for ${token.symbol}`);
+      }
+
+      // Sort by output amount (descending) to get the best price
+      validQuotes.sort((a, b) => b.outAmount - a.outAmount);
+      const bestQuote = validQuotes[0].quote;
+
+      // Log comparison for debugging
+      if (validQuotes.length > 1) {
+        const improvement = ((validQuotes[0].outAmount - validQuotes[validQuotes.length - 1].outAmount) / validQuotes[validQuotes.length - 1].outAmount * 100).toFixed(2);
+        console.log(`✓ Found ${validQuotes.length} quotes for ${token.symbol}, best quote is ${improvement}% better`);
+      }
+
+      return bestQuote;
+
+    } catch (err) {
+      console.error(`quote comparison failed for ${token.symbol}:`, err);
+      // Fallback to single quote if multi-quote fails
+      const fallbackQuote = await fetchSingleQuote(token, 0);
+      if (!fallbackQuote) {
+        throw new Error(`failed to fetch quote for ${token.symbol}: ${err instanceof Error ? err.message : 'unknown error'}`);
+      }
+      return fallbackQuote;
     }
   };
 
@@ -418,7 +479,7 @@ export function SwapInterface({
             await new Promise(resolve => setTimeout(resolve, backoffDelay));
           }
 
-          const quoteData = await getSwapQuote(token);
+          const quoteData = await getBestSwapQuote(token);
           const { blockhash, lastValidBlockHeight } = await getFreshBlockhash();
 
           const swapResponse = await fetch('https://lite-api.jup.ag/swap/v1/swap', {
