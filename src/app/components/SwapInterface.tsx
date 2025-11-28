@@ -859,7 +859,7 @@ export function SwapInterface({
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
             className="p-1.5 hover:bg-gray-600/50 rounded transition-colors mobile-optimized"
-            title="View on Helius Explorer"
+            title="view on orb explorer"
           >
             <ExternalLink className="h-3 w-3 text-gray-400 hover:text-white" />
           </a>
@@ -1103,11 +1103,11 @@ export function SwapInterface({
                           <Copy className="h-3 w-3 text-gray-400 hover:text-white" />
                         </button>
                         <a
-                          href={`https://explorer.helius.xyz/token/${outputTokenInfo.mint}`}
+                          href={`https://orb.helius.dev/address/${outputTokenInfo.mint}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-1.5 hover:bg-gray-600/50 rounded transition-colors mobile-optimized"
-                          title="View on Helius Explorer"
+                          title="view on orb explorer"
                         >
                           <ExternalLink className="h-3 w-3 text-gray-400 hover:text-white" />
                         </a>
