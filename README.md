@@ -111,7 +111,7 @@ environment configuration
 
     NEXT_PUBLIC_ENCRYPTION_SECRET=""
     NEXT_PUBLIC_HASH_SALT=""
-    NEXT_PUBLIC_ENABLE_HISTORY="false"
+    NEXT_PUBLIC_ENABLE_HISTORY="false" // change to "true"!
     ```
 
 ### transaction history setup

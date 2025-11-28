@@ -629,7 +629,7 @@ const {
             className="flex items-center space-x-1 p-1 hover:bg-gray-700/50 rounded transition-colors text-gray-400 mobile-optimized"
             style={{ touchAction: 'manipulation' }}
           >
-            <span>show spam</span>
+            <span>show 0&apos;s & </span>
             <ChevronDown
               className={`h-4 w-4 transition-transform duration-200 ${
                 hideZeroValueTokens ? 'rotate-180' : ''

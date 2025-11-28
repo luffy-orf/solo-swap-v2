@@ -11,33 +11,37 @@ export interface SwapTokenInput {
   quoteImprovementPct?: number;
 }
 
-export interface SwapBatchRecord {
-  batchId: string;
-  wallet: string;
-  hashedWallet: string;
-  timestamp: number;
-  outputToken: {
-    mint: string;
-    symbol: string;
-  };
-  liquidationPct: number;
-  slippage: number;
-  totals: {
-    valueUsdIn: number;
-    valueUsdOut: number;
-  };
-  tokensIn: SwapTokenInput[];
-  status: 'success' | 'partial' | 'failed';
-  quoteImprovementPct?: number;
-  chartIndicators: Array<{
+  export interface SwapBatchRecord {
+    batchId: string;
+    wallet: string;
+    hashedWallet: string;
+    timestamp: number;
+    outputToken: {
+      mint: string;
+      symbol: string;
+    };
+    liquidationPct: number;
+    slippage: number;
+    totals: {
+      valueUsdIn: number;
+      valueUsdOut: number;
+    };
+    tokensIn: SwapTokenInput[];
+    status: 'success' | 'partial';
+    quoteImprovementPct?: number;
+    chartIndicators: ChartIndicator[];
+  }
+
+  export interface ChartIndicator {
     mint: string;
     symbol: string;
     amount: number;
     valueUsd: number;
     timestamp: number;
     signature: string;
-  }>;
-}
+    outputToken: string;
+    type: 'liquidation' | 'swap';
+  }
 
 export interface SwapBatchRecordWithId extends SwapBatchRecord {
   id: string;
@@ -51,10 +55,12 @@ export interface HistorySummaryPoint {
 
 export interface HistorySummaryResponse {
   points: HistorySummaryPoint[];
-  sellIndicators: Array<{
+  sellIndicators: {
     timestamp: number;
     valueUsd: number;
     token: string;
-  }>;
+    outputToken?: string;
+    type?: 'liquidation' | 'swap';
+  }[];
 }
 

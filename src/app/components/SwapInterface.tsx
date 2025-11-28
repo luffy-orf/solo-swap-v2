@@ -86,6 +86,10 @@ export function SwapInterface({
   const [isSearching, setIsSearching] = useState(false);
   const [showTokenSearch, setShowTokenSearch] = useState(false);
   const [popularTokens, setPopularTokens] = useState<TokenBalance[]>([]);
+  const isLiquidation = useMemo(() => outputToken === USDC_MINT, [outputToken]);
+  const getActionVerb = useMemo(() => isLiquidation ? 'liquidate' : 'swap pro-rata', [isLiquidation]);
+  const getProcessName = useMemo(() => isLiquidation ? 'liquidation' : 'swap', [isLiquidation]);
+
 
   useEffect(() => {
     fetchPopularTokens();
@@ -456,8 +460,7 @@ export function SwapInterface({
           : undefined;
       
       if (validQuotes.length > 1) {
-        console.log(`✓ Found ${validQuotes.length} quotes for ${token.symbol}, best quote is ${improvementPct?.toFixed(2)}% better`);
-      }
+}
 
       return { quote: bestQuote.quote, improvementPct };
 
@@ -472,88 +475,90 @@ export function SwapInterface({
   };
 
   const buildHistoryRecord = (
-    successfulSwaps: SwapResult[],
-    status: 'success' | 'partial',
-  ): SwapBatchRecord | null => {
-    if (!publicKey || successfulSwaps.length === 0 || !HISTORY_ENABLED) {
-      return null;
-    }
+  successfulSwaps: SwapResult[],
+  status: 'success' | 'partial',
+): SwapBatchRecord | null => {
+  if (!publicKey || successfulSwaps.length === 0 || !HISTORY_ENABLED) {
+    return null;
+  }
 
-    const wallet = publicKey.toBase58();
-    const timestamp = Date.now();
-    const hashedWallet = encryptionService.anonymizePublicKey(wallet);
+  const wallet = publicKey.toBase58();
+  const timestamp = Date.now();
+  const hashedWallet = encryptionService.anonymizePublicKey(wallet);
 
-    const tokensIn: SwapTokenInput[] = successfulSwaps.map((swap) => {
-      const priceUsd =
-        swap.priceUsd ??
-        (swap.inputAmount > 0 ? swap.amount / swap.inputAmount : 0);
-
-      return {
-        mint: swap.mint,
-        symbol: swap.symbol,
-        decimals: swap.decimals,
-        uiAmount: swap.inputAmount,
-        valueUsd: swap.amount,
-        priceUsd,
-        signature: swap.signature,
-        outputAmount: swap.outputAmount,
-        outputUsd: swap.outputUsd ?? swap.amount,
-        quoteImprovementPct: swap.quoteImprovementPct,
-      };
-    });
-
-    const totals = tokensIn.reduce(
-      (acc, token) => {
-        acc.valueUsdIn += token.valueUsd;
-        acc.valueUsdOut += token.outputUsd ?? token.valueUsd;
-        return acc;
-      },
-      { valueUsdIn: 0, valueUsdOut: 0 },
-    );
-
-    const improvementValues = successfulSwaps
-      .map((swap) => swap.quoteImprovementPct)
-      .filter(
-        (value): value is number =>
-          typeof value === 'number' && !Number.isNaN(value),
-      );
-
-    const averageImprovement =
-      improvementValues.length > 0
-        ? improvementValues.reduce((sum, value) => sum + value, 0) /
-          improvementValues.length
-        : undefined;
+  const tokensIn: SwapTokenInput[] = successfulSwaps.map((swap) => {
+    const priceUsd =
+      swap.priceUsd ??
+      (swap.inputAmount > 0 ? swap.amount / swap.inputAmount : 0);
 
     return {
-      batchId:
-        typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${timestamp}`,
-      wallet,
-      hashedWallet,
-      timestamp,
-      outputToken: {
-        mint: outputToken,
-        symbol: outputTokenInfo?.symbol || outputTokenSymbol,
-      },
-      liquidationPct: liquidationPercentage,
-      slippage,
-      totals,
-      tokensIn,
-      status,
-      quoteImprovementPct: averageImprovement,
-      chartIndicators: successfulSwaps
-        .filter((swap) => Boolean(swap.signature))
-        .map((swap) => ({
-          mint: swap.mint,
-          symbol: swap.symbol,
-          amount: swap.inputAmount,
-          valueUsd: swap.amount,
-          timestamp,
-          signature: swap.signature as string,
-        })),
+      mint: swap.mint,
+      symbol: swap.symbol,
+      decimals: swap.decimals,
+      uiAmount: swap.inputAmount,
+      valueUsd: swap.amount,
+      priceUsd,
+      signature: swap.signature,
+      outputAmount: swap.outputAmount,
+      outputUsd: swap.outputUsd ?? swap.amount,
+      quoteImprovementPct: swap.quoteImprovementPct,
     };
-  };
+  });
+
+  const totals = tokensIn.reduce(
+    (acc, token) => {
+      acc.valueUsdIn += token.valueUsd;
+      acc.valueUsdOut += token.outputUsd ?? token.valueUsd;
+      return acc;
+    },
+    { valueUsdIn: 0, valueUsdOut: 0 },
+  );
+
+  const improvementValues = successfulSwaps
+    .map((swap) => swap.quoteImprovementPct)
+    .filter(
+      (value): value is number =>
+        typeof value === 'number' && !Number.isNaN(value),
+    );
+
+  const averageImprovement =
+    improvementValues.length > 0
+      ? improvementValues.reduce((sum, value) => sum + value, 0) /
+        improvementValues.length
+      : undefined;
+
+  return {
+    batchId:
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${timestamp}`,
+    wallet,
+    hashedWallet,
+    timestamp,
+    outputToken: {
+      mint: outputToken,
+      symbol: outputTokenInfo?.symbol || outputTokenSymbol,
+    },
+    liquidationPct: liquidationPercentage,
+    slippage,
+    totals,
+    tokensIn,
+    status,
+    quoteImprovementPct: averageImprovement,
+    chartIndicators: successfulSwaps
+      .filter((swap) => Boolean(swap.signature))
+      .map((swap) => ({
+        mint: swap.mint,
+        symbol: swap.symbol,
+        amount: swap.inputAmount,
+        valueUsd: swap.amount,
+        timestamp,
+        signature: swap.signature as string,
+        outputToken: outputToken,
+        type: isLiquidation ? 'liquidation' as const : 'swap' as const,
+      })),
+  } as SwapBatchRecord;
+};
 
   const submitSwapHistory = async (record: SwapBatchRecord | null) => {
     if (!record || !HISTORY_ENABLED) return;
@@ -849,7 +854,7 @@ export function SwapInterface({
             <Copy className="h-3 w-3 text-gray-400 hover:text-white" />
           </button>
           <a
-            href={`https://explorer.helius.xyz/token/${token.mint}`}
+            href={`https://orb.helius.dev/address/${token.mint}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
@@ -884,10 +889,10 @@ export function SwapInterface({
 
     <div className="max-h-[calc(100vh-200px)] overflow-y-auto mobile-scroll pr-2 -mr-2">
       {selectedTokens.length === 0 ? (
-        <div className="text-center py-6 sm:py-8 text-gray-400 justify-items-center">
-          <Calculator className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-50" />
-          <p className="text-m sm:text-base">select tokens to enable liquidation</p>
-        </div>
+      <div className="text-center py-6 sm:py-8 text-gray-400 justify-items-center">
+        <Calculator className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+        <p className="text-m sm:text-base">select tokens to enable {isLiquidation ? 'liquidation' : 'pro-rata swap'}</p>
+      </div>
       ) : (
         <>
           {/* Summary Section */}
@@ -938,21 +943,20 @@ export function SwapInterface({
               </div>
             </div>
 
-            {/* Liquidation Summary */}
             <div className="bg-gray-700/50 rounded-lg p-3 sm:p-4 space-y-2 ml-2 mr-2">
-              <div className="flex justify-between text-xs sm:text-m">
-                <span className="text-gray-300">to liquidate</span>
-                <span className="text-red-500 font-medium">
-                  ${liquidationValue.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between text-xs sm:text-m">
-                <span className="text-gray-300 lowercase">receive in {outputTokenSymbol}</span>
-                <span className="text-green-500 font-medium">
-                  ~${liquidationValue.toFixed(2)}
-                </span>
-              </div>
+            <div className="flex justify-between text-xs sm:text-m">
+              <span className="text-gray-300">to {getActionVerb}</span>
+              <span className="text-red-500 font-medium">
+                ${liquidationValue.toFixed(2)}
+              </span>
             </div>
+            <div className="flex justify-between text-xs sm:text-m">
+              <span className="text-gray-300 lowercase">receive in {outputTokenSymbol}</span>
+              <span className="text-green-500 font-medium">
+                ~${liquidationValue.toFixed(2)}
+              </span>
+            </div>
+          </div>
             
             {/* Advanced Settings Toggle */}
             <div className="border-t border-gray-600 pt-3">
@@ -1020,7 +1024,7 @@ export function SwapInterface({
                         {/* Popular Tokens */}
                         {!searchQuery && (
                           <div className="p-2">
-                            <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                            <div className="px-3 py-2 text-xs font-semibold text-gray-400 lowercase tracking-wide">
                               Popular Tokens
                             </div>
                             {popularTokens.map(token => (
@@ -1148,7 +1152,7 @@ export function SwapInterface({
 
           {/* Token Breakdown */}
           <div className="mb-4 sm:mb-6 ml-3 mr-3">
-            <h3 className="font-medium text-m sm:text-base mb-2 sm:mb-3">liquidation breakdown</h3>
+          <h3 className="font-medium text-m sm:text-base mb-2 sm:mb-3">{getProcessName} breakdown</h3>
             <div className="space-y-2 max-h-32 sm:max-h-48 overflow-y-auto mobile-scroll">
               {proRataTokens
                 .sort((a, b) => b.liquidationAmount - a.liquidationAmount)
@@ -1234,44 +1238,46 @@ export function SwapInterface({
           )}
 
           {error && (
-            <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg">
-              <div className="flex items-center space-x-2 text-red-200 mb-2">
-                <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="text-xs sm:text-m font-medium">liquidation error</span>
-              </div>
-              <span className="text-xs sm:text-m">{error}</span>
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg">
+            <div className="flex items-center space-x-2 text-red-200 mb-2">
+              <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="text-xs sm:text-m font-medium">{getProcessName} error</span>
             </div>
-          )}
+            <span className="text-xs sm:text-m">{error}</span>
+          </div>
+        )}
 
           {/* Action Buttons */}
           <div className="space-y-3 ml-2 mr-2">
             <button
-              onClick={executeLiquidation}
-              disabled={swapping || selectedTokens.length === 0 || !publicKey || liquidationPercentage === 0}
-              className="w-full bg-gradient-to-r from-gray-600 to-gray-600 hover:from-gray-500 hover:to-gray-400 disabled:opacity-50 disabled:cursor-not-allowed py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2 mobile-optimized text-m sm:text-base min-h-[44px]"
-            >
-              {swapping ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span className="text-xs sm:text-m">liquidating... ({swapResults.filter(r => !r.error).length}/{selectedTokens.length})</span>
-                </>
-              ) : (
-                <>
-                  <DollarSign className="h-4 w-4" />
-                  <span className="text-xs sm:text-m">liquidate {liquidationPercentage}% to {outputTokenSymbol}</span>
-                  {isLedgerConnected && <Shield className="h-4 w-4 ml-1" />}
-                </>
-              )}
-            </button>
+            onClick={executeLiquidation}
+            disabled={swapping || selectedTokens.length === 0 || !publicKey || liquidationPercentage === 0}
+            className="w-full bg-gradient-to-r from-gray-600 to-gray-600 hover:from-gray-500 hover:to-gray-400 disabled:opacity-50 disabled:cursor-not-allowed py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2 mobile-optimized text-m sm:text-base min-h-[44px]"
+          >
+            {swapping ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span className="text-xs sm:text-m">{getActionVerb}ing... ({swapResults.filter(r => !r.error).length}/{selectedTokens.length})</span>
+              </>
+            ) : (
+              <>
+                <DollarSign className="h-4 w-4" />
+                <span className="text-xs sm:text-m">
+                  {isLiquidation ? 'liquidate' : `swap pro-rata to ${outputTokenSymbol}`} {liquidationPercentage}%
+                </span>
+                {isLedgerConnected && <Shield className="h-4 w-4 ml-1" />}
+              </>
+            )}
+          </button>
           </div>
 
           {!publicKey && (
-            <div className="mt-3 p-2 bg-yellow-500/20 border border-yellow-500 rounded-lg">
-              <p className="text-xs text-yellow-200 text-center">
-                connect your wallet to enable liquidation
-              </p>
-            </div>
-          )}
+          <div className="mt-3 p-2 bg-yellow-500/20 border border-yellow-500 rounded-lg">
+            <p className="text-xs text-yellow-200 text-center">
+              connect your wallet to enable {isLiquidation ? 'liquidation' : 'pro-rata swap'}
+            </p>
+          </div>
+        )}
         </>
       )}
     </div>

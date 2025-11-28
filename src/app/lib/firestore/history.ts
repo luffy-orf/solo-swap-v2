@@ -126,6 +126,8 @@ export const fetchHistorySummary = async (
           timestamp: indicator.timestamp,
           valueUsd: indicator.valueUsd,
           token: indicator.symbol,
+          outputToken: indicator.outputToken, 
+          type: indicator.type,
         });
       });
     });
