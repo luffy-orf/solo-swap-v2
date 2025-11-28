@@ -2,10 +2,12 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey, VersionedTransaction } from '@solana/web3.js';
+import { VersionedTransaction } from '@solana/web3.js';
 import { TokenBalance } from '../types/token';
 import { TokenService } from '../lib/api';
-import { ArrowUpDown, Calculator, AlertCircle, ExternalLink, RefreshCw, DollarSign, ShoppingCart, Shield, ChevronDown, Search, X } from 'lucide-react';
+import { SwapBatchRecord, SwapTokenInput } from '../types/history';
+import { encryptionService } from '../lib/encryption';
+import { ArrowUpDown, Calculator, AlertCircle, ExternalLink, RefreshCw, DollarSign, ShoppingCart, Shield, ChevronDown, Search, X, ExternalLinkIcon, Copy } from 'lucide-react';
 
 interface SwapInterfaceProps {
   selectedTokens: TokenBalance[];
@@ -17,15 +19,21 @@ interface SwapInterfaceProps {
 
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
+const HISTORY_ENABLED = process.env.NEXT_PUBLIC_ENABLE_HISTORY === 'true';
 
 interface SwapResult {
   symbol: string;
+  mint: string;
+  decimals: number;
   signature?: string;
   amount: number;
   error?: string;
   inputAmount: number;
   outputAmount?: number;
   retryCount?: number;
+  priceUsd?: number;
+  outputUsd?: number;
+  quoteImprovementPct?: number;
 }
 
 interface ProRataToken extends TokenBalance {
@@ -46,6 +54,11 @@ interface QuoteComparison {
   quote: JupiterQuoteResponse;
   outAmount: number;
   index: number;
+}
+
+interface QuoteSelectionResult {
+  quote: JupiterQuoteResponse;
+  improvementPct?: number;
 }
 
 interface JupiterSwapResponse {
@@ -77,6 +90,8 @@ export function SwapInterface({
   useEffect(() => {
     fetchPopularTokens();
   }, []);
+
+  
 
   const fetchPopularTokens = async () => {
     try {
@@ -373,7 +388,6 @@ export function SwapInterface({
         return null;
       }
 
-      // Add small delay between requests to potentially get different routes
       if (attemptNumber > 0) {
         await new Promise(resolve => setTimeout(resolve, 100 * attemptNumber));
       }
@@ -411,18 +425,16 @@ export function SwapInterface({
     }
   };
 
-  const getBestSwapQuote = async (token: ProRataToken): Promise<JupiterQuoteResponse> => {
+  const getBestSwapQuote = async (token: ProRataToken): Promise<QuoteSelectionResult> => {
     try {
       setCurrentStep(`fetching best quote for ${token.symbol}...`);
       
-      // Fetch multiple quotes in parallel to find the best price
       const quotePromises = Array.from({ length: 3 }, (_, i) => 
         fetchSingleQuote(token, i)
       );
 
       const quotes = await Promise.all(quotePromises);
       
-      // Filter out null results and compare output amounts
       const validQuotes: QuoteComparison[] = quotes
         .filter((quote): quote is JupiterQuoteResponse => quote !== null)
         .map((quote, index) => ({
@@ -435,26 +447,128 @@ export function SwapInterface({
         throw new Error(`no valid quotes found for ${token.symbol}`);
       }
 
-      // Sort by output amount (descending) to get the best price
       validQuotes.sort((a, b) => b.outAmount - a.outAmount);
-      const bestQuote = validQuotes[0].quote;
-
-      // Log comparison for debugging
+      const bestQuote = validQuotes[0];
+      const worstQuote = validQuotes[validQuotes.length - 1];
+      const improvementPct =
+        validQuotes.length > 1 && worstQuote.outAmount > 0
+          ? ((bestQuote.outAmount - worstQuote.outAmount) / worstQuote.outAmount) * 100
+          : undefined;
+      
       if (validQuotes.length > 1) {
-        const improvement = ((validQuotes[0].outAmount - validQuotes[validQuotes.length - 1].outAmount) / validQuotes[validQuotes.length - 1].outAmount * 100).toFixed(2);
-        console.log(`✓ Found ${validQuotes.length} quotes for ${token.symbol}, best quote is ${improvement}% better`);
+        console.log(`✓ Found ${validQuotes.length} quotes for ${token.symbol}, best quote is ${improvementPct?.toFixed(2)}% better`);
       }
 
-      return bestQuote;
+      return { quote: bestQuote.quote, improvementPct };
 
     } catch (err) {
       console.error(`quote comparison failed for ${token.symbol}:`, err);
-      // Fallback to single quote if multi-quote fails
       const fallbackQuote = await fetchSingleQuote(token, 0);
       if (!fallbackQuote) {
         throw new Error(`failed to fetch quote for ${token.symbol}: ${err instanceof Error ? err.message : 'unknown error'}`);
       }
-      return fallbackQuote;
+      return { quote: fallbackQuote };
+    }
+  };
+
+  const buildHistoryRecord = (
+    successfulSwaps: SwapResult[],
+    status: 'success' | 'partial',
+  ): SwapBatchRecord | null => {
+    if (!publicKey || successfulSwaps.length === 0 || !HISTORY_ENABLED) {
+      return null;
+    }
+
+    const wallet = publicKey.toBase58();
+    const timestamp = Date.now();
+    const hashedWallet = encryptionService.anonymizePublicKey(wallet);
+
+    const tokensIn: SwapTokenInput[] = successfulSwaps.map((swap) => {
+      const priceUsd =
+        swap.priceUsd ??
+        (swap.inputAmount > 0 ? swap.amount / swap.inputAmount : 0);
+
+      return {
+        mint: swap.mint,
+        symbol: swap.symbol,
+        decimals: swap.decimals,
+        uiAmount: swap.inputAmount,
+        valueUsd: swap.amount,
+        priceUsd,
+        signature: swap.signature,
+        outputAmount: swap.outputAmount,
+        outputUsd: swap.outputUsd ?? swap.amount,
+        quoteImprovementPct: swap.quoteImprovementPct,
+      };
+    });
+
+    const totals = tokensIn.reduce(
+      (acc, token) => {
+        acc.valueUsdIn += token.valueUsd;
+        acc.valueUsdOut += token.outputUsd ?? token.valueUsd;
+        return acc;
+      },
+      { valueUsdIn: 0, valueUsdOut: 0 },
+    );
+
+    const improvementValues = successfulSwaps
+      .map((swap) => swap.quoteImprovementPct)
+      .filter(
+        (value): value is number =>
+          typeof value === 'number' && !Number.isNaN(value),
+      );
+
+    const averageImprovement =
+      improvementValues.length > 0
+        ? improvementValues.reduce((sum, value) => sum + value, 0) /
+          improvementValues.length
+        : undefined;
+
+    return {
+      batchId:
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${timestamp}`,
+      wallet,
+      hashedWallet,
+      timestamp,
+      outputToken: {
+        mint: outputToken,
+        symbol: outputTokenInfo?.symbol || outputTokenSymbol,
+      },
+      liquidationPct: liquidationPercentage,
+      slippage,
+      totals,
+      tokensIn,
+      status,
+      quoteImprovementPct: averageImprovement,
+      chartIndicators: successfulSwaps
+        .filter((swap) => Boolean(swap.signature))
+        .map((swap) => ({
+          mint: swap.mint,
+          symbol: swap.symbol,
+          amount: swap.inputAmount,
+          valueUsd: swap.amount,
+          timestamp,
+          signature: swap.signature as string,
+        })),
+    };
+  };
+
+  const submitSwapHistory = async (record: SwapBatchRecord | null) => {
+    if (!record || !HISTORY_ENABLED) return;
+
+    try {
+      await fetch('/api/history', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet': record.wallet,
+        },
+        body: JSON.stringify(record),
+      });
+    } catch (error) {
+      console.error('swap history submission failed:', error);
     }
   };
 
@@ -479,7 +593,8 @@ export function SwapInterface({
             await new Promise(resolve => setTimeout(resolve, backoffDelay));
           }
 
-          const quoteData = await getBestSwapQuote(token);
+          const quoteSelection = await getBestSwapQuote(token);
+          const quoteData = quoteSelection.quote;
           const { blockhash, lastValidBlockHeight } = await getFreshBlockhash();
 
           const swapResponse = await fetch('https://lite-api.jup.ag/swap/v1/swap', {
@@ -552,13 +667,24 @@ export function SwapInterface({
 
           const outputDecimals = outputTokenInfo?.decimals || (outputToken === SOL_MINT ? 9 : 6);
           
+          const outputAmount =
+            parseInt(quoteData.outAmount) / Math.pow(10, outputDecimals);
+          const outputUsd =
+            outputAmount *
+            (outputTokenInfo?.price || (outputToken === USDC_MINT ? 1 : token.price || 0));
+
           const result: SwapResult = {
             symbol: token.symbol,
+            mint: token.mint,
+            decimals: token.decimals,
             signature,
             amount: token.liquidationAmount,
             inputAmount: token.swapAmount,
-            outputAmount: parseInt(quoteData.outAmount) / Math.pow(10, outputDecimals),
-            retryCount
+            outputAmount,
+            outputUsd,
+            retryCount,
+            priceUsd: token.price,
+            quoteImprovementPct: quoteSelection.improvementPct,
           };
 
           results.push(result);
@@ -569,18 +695,19 @@ export function SwapInterface({
           retryCount++;
           
           if (retryCount > maxRetries) {
-            console.error(`❌ Failed to swap ${token.symbol} after ${maxRetries} attempts:`, err);
-            const errorResult: SwapResult = {
-              symbol: token.symbol,
-              amount: token.liquidationAmount,
-              inputAmount: token.swapAmount,
-              error: err instanceof Error ? err.message : 'unknown error',
-              retryCount
-            };
-            results.push(errorResult);
-            setSwapResults(prev => [...prev, errorResult]);
-          } else {
-          }
+          console.error(`failed to swap ${token.symbol} after ${maxRetries} attempts:`, err);
+          const errorResult: SwapResult = {
+            symbol: token.symbol,
+            mint: token.mint,
+            decimals: token.decimals,
+            amount: token.liquidationAmount,
+            inputAmount: token.swapAmount,
+            error: err instanceof Error ? err.message : 'unknown error',
+            retryCount
+          };
+          results.push(errorResult);
+          setSwapResults(prev => [...prev, errorResult]);
+        }
         }
       }
     }
@@ -622,6 +749,13 @@ export function SwapInterface({
       const successfulSwaps = results.filter(result => !result.error);
       const failedSwaps = results.filter(result => result.error);
 
+      if (HISTORY_ENABLED && successfulSwaps.length > 0) {
+        const statusLabel: 'success' | 'partial' =
+          failedSwaps.length === 0 ? 'success' : 'partial';
+        const record = buildHistoryRecord(successfulSwaps, statusLabel);
+        void submitSwapHistory(record);
+      }
+
       if (successfulSwaps.length > 0) {
         const totalSwapped = successfulSwaps.reduce((sum, swap) => sum + (swap.amount || 0), 0);
         const totalSwappedPercentage = totalSelectedValue > 0 ? (totalSwapped / totalSelectedValue * 100).toFixed(1) : '0';
@@ -660,34 +794,73 @@ export function SwapInterface({
   onSelect: (token: TokenBalance) => void;
   isSelected: boolean;
 }) => {
+  const [showFullAddress, setShowFullAddress] = useState(false);
+
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(token)}
-      className={`w-full px-4 py-3 text-left hover:bg-gray-700/50 transition-all duration-200 flex items-center space-x-3 mobile-optimized group ${
-        isSelected ? 'bg-gray-600/20 border-r-2 border-gray-500' : ''
-      }`}
-    >
-      <TokenLogo token={token} size={8} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center space-x-2 mb-1">
-          <span className="font-semibold text-m text-white truncate">{token.symbol}</span>
-          {isSelected && (
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+    <div className="border-b border-gray-700/50 last:border-b-0">
+      <button
+        type="button"
+        onClick={() => onSelect(token)}
+        className={`w-full px-4 py-3 text-left hover:bg-gray-700/50 transition-all duration-200 flex items-center space-x-3 mobile-optimized group ${
+          isSelected ? 'bg-gray-600/20 border-r-2 border-gray-500' : ''
+        }`}
+      >
+        <TokenLogo token={token} size={8} />
+        <div className="flex-1 min-w-0 text-left">
+          <div className="flex items-center space-x-2 mb-1">
+            <span className="font-semibold text-m text-white truncate">{token.symbol}</span>
+            {isSelected && (
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            )}
+          </div>
+          <div className="text-xs text-gray-400 truncate">{token.name}</div>
+          <div className="text-xs text-gray-500 font-mono truncate mt-1">
+            {showFullAddress ? token.mint : `${token.mint.slice(0, 8)}...${token.mint.slice(-8)}`}
+          </div>
+        </div>
+        <div className="flex-shrink-0">
+          {isSelected ? (
+            <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+              <div className="w-2 h-2 bg-white rounded-full"></div>
+            </div>
+          ) : (
+            <div className="w-6 h-6 border-2 border-gray-600 rounded-full group-hover:border-gray-400 transition-colors"></div>
           )}
         </div>
-        <div className="text-xs text-gray-400 truncate">{token.name}</div>
+      </button>
+      
+      {/* Token Actions Row */}
+      <div className="px-4 pb-3 pt-1 flex items-center justify-between">
+        <button
+          onClick={() => setShowFullAddress(!showFullAddress)}
+          className="text-xs text-gray-500 hover:text-gray-300 transition-colors mobile-optimized"
+        >
+          {showFullAddress ? 'show less' : 'show full address'}
+        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(token.mint);
+            }}
+            className="p-1.5 hover:bg-gray-600/50 rounded transition-colors mobile-optimized"
+            title="Copy mint address"
+          >
+            <Copy className="h-3 w-3 text-gray-400 hover:text-white" />
+          </button>
+          <a
+            href={`https://explorer.helius.xyz/token/${token.mint}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="p-1.5 hover:bg-gray-600/50 rounded transition-colors mobile-optimized"
+            title="View on Helius Explorer"
+          >
+            <ExternalLink className="h-3 w-3 text-gray-400 hover:text-white" />
+          </a>
+        </div>
       </div>
-      <div className="flex-shrink-0">
-        {isSelected ? (
-          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-            <div className="w-2 h-2 bg-white rounded-full"></div>
-          </div>
-        ) : (
-          <div className="w-6 h-6 border-2 border-gray-600 rounded-full group-hover:border-gray-400 transition-colors"></div>
-        )}
-      </div>
-    </button>
+    </div>
   );
 };
 
@@ -702,367 +875,406 @@ export function SwapInterface({
   };
 
   return (
-    <div className="bg-gray-800/50 rounded-xl p-4 sm:p-6 backdrop-blur-sm border border-gray-700 h-fit mobile-optimized relative z-10">
-      
-      <h2 className="text-m sm:text-l font-semibold mb-4 sm:mb-6 flex items-center space-x-2">
-        <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
-        <span>cart</span>
-      </h2>
+  <div className="bg-gray-800/50 p-4 sm:p-6 backdrop-blur-sm border border-gray-700 h-fit mobile-optimized relative z-10">
+    
+    <h2 className="text-m sm:text-l font-semibold mb-4 sm:mb-6 flex items-center space-x-2">
+      <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
+      <span>cart</span>
+    </h2>
 
-      <div className="max-h-[calc(100vh-200px)] overflow-y-auto mobile-scroll pr-2 -mr-2">
+    <div className="max-h-[calc(100vh-200px)] overflow-y-auto mobile-scroll pr-2 -mr-2">
+      {selectedTokens.length === 0 ? (
+        <div className="text-center py-6 sm:py-8 text-gray-400 justify-items-center">
+          <Calculator className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+          <p className="text-m sm:text-base">select tokens to enable liquidation</p>
+        </div>
+      ) : (
+        <>
+          {/* Summary Section */}
+          <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
+            <div className="flex justify-between text-xs sm:text-m ml-3 mr-3">
+              <span>tokens selected:</span>
+              <span>{selectedTokens.length}</span>
+            </div>
+            <div className="flex justify-between text-xs sm:text-m ml-3 mr-3">
+              <span>value:</span>
+              <span>${totalSelectedValue.toFixed(2)}</span>
+            </div>
 
-        {selectedTokens.length === 0 ? (
-          <div className="text-center py-6 sm:py-8 text-gray-400 justify-items-center">
-            <Calculator className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-50" />
-            <p className="text-m sm:text-base">select tokens to enable liquidation</p>
-          </div>
-        ) : (
-          <>
-            {/* Summary Section */}
-            <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
+            {/* Percentage Selector */}
+            <div className="space-y-2 sm:space-y-3">
               <div className="flex justify-between text-xs sm:text-m ml-3 mr-3">
-                <span>tokens selected:</span>
-                <span>{selectedTokens.length}</span>
-              </div>
-              <div className="flex justify-between text-xs sm:text-m ml-3 mr-3">
-                <span>value:</span>
-                <span>${totalSelectedValue.toFixed(2)}</span>
-              </div>
-
-              {/* Percentage Selector */}
-              <div className="space-y-2 sm:space-y-3">
-                <div className="flex justify-between text-xs sm:text-m ml-3 mr-3">
-                  <span className="text-gray-300">percentage:</span>
-                  <span className="text-gray-300 font-medium">
-                    {liquidationPercentage}%
-                  </span>
-                </div>
-                
-                <div className="space-y-2 ml-2 mr-2">
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={liquidationPercentage}
-                    onChange={(e) => setLiquidationPercentage(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider mobile-optimized"
-                  />
-                  <div className="flex justify-between text-xs text-gray-400 mobile-button-group">
-                    {[0, 25, 50, 75, 100].map((percent) => (
-                      <button
-                        key={percent}
-                        onClick={() => setLiquidationPercentage(percent)}
-                        className={`px-1 sm:px-2 py-1 rounded text-xs ${
-                          liquidationPercentage === percent 
-                            ? 'bg-gray-600 text-white' 
-                            : 'hover:bg-gray-700'
-                        }`}
-                      >
-                        {percent}%
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Liquidation Summary */}
-              <div className="bg-gray-700/50 rounded-lg p-3 sm:p-4 space-y-2 ml-2 mr-2">
-                <div className="flex justify-between text-xs sm:text-m">
-                  <span className="text-gray-300">to liquidate</span>
-                  <span className="text-red-500 font-medium">
-                    ${liquidationValue.toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs sm:text-m">
-                  <span className="text-gray-300">receive in {outputTokenSymbol}</span>
-                  <span className="text-green-500 font-medium">
-                    ~${liquidationValue.toFixed(2)}
-                  </span>
-                </div>
+                <span className="text-gray-300">percentage:</span>
+                <span className="text-gray-300 font-medium">
+                  {liquidationPercentage}%
+                </span>
               </div>
               
-              {/* Advanced Settings Toggle */}
-              <div className="border-t border-gray-600 pt-3">
-                <button
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex items-center space-x-2 text-xs sm:text-m text-gray-300 hover:text-white transition-colors w-full mobile-optimized ml-3"
-                >
-                  <span>advanced settings</span>
-                  <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
-                </button>
-              </div>
-
-              {/* Advanced Settings */}
-              {showAdvanced && (
-                <div className="space-y-3 sm:space-y-4 animate-slideDown ml-3 mr-3">
-                  {/* Output Token Selection with Search */}
-                  <div className="relative" ref={tokenSelectorRef}>
-                    <label className="block text-xs sm:text-m font-medium mb-2">output token</label>
+              <div className="space-y-2 ml-2 mr-2">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={liquidationPercentage}
+                  onChange={(e) => setLiquidationPercentage(Number(e.target.value))}
+                  className="w-full h-2 bg-gray-700 appearance-none cursor-pointer slider mobile-optimized"
+                />
+                <div className="flex justify-between text-xs text-gray-400 mobile-button-group">
+                  {[0, 25, 50, 75, 100].map((percent) => (
                     <button
-                      type="button"
-                      onClick={() => setShowTokenSearch(!showTokenSearch)}
-                      className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-m focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent mobile-optimized flex items-center justify-between hover:bg-gray-600/50 transition-all duration-200"
+                      key={percent}
+                      onClick={() => setLiquidationPercentage(percent)}
+                      className={`px-1 sm:px-2 py-1 rounded text-xs ${
+                        liquidationPercentage === percent 
+                          ? 'bg-gray-600 text-white' 
+                          : 'hover:bg-gray-700'
+                      }`}
                     >
-                      <div className="flex items-center space-x-3">
-                        <TokenLogo token={outputTokenInfo} size={6} />
-                        <div className="text-left">
-                          <div className="font-medium text-m text-white">{outputTokenSymbol}</div>
-                          <div className="text-xs text-gray-400">click to search tokens</div>
-                        </div>
-                      </div>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${showTokenSearch ? 'rotate-180' : ''}`} />
+                      {percent}%
                     </button>
-                    
-                    {showTokenSearch && (
-                      <div className="absolute z-50 w-full mt-2 bg-gray-800/95 backdrop-blur-xl border border-gray-600 rounded-2xl shadow-2xl max-h-80 overflow-hidden">
-                        {/* Search Header */}
-                        <div className="p-4 border-b border-gray-700">
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                            <input
-                              type="text"
-                              placeholder="search for any token on solana..."
-                              value={searchQuery}
-                              onChange={(e) => {
-                                setSearchQuery(e.target.value);
-                                searchTokens(e.target.value);
-                              }}
-                              className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent text-m placeholder-gray-400"
-                            />
-                            {searchQuery && (
-                              <button
-                                onClick={() => {
-                                  setSearchQuery('');
-                                  setSearchResults([]);
-                                }}
-                                className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                              >
-                                <X className="h-4 w-4 text-gray-400 hover:text-white" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="max-h-60 overflow-y-auto mobile-scroll">
-                          {/* Popular Tokens */}
-                          {!searchQuery && (
-                            <div className="p-2">
-                              <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                                Popular Tokens
-                              </div>
-                              {popularTokens.map(token => (
-                                <TokenSearchResult 
-                                  key={token.mint} 
-                                  token={token} 
-                                  onSelect={handleOutputTokenChange}
-                                  isSelected={token.mint === outputToken}
-                                />
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Search Results */}
-                          {searchQuery && (
-                            <div className="p-2">
-                              <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                                search results
-                              </div>
-                              {isSearching ? (
-                                <div className="flex justify-center items-center py-8">
-                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-500"></div>
-                                  <span className="ml-2 text-m text-gray-400">searching...</span>
-                                </div>
-                              ) : searchResults.length > 0 ? (
-                                searchResults.map(token => (
-                                  <TokenSearchResult 
-                                    key={token.mint} 
-                                    token={token} 
-                                    onSelect={handleOutputTokenChange}
-                                    isSelected={token.mint === outputToken}
-                                  />
-                                ))
-                              ) : (
-                                <div className="text-center py-8 text-gray-400 text-m">
-                                  no tokens found matching {searchQuery}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Wallet Tokens */}
-                          {!searchQuery && sortedOutputTokens.length > 0 && (
-                            <div className="p-2 border-t border-gray-700">
-                              <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                                your Tokens
-                              </div>
-                              {sortedOutputTokens.map(token => (
-                                <TokenSearchResult 
-                                  key={token.mint} 
-                                  token={token} 
-                                  onSelect={handleOutputTokenChange}
-                                  isSelected={token.mint === outputToken}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Slippage Tolerance */}
-                  <div>
-                    <label className="block text-xs sm:text-m font-medium mb-2">
-                      slippage tolerance: {slippage}%
-                    </label>
-                    <input
-                      type="range"
-                      min="0.5"
-                      max="5"
-                      step="0.1"
-                      value={slippage}
-                      onChange={(e) => setSlippage(parseFloat(e.target.value))}
-                      className="w-full accent-gray-500 mobile-optimized"
-                    />
-                    <div className="flex justify-between text-xs text-gray-400 mt-1">
-                      <span>0.5%</span>
-                      <span>5%</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Token Breakdown */}
-            <div className="mb-4 sm:mb-6 ml-3 mr-3">
-              <h3 className="font-medium text-m sm:text-base mb-2 sm:mb-3">liquidation breakdown</h3>
-              <div className="space-y-2 max-h-32 sm:max-h-48 overflow-y-auto mobile-scroll">
-                {proRataTokens
-                  .sort((a, b) => b.liquidationAmount - a.liquidationAmount)
-                  .map((token) => (
-                    <div key={token.mint} className="flex justify-between items-center text-xs sm:text-m bg-gray-700/30 p-2 rounded">
-                      <div className="flex items-center space-x-2 min-w-0 flex-1">
-                        <TokenLogo token={token} size={6} />
-                        <span className="truncate">{token.symbol}</span>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-green-400">
-                          {token.swapAmount > 0.0001 ? token.swapAmount.toFixed(4) : token.swapAmount.toFixed(6)}
-                        </div>
-                        <div className="text-gray-400 text-xs">
-                          ${token.liquidationAmount.toFixed(2)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-           
-            {/* Swap Results */}
-            {swapResults.length > 0 && (
-              <div className="mb-4 p-3 bg-gray-700/50 border border-gray-600 rounded-lg">
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="font-medium text-m sm:text-base">liquidation results</h4>
-                  {hasFailedSwaps && (
-                    <button
-                      onClick={() => {/* Add retry logic */}}
-                      disabled={swapping}
-                      className="text-xs bg-yellow-600 hover:bg-yellow-700 px-2 py-1 rounded flex items-center space-x-1 mobile-optimized"
-                    >
-                      <RefreshCw className="h-3 w-3" />
-                      <span>failed</span>
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-2 max-h-32 overflow-y-auto mobile-scroll">
-                  {swapResults.map((result, index) => (
-                    <div key={index} className="flex justify-between items-center text-xs sm:text-m">
-                      <div className="flex items-center space-x-2 min-w-0 flex-1">
-                        <span className={`truncate ${result.error ? 'text-red-400' : 'text-green-400'}`}>
-                          {result.symbol}
-                        </span>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        {result.error ? (
-                          <span className="text-red-400 text-xs">failed</span>
-                        ) : result.signature ? (
-                          <div className="flex flex-col items-end">
-                            <a 
-                              href={`https://solscan.io/tx/${result.signature}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-green-400 hover:text-green-300 text-xs flex items-center space-x-1 mobile-optimized"
-                            >
-                              <span>success</span>
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                            <div className="text-gray-400 text-xs">
-                              {result.inputAmount > 0.0001 ? result.inputAmount.toFixed(4) : result.inputAmount.toFixed(6)}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-yellow-400 text-xs">pending</span>
-                        )}
-                      </div>
-                    </div>
                   ))}
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* Current Step Indicator */}
-            {swapping && currentStep && (
-              <div className="mb-4 p-3 bg-gray-500/20 border border-gray-400 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs sm:text-m text-gray-200">{currentStep}</span>
-                  <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
-                </div>
+            {/* Liquidation Summary */}
+            <div className="bg-gray-700/50 rounded-lg p-3 sm:p-4 space-y-2 ml-2 mr-2">
+              <div className="flex justify-between text-xs sm:text-m">
+                <span className="text-gray-300">to liquidate</span>
+                <span className="text-red-500 font-medium">
+                  ${liquidationValue.toFixed(2)}
+                </span>
               </div>
-            )}
-
-            {error && (
-              <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg">
-                <div className="flex items-center space-x-2 text-red-200 mb-2">
-                  <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="text-xs sm:text-m font-medium">liquidation error</span>
-                </div>
-                <span className="text-xs sm:text-m">{error}</span>
+              <div className="flex justify-between text-xs sm:text-m">
+                <span className="text-gray-300 lowercase">receive in {outputTokenSymbol}</span>
+                <span className="text-green-500 font-medium">
+                  ~${liquidationValue.toFixed(2)}
+                </span>
               </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="space-y-3 ml-2 mr-2">
+            </div>
+            
+            {/* Advanced Settings Toggle */}
+            <div className="border-t border-gray-600 pt-3">
               <button
-                onClick={executeLiquidation}
-                disabled={swapping || selectedTokens.length === 0 || !publicKey || liquidationPercentage === 0}
-                className="w-full bg-gradient-to-r from-gray-600 to-gray-600 hover:from-gray-500 hover:to-gray-400 disabled:opacity-50 disabled:cursor-not-allowed py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2 mobile-optimized text-m sm:text-base min-h-[44px]"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex items-center space-x-2 text-xs sm:text-m text-gray-300 hover:text-white transition-colors w-full mobile-optimized ml-3"
               >
-                {swapping ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span className="text-xs sm:text-m">liquidating... ({swapResults.filter(r => !r.error).length}/{selectedTokens.length})</span>
-                  </>
-                ) : (
-                  <>
-                    <DollarSign className="h-4 w-4" />
-                    <span className="text-xs sm:text-m">liquidate {liquidationPercentage}% to {outputTokenSymbol}</span>
-                    {isLedgerConnected && <Shield className="h-4 w-4 ml-1" />}
-                  </>
-                )}
+                <span>advanced settings</span>
+                <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
               </button>
             </div>
 
-            {!publicKey && (
-              <div className="mt-3 p-2 bg-yellow-500/20 border border-yellow-500 rounded-lg">
-                <p className="text-xs text-yellow-200 text-center">
-                  connect your wallet to enable liquidation
-                </p>
+            {/* Advanced Settings */}
+            {showAdvanced && (
+              <div className="space-y-3 sm:space-y-4 animate-slideDown ml-3 mr-3">
+                {/* Output Token Selection with Search */}
+                <div className="relative" ref={tokenSelectorRef}>
+                  <label className="block text-xs sm:text-m font-medium mb-2">output token</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowTokenSearch(!showTokenSearch)}
+                    className="w-full bg-gray-700/50 border border-gray-600 rounded-xl px-4 py-3 text-m focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent mobile-optimized flex items-center justify-between hover:bg-gray-600/50 transition-all duration-200"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <TokenLogo token={outputTokenInfo} size={6} />
+                      <div className="text-left">
+                        <div className="font-medium text-m text-white">{outputTokenSymbol}</div>
+                        <div className="text-xs text-gray-400">click to search tokens</div>
+                      </div>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${showTokenSearch ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showTokenSearch && (
+                    <div className="absolute z-50 w-full mt-2 bg-gray-800/95 backdrop-blur-xl border border-gray-600 rounded-2xl shadow-2xl max-h-80 overflow-hidden">
+                      {/* Search Header */}
+                      <div className="p-4 border-b border-gray-700">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                          <input
+                            type="text"
+                            placeholder="search for any token on solana..."
+                            value={searchQuery}
+                            onChange={(e) => {
+                              setSearchQuery(e.target.value);
+                              searchTokens(e.target.value);
+                            }}
+                            className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-600 focus:border-transparent text-m placeholder-gray-400"
+                          />
+                          {searchQuery && (
+                            <button
+                              onClick={() => {
+                                setSearchQuery('');
+                                setSearchResults([]);
+                              }}
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                            >
+                              <X className="h-4 w-4 text-gray-400 hover:text-white" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="max-h-60 overflow-y-auto mobile-scroll">
+                        {/* Popular Tokens */}
+                        {!searchQuery && (
+                          <div className="p-2">
+                            <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                              Popular Tokens
+                            </div>
+                            {popularTokens.map(token => (
+                              <TokenSearchResult 
+                                key={token.mint} 
+                                token={token} 
+                                onSelect={handleOutputTokenChange}
+                                isSelected={token.mint === outputToken}
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Search Results */}
+                        {searchQuery && (
+                          <div className="p-2">
+                            <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                              search results
+                            </div>
+                            {isSearching ? (
+                              <div className="flex justify-center items-center py-8">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-500"></div>
+                                <span className="ml-2 text-m text-gray-400">searching...</span>
+                              </div>
+                            ) : searchResults.length > 0 ? (
+                              searchResults.map(token => (
+                                <TokenSearchResult 
+                                  key={token.mint} 
+                                  token={token} 
+                                  onSelect={handleOutputTokenChange}
+                                  isSelected={token.mint === outputToken}
+                                />
+                              ))
+                            ) : (
+                              <div className="text-center py-8 text-gray-400 text-m">
+                                no tokens found matching {searchQuery}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Wallet Tokens */}
+                        {!searchQuery && sortedOutputTokens.length > 0 && (
+                          <div className="p-2 border-t border-gray-700">
+                            <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                              your Tokens
+                            </div>
+                            {sortedOutputTokens.map(token => (
+                              <TokenSearchResult 
+                                key={token.mint} 
+                                token={token} 
+                                onSelect={handleOutputTokenChange}
+                                isSelected={token.mint === outputToken}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected Token Details */}
+                {outputTokenInfo && (
+                  <div className="bg-gray-700/30 border border-gray-600 rounded-xl p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">selected token</span>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(outputTokenInfo.mint);
+                          }}
+                          className="p-1.5 hover:bg-gray-600/50 rounded transition-colors mobile-optimized"
+                          title="Copy mint address"
+                        >
+                          <Copy className="h-3 w-3 text-gray-400 hover:text-white" />
+                        </button>
+                        <a
+                          href={`https://explorer.helius.xyz/token/${outputTokenInfo.mint}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 hover:bg-gray-600/50 rounded transition-colors mobile-optimized"
+                          title="View on Helius Explorer"
+                        >
+                          <ExternalLink className="h-3 w-3 text-gray-400 hover:text-white" />
+                        </a>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <TokenLogo token={outputTokenInfo} size={6} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-white truncate">
+                          {outputTokenInfo.symbol}
+                        </div>
+                        <div className="text-xs text-gray-400 truncate font-mono">
+                          {outputTokenInfo.mint.slice(0, 8)}...{outputTokenInfo.mint.slice(-8)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Slippage Tolerance */}
+                <div>
+                  <label className="block text-xs sm:text-m font-medium mb-2">
+                    slippage tolerance: {slippage}%
+                  </label>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="5"
+                    step="0.1"
+                    value={slippage}
+                    onChange={(e) => setSlippage(parseFloat(e.target.value))}
+                    className="w-full accent-gray-500 mobile-optimized"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>0.5%</span>
+                    <span>5%</span>
+                  </div>
+                </div>
               </div>
             )}
-          </>
-        )}
-      </div>
+          </div>
+
+          {/* Token Breakdown */}
+          <div className="mb-4 sm:mb-6 ml-3 mr-3">
+            <h3 className="font-medium text-m sm:text-base mb-2 sm:mb-3">liquidation breakdown</h3>
+            <div className="space-y-2 max-h-32 sm:max-h-48 overflow-y-auto mobile-scroll">
+              {proRataTokens
+                .sort((a, b) => b.liquidationAmount - a.liquidationAmount)
+                .map((token) => (
+                  <div key={token.mint} className="flex justify-between items-center text-xs sm:text-m bg-gray-700/30 p-2 rounded">
+                    <div className="flex items-center space-x-2 min-w-0 flex-1">
+                      <TokenLogo token={token} size={6} />
+                      <span className="truncate lowercase">{token.symbol}</span>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-green-400">
+                        {token.swapAmount > 0.0001 ? token.swapAmount.toFixed(4) : token.swapAmount.toFixed(6)}
+                      </div>
+                      <div className="text-gray-400 text-xs">
+                        ${token.liquidationAmount.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+         
+          {/* Swap Results */}
+          {swapResults.length > 0 && (
+            <div className="ml-3 mr-3 mb-4 p-3 bg-gray-700/50 border border-gray-600 rounded-lg">
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-medium text-m sm:text-base">liquidation results</h4>
+                {hasFailedSwaps && (
+                  <button
+                    onClick={() => {/* Add retry logic */}}
+                    disabled={swapping}
+                    className="text-xs bg-yellow-600 hover:bg-yellow-700 px-2 py-1 rounded flex items-center space-x-1 mobile-optimized"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    <span>failed</span>
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2 max-h-32 overflow-y-auto mobile-scroll">
+                {swapResults.map((result, index) => (
+                  <div key={index} className="flex justify-between items-center text-xs sm:text-m">
+                    <div className="flex items-center space-x-2 min-w-0 flex-1">
+                      <span className={`truncate ${result.error ? 'text-red-400' : 'text-green-400'}`}>
+                        {result.symbol}
+                      </span>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      {result.error ? (
+                        <span className="text-red-400 text-xs">failed</span>
+                      ) : result.signature ? (
+                        <div className="flex flex-col items-end">
+                          <a 
+                            href={`https://solscan.io/tx/${result.signature}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-green-400 hover:text-green-300 text-xs flex items-center space-x-1 mobile-optimized"
+                          >
+                            <span>success</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                          <div className="text-gray-400 text-xs">
+                            {result.inputAmount > 0.0001 ? result.inputAmount.toFixed(4) : result.inputAmount.toFixed(6)}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-yellow-400 text-xs">pending</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Current Step Indicator */}
+          {swapping && currentStep && (
+            <div className="ml-3 mr-3 mb-4 p-3 bg-gray-500/20 border border-gray-400 rounded-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-xs sm:text-m text-gray-200">{currentStep}</span>
+                <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg">
+              <div className="flex items-center space-x-2 text-red-200 mb-2">
+                <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="text-xs sm:text-m font-medium">liquidation error</span>
+              </div>
+              <span className="text-xs sm:text-m">{error}</span>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="space-y-3 ml-2 mr-2">
+            <button
+              onClick={executeLiquidation}
+              disabled={swapping || selectedTokens.length === 0 || !publicKey || liquidationPercentage === 0}
+              className="w-full bg-gradient-to-r from-gray-600 to-gray-600 hover:from-gray-500 hover:to-gray-400 disabled:opacity-50 disabled:cursor-not-allowed py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-[1.02] flex items-center justify-center space-x-2 mobile-optimized text-m sm:text-base min-h-[44px]"
+            >
+              {swapping ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span className="text-xs sm:text-m">liquidating... ({swapResults.filter(r => !r.error).length}/{selectedTokens.length})</span>
+                </>
+              ) : (
+                <>
+                  <DollarSign className="h-4 w-4" />
+                  <span className="text-xs sm:text-m">liquidate {liquidationPercentage}% to {outputTokenSymbol}</span>
+                  {isLedgerConnected && <Shield className="h-4 w-4 ml-1" />}
+                </>
+              )}
+            </button>
+          </div>
+
+          {!publicKey && (
+            <div className="mt-3 p-2 bg-yellow-500/20 border border-yellow-500 rounded-lg">
+              <p className="text-xs text-yellow-200 text-center">
+                connect your wallet to enable liquidation
+              </p>
+            </div>
+          )}
+        </>
+      )}
     </div>
-  );
+  </div>
+);
 }

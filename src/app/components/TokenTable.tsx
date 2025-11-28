@@ -6,7 +6,7 @@ import { TokenService } from '../lib/api';
 import { ArrowUpDown, Search, Image, ChevronDown, ChevronUp, ChevronRight, RefreshCw, Settings, Eye, EyeOff, GripVertical } from 'lucide-react';
 import { LoadingBar } from './LoadingBar';
 import { PortfolioChart } from './HistoricalChart';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor } from '@dnd-kit/core';
 import { SortableContext, useSortable, horizontalListSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ColumnConfig, SortField } from '../types/table';
@@ -28,6 +28,11 @@ interface TokenTableProps {
     walletCount: number;
     tokenCount: number;
   }>;
+  sellIndicators?: Array<{
+    timestamp: number | string
+    valueUsd: number;
+    token: string;
+  }>; 
   excludeTokenMint?: string;
 }
 
@@ -74,7 +79,7 @@ const TokenLogo = ({ token, size = 8 }: TokenLogoProps) => {
   }
   
   return (
-    <div className={`bg-gradient-to-br from-purple-500 to-gray-500 rounded-full ${logoClasses} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
+    <div className={`bg-gradient-to-br from-purple-600 to-gray-700 rounded-full ${logoClasses} flex items-center justify-center text-white text-xs sm:text-sm font-bold flex-shrink-0`}>
       {token.symbol.slice(0, 3)}
     </div>
   );
@@ -94,7 +99,7 @@ function CollapsibleSection({ title, children, defaultOpen = true, className = '
     <div className={`bg-gray-800/50 rounded-xl backdrop-blur-sm border border-gray-700 ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-4 sm:p-6 text-left hover:bg-gray-700/30 transition-colors rounded-xl"
+        className="w-full flex items-center justify-between p-4 sm:p-6 text-left hover:bg-gray-700/30 transition-colors rounded-xl mobile-optimized"
       >
         <h3 className="text-m font-semibold">{title}</h3>
         <ChevronRight 
@@ -114,10 +119,10 @@ function CollapsibleSection({ title, children, defaultOpen = true, className = '
 
 const defaultColumns: ColumnConfig[] = [
   { id: 'select', label: '', width: 60, visible: true, sortable: false, resizable: false, field: 'symbol', configurable: false },
-  { id: 'symbol', label: 'symbol', width: 200, visible: true, sortable: true, resizable: true, field: 'symbol' },
-  { id: 'balance', label: 'quantity', width: 150, visible: true, sortable: true, resizable: true, field: 'balance' },
-  { id: 'price', label: 'price', width: 120, visible: true, sortable: true, resizable: true, field: 'USD' },
-  { id: 'value', label: 'value', width: 120, visible: true, sortable: true, resizable: true, field: 'value' },
+   { id: 'value', label: 'value', width: 120, visible: true, sortable: true, resizable: true, field: 'value' },
+  { id: 'symbol', label: 'symbol', width: 100, visible: true, sortable: true, resizable: true, field: 'symbol' },
+  { id: 'balance', label: 'quantity', width: 100, visible: true, sortable: true, resizable: true, field: 'balance' },
+  { id: 'price', label: 'price', width: 100, visible: true, sortable: true, resizable: true, field: 'USD' },
 ];
 
 interface ResizableTableHeaderProps {
@@ -128,7 +133,7 @@ interface ResizableTableHeaderProps {
   sortDirection: 'asc' | 'desc';
 }
 
-function ResizableTableHeader({
+export function ResizableTableHeader({
   column,
   onResize,
   onSort,
@@ -147,35 +152,41 @@ function ResizableTableHeader({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    width: column.width,
+    width: `${column.width}px`,
     opacity: isDragging ? 0.5 : 1,
   };
 
   const isResizing = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(0);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handlePointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
     isResizing.current = true;
-    
-    const startX = e.clientX;
-    const startWidth = column.width;
+    startXRef.current = e.clientX;
+    startWidthRef.current = column.width;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (pe: PointerEvent) => {
       if (!isResizing.current) return;
-      
-      const newWidth = startWidth + (e.clientX - startX);
-      onResize(column.id, Math.max(80, newWidth));
+      const deltaX = pe.clientX - startXRef.current;
+      const newWidth = Math.max(80, startWidthRef.current + deltaX);
+      onResize(column.id, newWidth);
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
       isResizing.current = false;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
   };
 
   const handleHeaderClick = () => {
@@ -186,32 +197,27 @@ function ResizableTableHeader({
 
   return (
     <th
-      ref={setNodeRef}
-      style={style}
+      key={column.id}
+      style={{ width: `${column.width}px` }}
       className="relative py-3 sm:py-4 px-2 sm:px-4 bg-gray-800/50 group select-none"
-      {...attributes}
-    >
+                     >
       <div className="flex items-center justify-between h-full">
-        {column.resizable && (
-          <div
-            className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-gray-500 active:bg-gray-400 z-10"
-            onMouseDown={handleMouseDown}
-          />
-        )}
-        
+
         <div className="flex items-center space-x-2 flex-1 h-full">
           {column.resizable && (
             <div
               {...listeners}
-              className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+              className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity p-2 -m-2 rounded mobile-optimized"
+              style={{ touchAction: 'none' }}
             >
               <GripVertical className="h-4 w-4 text-gray-400" />
             </div>
           )}
-          
+
           <div
             onClick={handleHeaderClick}
-            className={`flex-1 h-full flex items-center ${column.sortable ? 'cursor-pointer hover:text-white' : ''}`}
+            className={`flex-1 h-full flex items-center ${column.sortable ? 'cursor-pointer hover:text-white mobile-optimized' : ''}`}
+            style={{ touchAction: column.sortable ? 'manipulation' : 'auto' }}
           >
             <div className="flex items-center space-x-2">
               <span className="text-xs sm:text-sm font-semibold text-gray-200 lowercase">
@@ -228,8 +234,9 @@ function ResizableTableHeader({
 
         {column.resizable && (
           <div
-            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-purple-400 active:bg-purple-400 z-10"
-            onMouseDown={handleMouseDown}
+            className="absolute right-0 top-0 bottom-0 w-6 sm:w-4 cursor-col-resize hover:bg-gray-500 active:bg-gray-400 z-20 transition-colors mobile-optimized"
+            onPointerDown={handlePointerDown}
+            style={{ touchAction: 'none' }}
           />
         )}
       </div>
@@ -266,111 +273,30 @@ function SortableColumnItem({ column, onToggleVisibility }: { column: ColumnConf
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg border border-gray-600"
+      className="flex items-center justify-between p-4 bg-gray-700/50 rounded-lg border border-gray-600 mobile-optimized"
     >
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-3 flex-1">
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing"
+          className="cursor-grab active:cursor-grabbing p-3 -m-3 rounded-lg mobile-optimized"
+          style={{ touchAction: 'none' }}
         >
-          <GripVertical className="h-4 w-4 text-gray-400" />
+          <GripVertical className="h-5 w-5 text-gray-400" />
         </div>
-        <span className="text-sm text-gray-200 lowercase">{column.label}</span>
+        <span className="text-base text-gray-200 lowercase flex-1">{column.label}</span>
       </div>
       <button
         onClick={() => onToggleVisibility(column.id)}
-        className="p-1 hover:bg-gray-600 rounded transition-colors"
+        className="p-3 hover:bg-gray-600 rounded-lg transition-colors mobile-optimized"
+        style={{ touchAction: 'manipulation', minHeight: '44px', minWidth: '44px' }}
       >
         {column.visible ? (
-          <Eye className="h-4 w-4 text-green-400" />
+          <Eye className="h-5 w-5 text-green-400" />
         ) : (
-          <EyeOff className="h-4 w-4 text-gray-400" />
+          <EyeOff className="h-5 w-5 text-gray-400" />
         )}
       </button>
-    </div>
-  );
-}
-
-function ColumnCustomizationPanel({
-  columns,
-  onToggleVisibility,
-  onReorder,
-  onReset,
-  isOpen,
-  onClose,
-}: ColumnCustomizationPanelProps) {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleDragEnd = (event: any) => {
-    const { active, over } = event;
-
-    if (active.id !== over.id) {
-      const oldIndex = columns.findIndex(col => col.id === active.id);
-      const newIndex = columns.findIndex(col => col.id === over.id);
-      onReorder(oldIndex, newIndex);
-    }
-  };
-
-  if (!isOpen || !isMounted) return null;
-
-  return (
-    <div className="absolute top-full right-0 mt-2 w-80 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl z-50 backdrop-blur-sm">
-      <div className="p-4 border-b border-gray-700">
-        <div className="flex items-center justify-between">
-          <h3 className="text-m font-semibold text-white"></h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors text-xl"
-          >
-            ×
-          </button>
-        </div>
-        <p className="text-xs text-gray-400 mt-1">drag to reorder, click eye to toggle visibility</p>
-      </div>
-
-      <div className="p-4">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext items={columns.map(col => col.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {columns
-              .filter(col => col.configurable !== false)
-              .map(column => (
-                <SortableColumnItem
-                  key={column.id}
-                  column={column}
-                  onToggleVisibility={onToggleVisibility}
-                />
-            ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      </div>
-
-      <div className="p-4 border-t border-gray-700">
-        <button
-          onClick={onReset}
-          className="w-50vh px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm font-medium transition-colors"
-        >
-          reset
-        </button>
-      </div>
     </div>
   );
 }
@@ -406,16 +332,33 @@ export function TokenTable({
   const [retryProgress, setRetryProgress] = useState({ current: 0, total: 0 });
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [hideZeroValueTokens, setHideZeroValueTokens] = useState(true);
   
-  const {
-  columns,
-  updateColumnWidth,
-  toggleColumnVisibility,
-  reorderColumns,
-  resetColumns,
-} = useColumnState();
+const {
+    columns,
+    updateColumnWidth,
+    toggleColumnVisibility,
+    reorderColumns,
+    resetColumns,
+   } = useColumnState();
 
-  // Prevent hydration mismatch by only rendering drag-and-drop after mount
+  const sensors = useSensors(
+  useSensor(PointerSensor, {
+    activationConstraint: {
+      distance: 3,
+    },
+  }),
+  useSensor(TouchSensor, {
+    activationConstraint: {
+      delay: 150,
+      tolerance: 8,
+    },
+  }),
+  useSensor(KeyboardSensor, {
+    coordinateGetter: sortableKeyboardCoordinates,
+  })
+);
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -426,59 +369,61 @@ export function TokenTable({
     return tokens.reduce((total, token) => total + (token.value || 0), 0);
   }, [tokens]);
 
-  const [hideZeroValueTokens, setHideZeroValueTokens] = useState(false);
+  const filteredAndSortedTokens = useMemo(() => {
+    let tokensToShow = excludeTokenMint 
+      ? tokens.filter(token => token.mint !== excludeTokenMint)
+      : tokens;
 
-const filteredAndSortedTokens = useMemo(() => {
-  let tokensToShow = excludeTokenMint 
-    ? tokens.filter(token => token.mint !== excludeTokenMint)
-    : tokens;
-
-  if (hideZeroValueTokens) {
-    tokensToShow = tokensToShow.filter(token => !(token.value === 0 && token.uiAmount > 0));
-  }
-
-  const filtered = tokensToShow.filter(token =>
-    token.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    token.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  filtered.sort((a, b) => {
-    let aValue: string | number = 0;
-    let bValue: string | number = 0;
-
-    switch (sortField) {
-      case 'symbol':
-        aValue = a.symbol.toLowerCase();
-        bValue = b.symbol.toLowerCase();
-        break;
-      case 'balance':
-        aValue = a.uiAmount;
-        bValue = b.uiAmount;
-        break;
-      case 'USD':
-        aValue = a.price || 0;
-        bValue = b.price || 0;
-        break;
-      case 'value':
-        aValue = a.value || 0;
-        bValue = b.value || 0;
-        break;
+    if (hideZeroValueTokens) {
+      tokensToShow = tokensToShow.filter(token => !(token.value === 0 && token.uiAmount > 0));
     }
 
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
+    const filtered = tokensToShow.filter(token =>
+      token.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      token.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    filtered.sort((a, b) => {
+      let aValue: string | number = 0;
+      let bValue: string | number = 0;
+
+      switch (sortField) {
+        case 'symbol':
+          aValue = a.symbol.toLowerCase();
+          bValue = b.symbol.toLowerCase();
+          break;
+        case 'balance':
+          aValue = a.uiAmount;
+          bValue = b.uiAmount;
+          break;
+        case 'USD':
+          aValue = a.price || 0;
+          bValue = b.price || 0;
+          break;
+        case 'value':
+          aValue = a.value || 0;
+          bValue = b.value || 0;
+          break;
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+
       return sortDirection === 'asc' 
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue);
-    }
+        ? (aValue as number) - (bValue as number)
+        : (bValue as number) - (aValue as number);
+    });
 
-    return sortDirection === 'asc' 
-      ? (aValue as number) - (bValue as number)
-      : (bValue as number) - (aValue as number);
-  });
+    return filtered;
+  }, [tokens, searchTerm, sortField, sortDirection, excludeTokenMint, hideZeroValueTokens]);
 
-  return filtered;
-}, [tokens, searchTerm, sortField, sortDirection, excludeTokenMint, hideZeroValueTokens]);
-
+  const failedTokens = useMemo(() => 
+    tokens.filter(token => token.value === 0 && token.uiAmount > 0),
+    [tokens]
+  );
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -489,11 +434,6 @@ const filteredAndSortedTokens = useMemo(() => {
     }
   };
 
-  const failedTokens = useMemo(() => 
-    tokens.filter(token => token.value === 0 && token.uiAmount > 0),
-    [tokens]
-  );
-
   const handleRetryFailedTokens = async () => {
     if (failedTokens.length === 0 || retryLoading) return;
     
@@ -501,7 +441,6 @@ const filteredAndSortedTokens = useMemo(() => {
     setRetryProgress({ current: 0, total: failedTokens.length });
     
     try {
-      
       if (onRefreshPrices) {
         onRefreshPrices();
       }
@@ -514,17 +453,6 @@ const filteredAndSortedTokens = useMemo(() => {
   };
 
   const isRetryLoading = retryLoading && retryProgress.total > 0;
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleHeaderDragEnd = (event: any) => {
@@ -547,7 +475,8 @@ const filteredAndSortedTokens = useMemo(() => {
             type="checkbox"
             checked={token.selected}
             onChange={(e) => onTokenSelect(token.mint, e.target.checked)}
-            className="rounded-lg bg-gray-700 border-gray-600 text-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200"
+            className="rounded-lg bg-gray-700 border-gray-600 text-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 mobile-optimized"
+            style={{ touchAction: 'manipulation' }}
           />
         );
       
@@ -592,17 +521,15 @@ const filteredAndSortedTokens = useMemo(() => {
     }
   };
 
-  // Check if loading is actually complete (progress matches total)
   const isProgressComplete = totalToProcess > 0 && processingProgress >= totalToProcess;
   const shouldShowLoading = (loading || isRetryLoading) && !isProgressComplete;
 
   if (shouldShowLoading) {
     const currentProgress = isRetryLoading ? retryProgress.current : processingProgress;
     const currentTotal = isRetryLoading ? retryProgress.total : totalToProcess;
-    const loadingText = isRetryLoading ? 'retrying failed tokens...' : 'fetching prices...';
 
     return (
-      <div className="flex flex-col items-center justify-center py-12 space-y-6">
+      <div className="mr-3 ml-3 flex flex-col items-center justify-center py-12 space-y-6">
         <div className="w-full max-w-md">
           <LoadingBar 
             totalItems={currentTotal}
@@ -611,11 +538,6 @@ const filteredAndSortedTokens = useMemo(() => {
             durationPerItem={1100}
             className="mb-4"
           />
-        </div>
-        <div className="text-center text-gray-400 text-sm">
-          {loadingText}
-          {currentTotal > 0 && ` (${currentProgress}/${currentTotal})`}
-          {currentTotal === 0 && ' (calculating...)'}
         </div>
       </div>
     );
@@ -627,7 +549,7 @@ const filteredAndSortedTokens = useMemo(() => {
         <CollapsibleSection 
           title="performance"
           defaultOpen={true}
-          className="bg-gray-800/30 rounded-2xl border border-gray-900/30 shadow-xl relative z-10"
+          className="bg-gray-900/30 rounded-2xl border border-gray-1000/30 shadow-xl relative z-10"
         >
           <PortfolioChart 
             className="w-full"
@@ -643,7 +565,7 @@ const filteredAndSortedTokens = useMemo(() => {
       <CollapsibleSection 
         title="search"
         defaultOpen={true}
-        className="bg-gray-800/30 rounded-2xl border border-gray-700/30 shadow-xl relative z-10"
+        className="bg-gray-900/30 rounded-2xl border border-gray-700/30 shadow-xl relative z-10"
       >
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <div className="relative flex-1">
@@ -653,7 +575,8 @@ const filteredAndSortedTokens = useMemo(() => {
               placeholder="search tokens by name or symbol..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="lowercase w-full pl-10 pr-4 py-3 sm:py-3.5 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm sm:text-base placeholder-gray-400 transition-all duration-200"
+              className="lowercase w-full pl-10 pr-4 py-3 sm:py-3.5 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm sm:text-base placeholder-gray-400 transition-all duration-200 mobile-optimized"
+              style={{ touchAction: 'manipulation' }}
             />
           </div>
           
@@ -662,6 +585,7 @@ const filteredAndSortedTokens = useMemo(() => {
               onClick={handleRetryFailedTokens}
               disabled={retryLoading}
               className="px-4 py-3 sm:py-3.5 bg-gradient-to-r from-gray-600/80 to-black-600/80 border border-gray-500/50 rounded-xl hover:from-gray-600 hover:to-black-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-sm font-medium text-white shadow-lg hover:shadow-gray-500/25 mobile-optimized"
+              style={{ touchAction: 'manipulation' }}
             >
               {retryLoading ? (
                 <div className="flex items-center gap-2 sm:gap-3">
@@ -697,14 +621,15 @@ const filteredAndSortedTokens = useMemo(() => {
       <CollapsibleSection 
         title={`tokens • ${filteredAndSortedTokens.length} of ${tokens.length}`}
         defaultOpen={true}
-        className="bg-gray-800/30 rounded-2xl border border-gray-700/30 shadow-xl overflow-hidden relative z-10"
+        className="bg-gray-900/30 rounded-2xl border border-gray-700/30 shadow-xl overflow-hidden relative z-10"
       >
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setHideZeroValueTokens(!hideZeroValueTokens)}
-            className="flex items-center space-x-1 p-1 hover:bg-gray-700/50 rounded transition-colors text-gray-400"
+            className="flex items-center space-x-1 p-1 hover:bg-gray-700/50 rounded transition-colors text-gray-400 mobile-optimized"
+            style={{ touchAction: 'manipulation' }}
           >
-            <span>hide zero value</span>
+            <span>show spam</span>
             <ChevronDown
               className={`h-4 w-4 transition-transform duration-200 ${
                 hideZeroValueTokens ? 'rotate-180' : ''
@@ -723,11 +648,16 @@ const filteredAndSortedTokens = useMemo(() => {
               items={visibleColumns.map(col => col.id)} 
               strategy={horizontalListSortingStrategy}
             >
-              <div className="overflow-x-auto mobile-scroll">
-                <table className="w-full min-w-[500px] sm:min-w-full token-table-mobile">
+             <div className="overflow-x-auto mobile-scroll" style={{ touchAction: 'pan-x' }}>
+                <table className="w-full min-w-[500px] sm:min-w-full token-table-mobile" style={{ tableLayout: 'fixed' }}>
+                  <colgroup>
+                    {visibleColumns.map(col => (
+                      <col key={col.id} style={{ width: `${col.width}px` }} />
+                    ))}
+                    <col style={{ width: '48px' }} />
+                  </colgroup>
                   <thead>
                     <tr className="border-b border-gray-700/70 bg-gray-800/50">
-                      
                       {visibleColumns.map((column) => (
                         <ResizableTableHeader
                           key={column.id}
@@ -743,19 +673,11 @@ const filteredAndSortedTokens = useMemo(() => {
                         <div className="relative">
                           <button
                             onClick={() => setShowColumnPanel(!showColumnPanel)}
-                            className="p-1 hover:bg-gray-700/50 rounded transition-colors"
+                            className="p-1 hover:bg-gray-700/50 rounded transition-colors mobile-optimized"
+                            style={{ touchAction: 'manipulation' }}
                           >
                             <Settings className="h-4 w-4 text-gray-400" />
                           </button>
-                          
-                          <ColumnCustomizationPanel
-                            columns={columns}
-                            onToggleVisibility={toggleColumnVisibility}
-                            onReorder={reorderColumns}
-                            onReset={resetColumns}
-                            isOpen={showColumnPanel}
-                            onClose={() => setShowColumnPanel(false)}
-                          />
                         </div>
                       </th>
 
@@ -771,26 +693,25 @@ const filteredAndSortedTokens = useMemo(() => {
                         } ${index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'}`}
                       >
                         {visibleColumns.map(column => (
-                          <td 
+                          <td
                             key={column.id}
-                            style={{ width: column.width }}
+                            style={{ width: `${column.width}px` }}
                             className="py-3 sm:py-4 px-2 sm:px-4"
                           >
                             {renderTableCell(token, column.id)}
                           </td>
                         ))}
-                        
-                        <td className="py-3 sm:py-4 px-2 sm:px-4"></td>
+
+                        <td className="py-3 sm:py-4 px-2 sm:px-4" />
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
+               </div>
             </SortableContext>
           </DndContext>
         ) : (
-          // Render non-interactive version during SSR to prevent hydration mismatch
-          <div className="overflow-x-auto mobile-scroll">
+          <div className="overflow-x-auto mobile-scroll" style={{ touchAction: 'pan-x' }}>
             <table className="w-full min-w-[500px] sm:min-w-full token-table-mobile">
               <thead>
                 <tr className="border-b border-gray-700/70 bg-gray-800/50">
@@ -804,7 +725,7 @@ const filteredAndSortedTokens = useMemo(() => {
                       <div className="flex items-center justify-between h-full">
                         {column.resizable && (
                           <div
-                            className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-gray-500 active:bg-gray-400 z-10"
+                            className="absolute left-0 top-0 bottom-0 w-4 cursor-col-resize hover:bg-gray-500 active:bg-gray-400 z-10 touch-manipulation"
                           />
                         )}
                         
@@ -817,7 +738,8 @@ const filteredAndSortedTokens = useMemo(() => {
                           
                           <div
                             onClick={() => column.sortable && handleSort(column.field)}
-                            className={`flex-1 h-full flex items-center ${column.sortable ? 'cursor-pointer hover:text-white' : ''}`}
+                            className={`flex-1 h-full flex items-center ${column.sortable ? 'cursor-pointer hover:text-white mobile-optimized' : ''}`}
+                            style={{ touchAction: column.sortable ? 'manipulation' : 'auto' }}
                           >
                             <div className="flex items-center space-x-2">
                               <span className="text-xs sm:text-sm font-semibold text-gray-200 lowercase">
@@ -834,7 +756,7 @@ const filteredAndSortedTokens = useMemo(() => {
 
                         {column.resizable && (
                           <div
-                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-purple-400 active:bg-purple-400 z-10"
+                            className="absolute right-0 top-0 bottom-0 w-4 cursor-col-resize hover:bg-purple-400 active:bg-purple-400 z-10 touch-manipulation"
                           />
                         )}
                       </div>
@@ -845,7 +767,8 @@ const filteredAndSortedTokens = useMemo(() => {
                     <div className="relative">
                       <button
                         onClick={() => setShowColumnPanel(!showColumnPanel)}
-                        className="p-1 hover:bg-gray-700/50 rounded transition-colors"
+                        className="p-1 hover:bg-gray-700/50 rounded transition-colors mobile-optimized"
+                        style={{ touchAction: 'manipulation' }}
                       >
                         <Settings className="h-4 w-4 text-gray-400" />
                       </button>
@@ -892,4 +815,8 @@ const filteredAndSortedTokens = useMemo(() => {
       </CollapsibleSection>
     </div>
   );
+}
+
+function reorderColumns(oldIndex: number, newIndex: number) {
+  throw new Error('Function not implemented.');
 }
