@@ -477,20 +477,21 @@ secureLog.info('portfolio history updated', {
             </div>
           )}
 
-          {/* Main content area - full height on mobile */}
-          <main className="mb-8 relative z-20 mobile-full-height ml-2 mr-2">
-            <div className="shadow-xl overflow-visible h-full"> 
-              {currentView === 'main' ? renderMainView() : (
-                <MultisigAnalyzer onBack={() => setCurrentView('main')} />
-              )}
-            </div>
-          </main>
-
-          <div className="mb-8 relative z-20 space-y-6">
-            <HistoricalPortfolio />
-            <SwapHistoryPanel />
+         <main className="mb-8 relative z-20 mobile-full-height -mx-4 sm:mx-0 px-4 sm:px-0">
+          <div className="shadow-xl overflow-visible h-full"> 
+            {currentView === 'main' ? renderMainView() : (
+              <MultisigAnalyzer onBack={() => setCurrentView('main')} />
+            )}
           </div>
+        </main>
 
+
+          {currentView === 'main' && (
+          <div className="mb-8 relative z-20 space-y-6 -mx-4 sm:mx-0">
+            <SwapHistoryPanel />
+            <HistoricalPortfolio />
+          </div>
+          )}
           <footer className="mt-8 pt-6 border-t border-gray-700/30 relative z-20 mobile-full-width">
             <div className="flex justify-center items-center space-x-8">
               <a

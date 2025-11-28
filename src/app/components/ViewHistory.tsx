@@ -244,7 +244,7 @@ export function HistoricalPortfolio({
           <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-gray-400" />
         </div>
         <div>
-          <h3 className="text-base sm:text-l font-bold text-white">history</h3>
+          <h3 className="text-base sm:text-l font-bold text-white">records</h3>
           <p className="text-xs sm:text-l text-gray-400 mt-1 lowercase">({mode})</p>
         </div>
       </div>

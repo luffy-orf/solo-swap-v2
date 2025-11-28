@@ -116,6 +116,52 @@ export function PortfolioChart({
     return formattedDate.toLowerCase();
   };
 
+  // Calculate performance for current time range
+  const performanceStats = useMemo(() => {
+    if (portfolioHistory.length < 2) return null;
+
+    const filteredData = filterDataByTimeRange(portfolioHistory);
+    if (filteredData.length < 2) return null;
+
+    const firstValue = filteredData[0].totalValue;
+    const lastValue = filteredData[filteredData.length - 1].totalValue;
+    const change = lastValue - firstValue;
+    const percentageChange = firstValue > 0 ? (change / firstValue) * 100 : 0;
+
+    return {
+      change,
+      percentageChange,
+      isPositive: change >= 0
+    };
+  }, [portfolioHistory, timeRange]);
+
+  // Get chart colors based on performance
+  const getChartColors = () => {
+    if (!performanceStats) {
+      return {
+        borderColor: 'rgb(156, 163, 175)', // gray-400
+        backgroundColor: 'rgba(156, 163, 175, 0.1)',
+        tooltipBorderColor: 'rgba(156, 163, 175, 0.5)'
+      };
+    }
+
+    if (performanceStats.isPositive) {
+      return {
+        borderColor: 'rgb(34, 197, 94)', // green-500
+        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+        tooltipBorderColor: 'rgba(34, 197, 94, 0.5)'
+      };
+    } else {
+      return {
+        borderColor: 'rgb(239, 68, 68)', // red-500
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        tooltipBorderColor: 'rgba(239, 68, 68, 0.5)'
+      };
+    }
+  };
+
+  const chartColors = getChartColors();
+
   const getChartData = () => {
     const filteredData = filterDataByTimeRange(portfolioHistory);
     
@@ -126,8 +172,8 @@ export function PortfolioChart({
           {
             label: 'total portfolio value',
             data: [0],
-            borderColor: 'rgba(119, 92, 182, 0.76)',
-            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+            borderColor: chartColors.borderColor,
+            backgroundColor: chartColors.backgroundColor,
             fill: true,
             tension: 0.4,
           },
@@ -141,8 +187,8 @@ export function PortfolioChart({
         {
           label: 'total portfolio value',
           data: filteredData.map(item => item.totalValue),
-          borderColor: 'rgb(139, 92, 246)',
-          backgroundColor: 'rgba(139, 92, 246, 0.1)',
+          borderColor: chartColors.borderColor,
+          backgroundColor: chartColors.backgroundColor,
           borderWidth: 3,
           fill: true,
           tension: 0.4,
@@ -173,7 +219,7 @@ export function PortfolioChart({
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         titleColor: 'rgb(156, 163, 175)',
         bodyColor: 'white',
-        borderColor: 'rgba(139, 92, 246, 0.5)',
+        borderColor: chartColors.tooltipBorderColor,
         borderWidth: 1,
         callbacks: {
           label: function(context: TooltipItem<'line'>): string {
@@ -238,24 +284,6 @@ export function PortfolioChart({
     },
   };
 
-  const getPerformanceStats = () => {
-    if (portfolioHistory.length < 2) return null;
-
-    const filteredData = filterDataByTimeRange(portfolioHistory);
-    if (filteredData.length < 2) return null;
-
-    const firstValue = filteredData[0].totalValue;
-    const lastValue = filteredData[filteredData.length - 1].totalValue;
-    const change = lastValue - firstValue;
-    const percentageChange = firstValue > 0 ? (change / firstValue) * 100 : 0;
-
-    return {
-      change,
-      percentageChange,
-      isPositive: change >= 0
-    };
-  };
-
   const downloadChartData = () => {
     const csvContent = [
       ['date', 'total value', 'wallet count', 'token count'],
@@ -277,8 +305,6 @@ export function PortfolioChart({
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
-
-  const performanceStats = getPerformanceStats();
 
   return (
     <div className={`bg-gray-900/50 rounded-xl p-6 border border-gray-700 ${className}`}>

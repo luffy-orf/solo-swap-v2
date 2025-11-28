@@ -96,26 +96,22 @@ export function SwapHistoryPanel() {
   }
 
   return (
-    <div className="bg-gray-900/40 border border-gray-700 rounded-2xl p-6 space-y-6">
+    <div className="bg-gray-900/40 border border-gray-700 rounded-none sm:rounded-2xl p-4 sm:p-6 space-y-4 sm:space-y-6 -mx-4 sm:mx-0">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+        <div className="ml-5 flex items-center space-x-3">
           <div className="p-2 bg-gray-800/70 rounded-lg">
             <Clock className="h-5 w-5 text-gray-300" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold">swap history</h3>
-            <p className="text-xs text-gray-400 lowercase">
-              sells with chart indicators
-            </p>
+            <h3 className="text-lg font-semibold">swaps</h3>
           </div>
         </div>
         <button
           onClick={loadHistory}
           disabled={loading}
-          className="flex items-center space-x-2 text-xs bg-gray-800 px-3 py-2 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors disabled:opacity-50"
+          className="mr-4 flex items-center space-x-2 text-xs bg-gray-800 px-3 py-2 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors disabled:opacity-50"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          <span>refresh</span>
         </button>
       </div>
 
@@ -126,15 +122,15 @@ export function SwapHistoryPanel() {
         </div>
       )}
 
-      <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-4">
+      <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-3 sm:p-4 -mx-2 sm:mx-0">
         <SwapHistoryChart
           summary={summary?.points ?? []}
           sellIndicators={summary?.sellIndicators ?? []}
         />
         {latestSummary && (
-          <div className="flex items-center justify-between mt-4 text-sm text-gray-300">
+          <div className="ml-4 flex items-center justify-between mt-4 text-sm text-gray-300">
             <div className="flex items-center space-x-2">
-              <Activity className="h-4 w-4 text-blue-400" />
+              <Activity className="h-4 w-4 text-gray-400" />
               <span>
                 latest day: $
                 {latestSummary.lastValue.toLocaleString(undefined, {
@@ -143,7 +139,7 @@ export function SwapHistoryPanel() {
                 })}
               </span>
             </div>
-            <div className="text-gray-400 text-xs">
+            <div className="text-gray-400 text-xs mr-4">
               30d total sold: $
               {latestSummary.totalSold.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
@@ -154,7 +150,7 @@ export function SwapHistoryPanel() {
         )}
       </div>
 
-      <div className="space-y-3 max-h-72 overflow-y-auto pr-2 -mr-2">
+      {/* <div className="space-y-3 max-h-72 overflow-y-auto -mx-2 px-2 sm:mx-0 sm:px-0">
         {history.length === 0 && !loading && (
           <div className="text-center text-gray-500 text-sm py-8">
             no swaps recorded yet
@@ -203,8 +199,7 @@ export function SwapHistoryPanel() {
             </div>
           </div>
         ))}
-      </div>
+      </div> */}
     </div>
   );
 }
-
