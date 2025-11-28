@@ -388,7 +388,6 @@ export function SwapInterface({
         return null;
       }
 
-      // Add small delay between requests to potentially get different routes
       if (attemptNumber > 0) {
         await new Promise(resolve => setTimeout(resolve, 100 * attemptNumber));
       }
@@ -430,14 +429,12 @@ export function SwapInterface({
     try {
       setCurrentStep(`fetching best quote for ${token.symbol}...`);
       
-      // Fetch multiple quotes in parallel to find the best price
       const quotePromises = Array.from({ length: 3 }, (_, i) => 
         fetchSingleQuote(token, i)
       );
 
       const quotes = await Promise.all(quotePromises);
       
-      // Filter out null results and compare output amounts
       const validQuotes: QuoteComparison[] = quotes
         .filter((quote): quote is JupiterQuoteResponse => quote !== null)
         .map((quote, index) => ({
@@ -450,7 +447,6 @@ export function SwapInterface({
         throw new Error(`no valid quotes found for ${token.symbol}`);
       }
 
-      // Sort by output amount (descending) to get the best price
       validQuotes.sort((a, b) => b.outAmount - a.outAmount);
       const bestQuote = validQuotes[0];
       const worstQuote = validQuotes[validQuotes.length - 1];
@@ -459,7 +455,6 @@ export function SwapInterface({
           ? ((bestQuote.outAmount - worstQuote.outAmount) / worstQuote.outAmount) * 100
           : undefined;
       
-      // Log comparison for debugging
       if (validQuotes.length > 1) {
         console.log(`✓ Found ${validQuotes.length} quotes for ${token.symbol}, best quote is ${improvementPct?.toFixed(2)}% better`);
       }
@@ -468,7 +463,6 @@ export function SwapInterface({
 
     } catch (err) {
       console.error(`quote comparison failed for ${token.symbol}:`, err);
-      // Fallback to single quote if multi-quote fails
       const fallbackQuote = await fetchSingleQuote(token, 0);
       if (!fallbackQuote) {
         throw new Error(`failed to fetch quote for ${token.symbol}: ${err instanceof Error ? err.message : 'unknown error'}`);
@@ -701,18 +695,19 @@ export function SwapInterface({
           retryCount++;
           
           if (retryCount > maxRetries) {
-            console.error(`❌ Failed to swap ${token.symbol} after ${maxRetries} attempts:`, err);
-            const errorResult: SwapResult = {
-              symbol: token.symbol,
-              amount: token.liquidationAmount,
-              inputAmount: token.swapAmount,
-              error: err instanceof Error ? err.message : 'unknown error',
-              retryCount
-            };
-            results.push(errorResult);
-            setSwapResults(prev => [...prev, errorResult]);
-          } else {
-          }
+          console.error(`failed to swap ${token.symbol} after ${maxRetries} attempts:`, err);
+          const errorResult: SwapResult = {
+            symbol: token.symbol,
+            mint: token.mint,
+            decimals: token.decimals,
+            amount: token.liquidationAmount,
+            inputAmount: token.swapAmount,
+            error: err instanceof Error ? err.message : 'unknown error',
+            retryCount
+          };
+          results.push(errorResult);
+          setSwapResults(prev => [...prev, errorResult]);
+        }
         }
       }
     }
@@ -847,7 +842,6 @@ export function SwapInterface({
             onClick={(e) => {
               e.stopPropagation();
               navigator.clipboard.writeText(token.mint);
-              // You could add a toast notification here
             }}
             className="p-1.5 hover:bg-gray-600/50 rounded transition-colors mobile-optimized"
             title="Copy mint address"
@@ -1098,7 +1092,6 @@ export function SwapInterface({
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(outputTokenInfo.mint);
-                            // You could add a toast notification here
                           }}
                           className="p-1.5 hover:bg-gray-600/50 rounded transition-colors mobile-optimized"
                           title="Copy mint address"

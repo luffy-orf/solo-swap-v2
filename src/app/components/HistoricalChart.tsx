@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react'; // Add useCallback here
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -61,7 +61,7 @@ export function PortfolioChart({
   liveWalletCount}: PortfolioChartProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('1d');
 
-  const filterDataByTimeRange = (data: PortfolioHistory[]): PortfolioHistory[] => {
+  const filterDataByTimeRange = useCallback((data: PortfolioHistory[]): PortfolioHistory[] => {
     if (data.length === 0) return [];
     
     const now = new Date();
@@ -85,7 +85,7 @@ export function PortfolioChart({
     }
 
     return data.filter(item => item.timestamp >= cutoffDate);
-  };
+  }, [timeRange]); // Don't forget the dependency array!
 
   const formatDate = (date: Date): string => {
     const now = new Date();
@@ -116,7 +116,6 @@ export function PortfolioChart({
     return formattedDate.toLowerCase();
   };
 
-  // Calculate performance for current time range
   const performanceStats = useMemo(() => {
     if (portfolioHistory.length < 2) return null;
 
@@ -133,13 +132,12 @@ export function PortfolioChart({
       percentageChange,
       isPositive: change >= 0
     };
-  }, [portfolioHistory, timeRange]);
+  }, [portfolioHistory, filterDataByTimeRange]);
 
-  // Get chart colors based on performance
   const getChartColors = () => {
     if (!performanceStats) {
       return {
-        borderColor: 'rgb(156, 163, 175)', // gray-400
+        borderColor: 'rgb(156, 163, 175)',
         backgroundColor: 'rgba(156, 163, 175, 0.1)',
         tooltipBorderColor: 'rgba(156, 163, 175, 0.5)'
       };
@@ -147,13 +145,13 @@ export function PortfolioChart({
 
     if (performanceStats.isPositive) {
       return {
-        borderColor: 'rgb(34, 197, 94)', // green-500
+        borderColor: 'rgb(34, 197, 94)',
         backgroundColor: 'rgba(34, 197, 94, 0.1)',
         tooltipBorderColor: 'rgba(34, 197, 94, 0.5)'
       };
     } else {
       return {
-        borderColor: 'rgb(239, 68, 68)', // red-500
+        borderColor: 'rgb(239, 68, 68)',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         tooltipBorderColor: 'rgba(239, 68, 68, 0.5)'
       };

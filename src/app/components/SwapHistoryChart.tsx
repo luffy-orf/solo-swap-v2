@@ -77,12 +77,10 @@ export function SwapHistoryChart({
 }: SwapHistoryChartProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // calculate total liquidation stats
   const liquidationStats = useMemo(() => {
     const totalLiquidated = sellIndicators.reduce((sum, indicator) => sum + indicator.valueUsd, 0);
     const totalSwaps = sellIndicators.length;
     
-    // group by token
     const tokenStats = sellIndicators.reduce((acc, indicator) => {
       if (!acc[indicator.token]) {
         acc[indicator.token] = {
@@ -99,7 +97,6 @@ export function SwapHistoryChart({
     const tokensByValue = Object.values(tokenStats)
       .sort((a, b) => b.totalValue - a.totalValue);
 
-    // calculate daily averages
     const daysWithSwaps = new Set(sellIndicators.map(indicator => 
       new Date(indicator.timestamp).toDateString()
     )).size;
@@ -115,23 +112,21 @@ export function SwapHistoryChart({
     };
   }, [sellIndicators]);
 
-  // sophisticated gray scale colors
   const getMonochromeColors = (count: number) => {
     const colorPalette = [
-      'rgba(255, 255, 255, 0.9)',      // pure white
-      'rgba(229, 231, 235, 0.9)',      // gray-200
-      'rgba(209, 213, 219, 0.9)',      // gray-300
-      'rgba(156, 163, 175, 0.9)',      // gray-400
-      'rgba(107, 114, 128, 0.9)',      // gray-500
-      'rgba(75, 85, 99, 0.9)',         // gray-600
-      'rgba(55, 65, 81, 0.9)',         // gray-700
-      'rgba(31, 41, 55, 0.9)',         // gray-800
+      'rgba(255, 255, 255, 0.9)',
+      'rgba(229, 231, 235, 0.9)',
+      'rgba(209, 213, 219, 0.9)',
+      'rgba(156, 163, 175, 0.9)',
+      'rgba(107, 114, 128, 0.9)',
+      'rgba(75, 85, 99, 0.9)',
+      'rgba(55, 65, 81, 0.9)',
+      'rgba(31, 41, 55, 0.9)',
     ];
 
     return colorPalette.slice(0, count);
   };
 
-  // pie chart data for tokens
   const pieChartData = useMemo(() => {
     const topTokens = liquidationStats.tokensByValue.slice(0, 6);
     const others = liquidationStats.tokensByValue.slice(6);
@@ -173,7 +168,7 @@ export function SwapHistoryChart({
             color: 'rgb(229, 231, 235)',
             font: {
               size: 13,
-              weight: '600',
+              weight: 600,
             },
             padding: 20,
             usePointStyle: true,
@@ -189,11 +184,11 @@ export function SwapHistoryChart({
           bodyColor: 'rgb(255, 255, 255)',
           titleFont: {
             size: 13,
-            weight: '600',
+            weight: 600,
           },
           bodyFont: {
             size: 12,
-            weight: '500',
+            weight: 500,
           },
           padding: 12,
           cornerRadius: 6,
@@ -215,7 +210,6 @@ export function SwapHistoryChart({
     [],
   );
 
-  // format date for display
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
       month: 'short',

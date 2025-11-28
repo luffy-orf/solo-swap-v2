@@ -9,6 +9,8 @@ import {
   where,
   serverTimestamp,
   Timestamp,
+  QueryDocumentSnapshot,
+  DocumentData,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
@@ -37,7 +39,7 @@ export const recordSwapBatch = async (
 
 interface HistoryQueryOptions {
   limit?: number;
-  cursor?: number;
+  cursor?: QueryDocumentSnapshot<DocumentData>;
 }
 
 export const fetchHistoryByWallet = async (
@@ -45,24 +47,28 @@ export const fetchHistoryByWallet = async (
   options: HistoryQueryOptions = {},
 ): Promise<{
   data: SwapBatchRecordWithId[];
-  nextCursor?: number;
+  nextCursor?: QueryDocumentSnapshot<DocumentData>;
 }> => {
   const pageSize = Math.min(options.limit ?? 25, MAX_LIMIT);
   try {
-    const constraints = [
-      where('wallet', '==', wallet),
-      orderBy('timestamp', 'desc'),
-      limit(pageSize),
-    ];
-
+    let historyQuery;
+    
     if (options.cursor) {
-      constraints.push(startAfter(options.cursor));
+      historyQuery = query(
+        collection(db, HISTORY_COLLECTION),
+        where('wallet', '==', wallet),
+        orderBy('timestamp', 'desc'),
+        startAfter(options.cursor),
+        limit(pageSize)
+      );
+    } else {
+      historyQuery = query(
+        collection(db, HISTORY_COLLECTION),
+        where('wallet', '==', wallet),
+        orderBy('timestamp', 'desc'),
+        limit(pageSize)
+      );
     }
-
-    const historyQuery = query(
-      collection(db, HISTORY_COLLECTION),
-      ...constraints,
-    );
 
     const snapshot = await getDocs(historyQuery);
     const records: SwapBatchRecordWithId[] = snapshot.docs.map((doc) => {
@@ -81,7 +87,7 @@ export const fetchHistoryByWallet = async (
 
     const nextCursor =
       snapshot.docs.length === pageSize
-        ? snapshot.docs[snapshot.docs.length - 1].data().timestamp
+        ? snapshot.docs[snapshot.docs.length - 1]
         : undefined;
 
     return { data: records, nextCursor };
@@ -137,4 +143,3 @@ export const fetchHistorySummary = async (
     throw error;
   }
 };
-
