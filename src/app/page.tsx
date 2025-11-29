@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { TokenBalance, PriceProgress } from './types/token';
@@ -16,6 +16,7 @@ import { db } from './lib/firebase';
 import { encryptionService } from './lib/encryption';
 import { HistoricalPortfolio } from './components/ViewHistory';
 import { SwapHistoryPanel } from './components/SwapHistoryPanel';
+import { useColumnState } from './hooks/useColumnState';
 
 import '@solana/wallet-adapter-react-ui/styles.css';
 
@@ -39,6 +40,14 @@ export default function Home() {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [totalToProcess, setTotalToProcess] = useState(0);
   const [currentPortfolioData, setCurrentPortfolioData] = useState<PortfolioHistory[]>([]);
+
+  const {
+    columns,
+    updateColumnWidth,
+    toggleColumnVisibility,
+    reorderColumns,
+    resetColumns,
+  } = useColumnState();
   
   const tokenService = TokenService.getInstance();
 
@@ -65,6 +74,8 @@ export default function Home() {
     }
   }
 };
+
+const columnSettingsTriggerRef = useRef<HTMLButtonElement>(null);
 
 const loadPortfolioHistory = useCallback(async () => {
   if (!publicKey) return;
@@ -306,94 +317,99 @@ secureLog.info('portfolio history updated', {
   useEffect(() => {
   }, [processingProgress, totalToProcess, loading]);
 
-  const renderMainView = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 relative z-10">
-      {/* Token Table */}
-      <div className="lg:col-span-2 order-2 lg:order-1">
-        <div className="bg-gray-800/50 rounded-xl p-4 sm:p-6 relative z-10">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 space-y-3 sm:space-y-0">
-            <h2 className="text-l sm:text-xl font-semibold flex items-center space-x-2">
-              <Wallet className="h-4 w-4 sm:h-5 sm:w-5 ml-3" />
-              <span></span>
-            </h2>
-            
-            <div className="flex items-center justify-between sm:justify-end space-x-2 sm:space-x-4">
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleSelectAll(true)}
-                  className="text-s sm:text-l text-gray-400 hover:text-gray-300 transition-colors px-2 py-1"
-                >
-                  select all
-                </button>
-                <button
-                  onClick={() => handleSelectAll(false)}
-                  className="text-s sm:text-l text-gray-400 hover:text-gray-300 transition-colors px-2 py-1"
-                >
-                  clear all
-                </button>
-              </div>
+const renderMainView = () => (
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 relative z-10">
+    {/* Token Table */}
+    <div className="lg:col-span-2 order-2 lg:order-1">
+      <div className="bg-gray-800/50 rounded-xl p-4 sm:p-6 relative z-10">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 space-y-3 sm:space-y-0">
+          <h2 className="text-l sm:text-xl font-semibold flex items-center space-x-2">
+            <Wallet className="h-4 w-4 sm:h-5 sm:w-5 ml-3" />
+            <span></span>
+          </h2>
+          
+          <div className="flex items-center justify-between sm:justify-end space-x-2 sm:space-x-4">
+            <div className="flex space-x-2">
               <button
-                onClick={fetchTokenBalances}
-                disabled={loading}
-                className="text-xs sm:text-l bg-gray-800 hover:bg-gray-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap mr-2"
+                onClick={() => handleSelectAll(true)}
+                className="text-s sm:text-l text-gray-400 hover:text-gray-300 transition-colors px-2 py-1"
               >
-                {loading ? (
-                <div className="flex items-center space-x-2">
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                </div>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <RefreshCw className="h-4 w-4" />
-                </div>
-              )}
+                select all
+              </button>
+              <button
+                onClick={() => handleSelectAll(false)}
+                className="text-s sm:text-l text-gray-400 hover:text-gray-300 transition-colors px-2 py-1"
+              >
+                clear all
               </button>
             </div>
+            <button
+              onClick={fetchTokenBalances}
+              disabled={loading}
+              className="text-xs sm:text-l bg-gray-800 hover:bg-gray-700 px-2 sm:px-3 py-1 rounded transition-colors disabled:opacity-50 whitespace-nowrap mr-2"
+            >
+              {loading ? (
+              <div className="flex items-center space-x-2">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <RefreshCw className="h-4 w-4" />
+              </div>
+            )}
+            </button>
           </div>
-
-          {error && (
-            <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg text-red-200 text-l">
-              {error}
-            </div>
-          )}
-
-          <TokenTable
-            tokens={tokens}
-            loading={loading}
-            onTokenSelect={handleTokenSelect}
-            onSelectAll={handleSelectAll}
-            selectedTokens={selectedTokens}
-            totalSelectedValue={totalSelectedValue}
-            onRefreshPrices={handleRefreshPrices}
-            processingProgress={processingProgress}
-            totalToProcess={totalToProcess}
-            portfolioHistory={currentPortfolioData}
-            excludeTokenMint={selectedOutputToken}
-          />
         </div>
-      </div>
 
-      <div className="lg:col-span-1 order-1 lg:order-2 mb-4 sm:mb-0">
-  <div className="sticky top-4">
-    <SwapInterface
-      selectedTokens={selectedTokens}
-      totalSelectedValue={totalSelectedValue}
-      allTokens={tokens}
-      onSwapComplete={handleSwapComplete}
-      onOutputTokenChange={handleOutputTokenChange}
-    />
-  </div>
-</div>
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg text-red-200 text-l">
+            {error}
+          </div>
+        )}
+
+        <TokenTable
+          tokens={tokens}
+          loading={loading}
+          onTokenSelect={handleTokenSelect}
+          onSelectAll={handleSelectAll}
+          selectedTokens={selectedTokens}
+          totalSelectedValue={totalSelectedValue}
+          onRefreshPrices={handleRefreshPrices}
+          processingProgress={processingProgress}
+          totalToProcess={totalToProcess}
+          portfolioHistory={currentPortfolioData}
+          excludeTokenMint={selectedOutputToken}
+          // Add these column management props:
+          columns={columns}
+          onUpdateColumnWidth={updateColumnWidth}
+          onToggleColumnVisibility={toggleColumnVisibility}
+          onReorderColumns={reorderColumns}
+          onShowColumnPanel={() => {/* You can add state for this if needed */}}
+          resetColumns={resetColumns}
+        />
+      </div>
     </div>
-  );
+
+    <div className="lg:col-span-1 order-1 lg:order-2 mb-4 sm:mb-0">
+      <div className="sticky top-4">
+        <SwapInterface
+          selectedTokens={selectedTokens}
+          totalSelectedValue={totalSelectedValue}
+          allTokens={tokens}
+          onSwapComplete={handleSwapComplete}
+          onOutputTokenChange={handleOutputTokenChange}
+        />
+      </div>
+    </div>
+  </div>
+);
 
   return (
-  <div className="mobile-full-screen bg-gradient-to-br from-gray-1000 via-black to-black-1000 text-white relative">
-    <div className="mobile-full-screen absolute inset-0 bg-gradient-to-br from-gray-1000/20 via-black to-black-1000/20 pointer-events-none" />
-    <div className="relative z-10 h-full">
-      {/* Mobile-optimized container */}
-      <div className="mobile-container">
+    <div className="w-screen max-w-screen overflow-x-hidden bg-gradient-to-br from-gray-1000 via-black to-black-1000 text-white relative">
+  <div className="w-full max-w-full overflow-x-hidden">
+    <div className="w-full max-w-full overflow-x-hidden">
         <div className="mobile-content">
-          <header className="flex justify-between items-center mb-6 p-4 bg-gray-1000/30 border border-gray-700/50 shadow-lg relative z-40 mobile-full-width">
+          <header className="flex justify-between items-center mb-6 p-4 bg-gray-1000/30 border border-gray-700/50 shadow-lg relative z-40 w-screen max-w-screen overflow-x-hidden">
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-3">
                 <div className="relative">

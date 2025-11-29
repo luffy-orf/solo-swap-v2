@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react'; // Add useCallback here
+import { useState, useMemo, useCallback } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -85,7 +85,7 @@ export function PortfolioChart({
     }
 
     return data.filter(item => item.timestamp >= cutoffDate);
-  }, [timeRange]); // Don't forget the dependency array!
+  }, [timeRange]);
 
   const formatDate = (date: Date): string => {
     const now = new Date();
@@ -161,126 +161,125 @@ export function PortfolioChart({
   const chartColors = getChartColors();
 
   const getChartData = () => {
-    const filteredData = filterDataByTimeRange(portfolioHistory);
-    
-    if (filteredData.length === 0) {
-      return {
-        labels: ['no data available'],
-        datasets: [
-          {
-            label: 'total portfolio value',
-            data: [0],
-            borderColor: chartColors.borderColor,
-            backgroundColor: chartColors.backgroundColor,
-            fill: true,
-            tension: 0.4,
-          },
-        ],
-      };
-    }
-
+  const filteredData = filterDataByTimeRange(portfolioHistory);
+  
+  if (filteredData.length === 0) {
     return {
-       labels: filteredData.map(() => ''),
+      labels: ['no data available'],
       datasets: [
         {
           label: 'total portfolio value',
-          data: filteredData.map(item => item.totalValue),
+          data: [0],
           borderColor: chartColors.borderColor,
           backgroundColor: chartColors.backgroundColor,
-          borderWidth: 3,
           fill: true,
-          tension: 0.4,
-          pointRadius: 0,
-          pointHoverRadius: 0,
-          pointBackgroundColor: 'transparent',
-          pointBorderColor: 'transparent',
-          pointBorderWidth: 0,
-          cubicInterpolationMode: 'monotone' as const,
+          tension: 0,
         },
       ],
     };
+  }
+
+  return {
+    labels: filteredData.map(() => ''),
+    datasets: [
+      {
+        label: 'total portfolio value',
+        data: filteredData.map(item => item.totalValue),
+        borderColor: chartColors.borderColor,
+        backgroundColor: chartColors.backgroundColor,
+        borderWidth: 3,
+        fill: true,
+        tension: 0,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        pointBackgroundColor: 'transparent',
+        pointBorderColor: 'transparent',
+        pointBorderWidth: 0,
+      },
+    ],
   };
+};
 
   const chartOptions: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false,
-      },
-      title: {
-        display: false,
-      },
-      tooltip: {
-        mode: 'index' as const,
-        intersect: false,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        titleColor: 'rgb(156, 163, 175)',
-        bodyColor: 'white',
-        borderColor: chartColors.tooltipBorderColor,
-        borderWidth: 1,
-        callbacks: {
-          label: function(context: TooltipItem<'line'>): string {
-            const value = context.parsed.y ?? 0;
-            return `$${value.toLocaleString(undefined, { 
-              minimumFractionDigits: 2, 
-              maximumFractionDigits: 2 
-            })}`;
-          },
-          title: function(tooltipItems: TooltipItem<'line'>[]): string {
-            const item = portfolioHistory.find(item => 
-              formatDate(item.timestamp) === tooltipItems[0].label
-            );
-            if (item) {
-              return item.timestamp.toLocaleString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-              }).toLowerCase();
-            }
-            return tooltipItems[0].label;
-          }
-        }
-      },
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false,
     },
-    scales: {
-      x: {
-        grid: {
-          color: 'rgba(75, 85, 99, 0.2)',
-        },
-        ticks: {
-          color: 'rgb(156, 163, 175)',
-          maxTicksLimit: 8,
-        },
-      },
-      y: {
-        grid: {
-          color: 'rgba(75, 85, 99, 0.2)',
-        },
-        ticks: {
-          color: 'rgb(156, 163, 175)',
-          callback: function(value: number | string): string {
-            const numericValue = typeof value === 'number' ? value : Number(value);
-            return `$${numericValue.toLocaleString()}`;
-          },
-        },
-        beginAtZero: true,
-      },
+    title: {
+      display: false,
     },
-    interaction: {
-      mode: 'nearest' as const,
-      axis: 'x' as const,
+    tooltip: {
+      mode: 'index' as const,
       intersect: false,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      titleColor: 'rgb(156, 163, 175)',
+      bodyColor: 'white',
+      borderColor: chartColors.tooltipBorderColor,
+      borderWidth: 1,
+      callbacks: {
+        label: function(context: TooltipItem<'line'>): string {
+          const value = context.parsed.y ?? 0;
+          return `$${value.toLocaleString(undefined, { 
+            minimumFractionDigits: 2, 
+            maximumFractionDigits: 2 
+          })}`;
+        },
+        title: function(tooltipItems: TooltipItem<'line'>[]): string {
+          const item = portfolioHistory.find(item => 
+            formatDate(item.timestamp) === tooltipItems[0].label
+          );
+          if (item) {
+            return item.timestamp.toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            }).toLowerCase();
+          }
+          return tooltipItems[0].label;
+        }
+      }
     },
-    elements: {
-      line: {
-        tension: 0.4,
+  },
+  scales: {
+    x: {
+      grid: {
+        color: 'rgba(75, 85, 99, 0.2)',
+      },
+      ticks: {
+        color: 'rgb(156, 163, 175)',
+        maxTicksLimit: 8,
       },
     },
-  };
+    y: {
+      grid: {
+        color: 'rgba(75, 85, 99, 0.2)',
+      },
+      ticks: {
+        color: 'rgb(156, 163, 175)',
+        callback: function(value: number | string): string {
+          const numericValue = typeof value === 'number' ? value : Number(value);
+          return `$${numericValue.toLocaleString()}`;
+        },
+      },
+      beginAtZero: true,
+    },
+  },
+  interaction: {
+    mode: 'nearest' as const,
+    axis: 'x' as const,
+    intersect: false,
+  },
+  elements: {
+    line: {
+      tension: 0,
+    },
+  },
+};
 
   const downloadChartData = () => {
     const csvContent = [

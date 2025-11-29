@@ -3,14 +3,13 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { TokenBalance, PriceProgress } from '../types/token';
 import { TokenService } from '../lib/api';
-import { ArrowUpDown, Search, Image, ChevronDown, ChevronUp, ChevronRight, RefreshCw, Settings, Eye, EyeOff, GripVertical } from 'lucide-react';
+import { ArrowUpDown, Search, Image, ChevronDown, ChevronUp, ChevronRight, RefreshCw, Settings, Eye, EyeOff, GripVertical, X } from 'lucide-react';
 import { LoadingBar } from './LoadingBar';
 import { PortfolioChart } from './HistoricalChart';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, horizontalListSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ColumnConfig, SortField } from '../types/table';
-import { useColumnState } from '../hooks/useColumnState';
 
 interface TokenTableProps {
   tokens: TokenBalance[];
@@ -34,6 +33,12 @@ interface TokenTableProps {
     token: string;
   }>; 
   excludeTokenMint?: string;
+  columns: ColumnConfig[];
+  onUpdateColumnWidth: (columnId: string, width: number) => void;
+  onToggleColumnVisibility: (columnId: string) => void;
+  onReorderColumns: (oldIndex: number, newIndex: number) => void;
+  onShowColumnPanel: () => void;
+  resetColumns?: () => void;
 }
 
 type SortDirection = 'asc' | 'desc';
@@ -119,10 +124,13 @@ function CollapsibleSection({ title, children, defaultOpen = true, className = '
 
 const defaultColumns: ColumnConfig[] = [
   { id: 'select', label: '', width: 60, visible: true, sortable: false, resizable: false, field: 'symbol', configurable: false },
-   { id: 'value', label: 'value', width: 120, visible: true, sortable: true, resizable: true, field: 'value' },
-  { id: 'symbol', label: 'symbol', width: 100, visible: true, sortable: true, resizable: true, field: 'symbol' },
-  { id: 'balance', label: 'quantity', width: 100, visible: true, sortable: true, resizable: true, field: 'balance' },
+  { id: 'symbol', label: 'symbol', width: 120, visible: true, sortable: true, resizable: true, field: 'symbol' },
+  { id: 'source', label: 'source', width: 120, visible: true, sortable: true, resizable: true, field: 'symbol' },
+  { id: 'balance', label: 'quantity', width: 120, visible: true, sortable: true, resizable: true, field: 'balance' },
   { id: 'price', label: 'price', width: 100, visible: true, sortable: true, resizable: true, field: 'USD' },
+  { id: 'value', label: 'value', width: 120, visible: true, sortable: true, resizable: true, field: 'value' },
+  { id: 'percentage', label: 'portfolio %', width: 140, visible: true, sortable: true, resizable: true, field: 'percentage' },
+  { id: 'liquidation', label: 'swap amount', width: 140, visible: true, sortable: false, resizable: true, field: 'value' },
 ];
 
 interface ResizableTableHeaderProps {
@@ -251,6 +259,7 @@ interface ColumnCustomizationPanelProps {
   onReset: () => void;
   isOpen: boolean;
   onClose: () => void;
+  excludeColumns?: string[];
 }
 
 function SortableColumnItem({ column, onToggleVisibility }: { column: ColumnConfig; onToggleVisibility: (id: string) => void }) {
@@ -313,6 +322,110 @@ const sortableKeyboardCoordinates = (event: any, args: any) => {
   }
 };
 
+function ColumnCustomizationPanel({
+  columns,
+  onToggleVisibility,
+  onReorder,
+  onReset,
+  isOpen,
+  onClose,
+  excludeColumns = []
+}: ColumnCustomizationPanelProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 3,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 150,
+        tolerance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = columns.findIndex(col => col.id === active.id);
+      const newIndex = columns.findIndex(col => col.id === over.id);
+      onReorder(oldIndex, newIndex);
+    }
+  };
+
+  const filteredColumns = columns.filter(column => 
+    !excludeColumns.includes(column.id)
+  );
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full my-8">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">settings</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white p-2 rounded-lg transition-colors mobile-optimized"
+            style={{ touchAction: 'manipulation' }}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        
+        <div className="space-y-3 mb-6">
+          <p className="text-sm text-gray-400">
+            drag to reorder columns, toggle visibility with the eye icon
+          </p>
+        </div>
+
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext 
+            items={filteredColumns.map(col => col.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-3">
+              {filteredColumns.map((column) => (
+                <SortableColumnItem
+                  key={column.id}
+                  column={column}
+                  onToggleVisibility={onToggleVisibility}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+
+        <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-700">
+          <button
+            onClick={onReset}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium mobile-optimized"
+            style={{ touchAction: 'manipulation' }}
+          >
+            reset
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gradient-to-r from-gray-600 to-black-600 hover:from-gray-500 hover:to-black-500 rounded-lg transition-colors text-sm font-medium mobile-optimized"
+            style={{ touchAction: 'manipulation' }}
+          >
+            done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TokenTable({ 
   tokens,
   loading, 
@@ -323,7 +436,14 @@ export function TokenTable({
   processingProgress,
   totalToProcess,
   portfolioHistory = [],
-  excludeTokenMint
+  excludeTokenMint,
+  // Add these to the destructuring
+  columns,
+  onUpdateColumnWidth,
+  onToggleColumnVisibility,
+  onReorderColumns,
+  onShowColumnPanel,
+  resetColumns
 }: TokenTableProps) {
   const [sortField, setSortField] = useState<SortField>('value');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -334,14 +454,6 @@ export function TokenTable({
   const [isMounted, setIsMounted] = useState(false);
   const [hideZeroValueTokens, setHideZeroValueTokens] = useState(true);
   
-const {
-    columns,
-    updateColumnWidth,
-    toggleColumnVisibility,
-    reorderColumns,
-    resetColumns,
-   } = useColumnState();
-
   const sensors = useSensors(
   useSensor(PointerSensor, {
     activationConstraint: {
@@ -454,14 +566,13 @@ const {
 
   const isRetryLoading = retryLoading && retryProgress.total > 0;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleHeaderDragEnd = (event: any) => {
+  const handleHeaderDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (active.id !== over.id) {
+    if (over && active.id !== over.id) {
       const oldIndex = columns.findIndex(col => col.id === active.id);
       const newIndex = columns.findIndex(col => col.id === over.id);
-      reorderColumns(oldIndex, newIndex);
+      onReorderColumns(oldIndex, newIndex);
     }
   };
 
@@ -662,7 +773,7 @@ const {
                         <ResizableTableHeader
                           key={column.id}
                           column={column}
-                          onResize={updateColumnWidth}
+                          onResize={onUpdateColumnWidth}
                           onSort={handleSort}
                           sortField={sortField}
                           sortDirection={sortDirection}
@@ -804,7 +915,7 @@ const {
           </div>
         )}
 
-        <div className="sm:hidden text-center text-xs text-gray-500 pt-3 pb-2 border-t border-gray-700/30 mt-2">
+                <div className="sm:hidden text-center text-xs text-gray-500 pt-3 pb-2 border-t border-gray-700/30 mt-2">
           <div className="flex items-center justify-center space-x-2">
             <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
             <span>scroll horizontally to view all columns</span>
@@ -813,10 +924,16 @@ const {
         </div>
 
       </CollapsibleSection>
+
+      <ColumnCustomizationPanel
+        columns={columns}
+        onToggleVisibility={onToggleColumnVisibility}
+        onReorder={onReorderColumns}
+        onReset={resetColumns || (() => {})}
+        isOpen={showColumnPanel}
+        onClose={() => setShowColumnPanel(false)}
+        excludeColumns={['select']}
+      />
     </div>
   );
-}
-
-function reorderColumns(oldIndex: number, newIndex: number) {
-  throw new Error('Function not implemented.');
 }

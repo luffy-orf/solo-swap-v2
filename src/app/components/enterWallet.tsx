@@ -1,15 +1,21 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { PublicKey } from '@solana/web3.js';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { TokenBalance } from '../types/token';
+import { useColumnState } from '../hooks/useColumnState';
+import { TokenTable } from './TokenTable';
 import { TokenService } from '../lib/api';
 import { 
   Search, ExternalLink, Calculator, Copy, CheckCircle, AlertCircle, 
   Wallet, Download, ArrowUpDown, ChevronUp, ChevronDown, HelpCircle,
-  Plus, Trash2, Upload, FileText, Clock, ChevronRight
+  Plus, Trash2, Upload, FileText, Clock, ChevronRight, X, Eye, EyeOff, GripVertical
 } from 'lucide-react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, useSortable, horizontalListSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { 
   collection, doc, setDoc, getDoc, getDocs, deleteDoc, 
   query, orderBy, Timestamp 
@@ -19,6 +25,24 @@ import Papa from 'papaparse';
 import { PortfolioChart } from './HistoricalChart';
 import { encryptionService } from '../lib/encryption';
 import { HistoricalPortfolio } from './ViewHistory';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+
+interface PortalProps {
+  children: React.ReactNode;
+}
+
+export function Portal({ children }: PortalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(children, document.body);
+}
 
 declare global {
   interface Window {
@@ -321,6 +345,237 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
   const [isSearching, setIsSearching] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [targetToken, setTargetToken] = useState<any>(null);
+  const [initialLoad, setInitialLoad] = useState(true);
+
+  const [showColumnPanel, setShowColumnPanel] = useState(false);
+
+interface Column {
+  id: string;
+  label: string;
+  visible: boolean;
+  width?: number;
+}
+
+interface SortableColumnItemProps {
+  column: Column;
+  onToggleVisibility: (columnId: string) => void;
+}
+
+function SortableColumnItem({ column, onToggleVisibility }: SortableColumnItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: column.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg border border-gray-600/50"
+    >
+      <div className="flex items-center space-x-3 flex-1">
+        <button
+          {...attributes}
+          {...listeners}
+          className="p-1 text-gray-400 hover:text-gray-300 cursor-grab active:cursor-grabbing"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <span className="text-sm font-medium text-gray-200">{column.label}</span>
+      </div>
+      <button
+        onClick={() => onToggleVisibility(column.id)}
+        className="p-2 text-gray-400 hover:text-gray-300 transition-colors"
+      >
+        {column.visible ? (
+          <Eye className="h-4 w-4" />
+        ) : (
+          <EyeOff className="h-4 w-4" />
+        )}
+      </button>
+    </div>
+  );
+}
+
+  interface ColumnCustomizationPanelProps {
+  columns: Column[];
+  onToggleVisibility: (columnId: string) => void;
+  onReorder: (oldIndex: number, newIndex: number) => void;
+  onReset: () => void;
+  isOpen: boolean;
+  onClose: () => void;
+  excludeColumns?: string[];
+  triggerElement?: HTMLElement | null;
+}
+
+function ColumnCustomizationPanel({
+  columns,
+  onToggleVisibility,
+  onReorder,
+  onReset,
+  isOpen,
+  onClose,
+  excludeColumns = [],
+  triggerElement
+}: ColumnCustomizationPanelProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (isOpen && triggerElement) {
+      const rect = triggerElement.getBoundingClientRect();
+      setPosition({
+        top: rect.bottom + window.scrollY + 8,
+        left: Math.min(
+          rect.left + window.scrollX,
+          window.innerWidth - 400
+        )
+      });
+    }
+  }, [isOpen, triggerElement]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 3,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 150,
+        tolerance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = '';
+    };
+  }, [isOpen, onClose]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = columns.findIndex(col => col.id === active.id);
+      const newIndex = columns.findIndex(col => col.id === over.id);
+      onReorder(oldIndex, newIndex);
+    }
+  };
+
+  const filteredColumns = columns.filter(column => 
+    !excludeColumns.includes(column.id)
+  );
+
+  if (!isOpen) return null;
+
+  return (
+    <Portal>
+      {/* Remove the centered flex container and use fixed positioning */}
+      <div 
+        className="fixed inset-0 bg-black/50 z-50"
+        style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+      >
+        <div
+          ref={panelRef}
+          className="absolute bg-gray-800 rounded-xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl border border-gray-600"
+          style={{
+            top: `${position.top}px`,
+            left: `${position.left}px`,
+            transform: 'none'
+          }}
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Column Settings</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white p-2 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          
+          <div className="space-y-3 mb-6">
+            <p className="text-sm text-gray-400">
+              Drag to reorder columns, toggle visibility with the eye icon
+            </p>
+          </div>
+
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext 
+              items={filteredColumns.map(col => col.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-3">
+                {filteredColumns.map((column) => (
+                  <SortableColumnItem
+                    key={column.id}
+                    column={column}
+                    onToggleVisibility={onToggleVisibility}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+
+          <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-700">
+            <button
+              onClick={onReset}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium"
+            >
+              Reset to Default
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-500 hover:to-gray-600 rounded-lg transition-colors text-sm font-medium"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    </Portal>
+  );
+}
 
   const searchTokens = async (query: string) => {
     if (!query.trim()) {
@@ -359,6 +614,14 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
       setIsSearching(false);
     }
   };
+
+  useEffect(() => {
+  if (initialLoad && savedWallets.length > 0 && publicKey && !analyzing) {
+    console.log('Auto-analyzing wallets on initial load...');
+    analyzeAllWallets();
+    setInitialLoad(false);
+  }
+}, [initialLoad, savedWallets.length, publicKey, analyzing]);
 
   const [loadingProgress, setLoadingProgress] = useState({
     totalItems: 0,
@@ -811,21 +1074,15 @@ export function MultisigAnalyzer({ onBack }: MultisigAnalyzerProps) {
 };
 
 const analyzeWallet = async (walletAddress: string, nickname?: string | null, isDomain: boolean = false): Promise<AnalysisResult | null> => {
-  setAnalyzing(true);
   setError('');
 
   try {
-
     await new Promise(resolve => setTimeout(resolve, 500));
 
     let tokenBalances: TokenBalance[] = [];
     
     try {
       tokenBalances = await tokenService.getTokenBalances(walletAddress);
-      
-      if (tokenBalances.length === 0) {
-      } else {
-      }
     } catch (balanceError) {
       console.error('failed to fetch token balances:', balanceError);
       throw new Error(`unable to fetch token balances for this wallet. the wallet may be empty or there may be network issues.`);
@@ -872,20 +1129,13 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
       analyzedAt: new Date()
     };
 
-    setResults(prev => {
-      const existingIndex = prev.findIndex(r => r.walletAddress === walletAddress);
-      if (existingIndex >= 0) {
-        const newResults = [...prev];
-        newResults[existingIndex] = result;
-        return newResults;
-      }
-      return [...prev, result];
-    });
 
     await updateWalletLastAnalyzed(walletAddress, totalValue);
 
     if (valuableTokens.length === 0) {
-      setError('no valuable tokens found in this wallet (all non-sol tokens < $0.01 value)');
+      if (savedWallets.length === 1) {
+        setError('no valuable tokens found in this wallet (all non-sol tokens < $0.01 value)');
+      }
     }
 
     return result;
@@ -894,21 +1144,21 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
     const errorMsg = err instanceof Error ? err.message : 'failed to analyze wallet';
     console.error('analysis error:', err);
     
-    if (errorMsg.includes('failed to fetch') || errorMsg.includes('network')) {
-      setError('network error: unable to connect to solana rpc. please check your connection and try again.');
-    } else if (errorMsg.includes('invalid') || errorMsg.includes('validation')) {
-      setError('invalid wallet address or domain');
-    } else if (errorMsg.includes('rate limit') || errorMsg.includes('429')) {
-      setError('rate limited: too many requests. please wait a moment and try again.');
-    } else if (errorMsg.includes('unable to fetch token balances')) {
-      setError(errorMsg);
-    } else {
-      setError(`analysis failed: ${errorMsg}`);
+    if (savedWallets.length === 1) {
+      if (errorMsg.includes('failed to fetch') || errorMsg.includes('network')) {
+        setError('network error: unable to connect to solana rpc. please check your connection and try again.');
+      } else if (errorMsg.includes('invalid') || errorMsg.includes('validation')) {
+        setError('invalid wallet address or domain');
+      } else if (errorMsg.includes('rate limit') || errorMsg.includes('429')) {
+        setError('rate limited: too many requests. please wait a moment and try again.');
+      } else if (errorMsg.includes('unable to fetch token balances')) {
+        setError(errorMsg);
+      } else {
+        setError(`analysis failed: ${errorMsg}`);
+      }
     }
     
     throw err;
-  } finally {
-    setAnalyzing(false);
   }
 };
 
@@ -929,12 +1179,11 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
   });
 
   try {
-    
-    const analysisStartTime = Date.now();
-    let successfulAnalyses = 0;
     let failedAnalyses = 0;
 
-    setResults([]);
+    if (!loadingProgress.isActive) {
+      setResults([]);
+    }
     
     await new Promise(resolve => setTimeout(resolve, 100));
     
@@ -953,7 +1202,6 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
         if (result) {
           newResults.push(result);
         }
-        successfulAnalyses++;
       } catch (err) {
         console.error(`failed to analyze wallet ${wallet.address}:`, err);
         failedAnalyses++;
@@ -982,7 +1230,6 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
 
     if (totalPortfolioValue > 0 && newResults.length > 0) {
       await savePortfolioHistory(totalPortfolioValue, newResults.length, totalTokens);
-    } else {
     }
 
     const event = new CustomEvent('portfolioAnalysisComplete', {
@@ -1065,6 +1312,14 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
     });
   };
 
+  const {
+    columns,
+    updateColumnWidth,
+    toggleColumnVisibility,
+    reorderColumns,
+    resetColumns,
+  } = useColumnState();
+
   const handleSelectAll = (select: boolean) => {
     if (allTokens.length === 0) return;
     
@@ -1075,23 +1330,14 @@ const analyzeWallet = async (walletAddress: string, nickname?: string | null, is
     }
   };
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('desc');
-    }
-  };
-
   const totalPortfolioValue = useMemo(() => {
     return results.reduce((sum, result) => sum + result.totalValue, 0);
   }, [results]);
 
   const sortedTokens = useMemo(() => {
-    if (allTokens.length === 0) return [];
+  if (allTokens.length === 0) return [];
 
-    const sorted = [...allTokens].sort((a, b) => {
+  const sorted = [...allTokens].sort((a, b) => {
       const aPercentage = totalPortfolioValue > 0 ? ((a.value || 0) / totalPortfolioValue * 100) : 0;
       const bPercentage = totalPortfolioValue > 0 ? ((b.value || 0) / totalPortfolioValue * 100) : 0;
 
@@ -1505,31 +1751,6 @@ useEffect(() => {
           <div className="w-20"></div>
         </div>
 
-        {/* Loading Progress */}
-        {loadingProgress.isActive && (
-          <div className=" mobile-full-screen mb-6 bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center space-x-3">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-300"></div>
-              <span>analyzing wallets...</span>
-            </h3>
-            <LoadingBar
-              totalItems={loadingProgress.totalItems}
-              currentProcessed={loadingProgress.currentProcessed}
-              itemType={loadingProgress.itemType}
-              durationPerItem={3000}
-              className="mt-4"
-            />
-            <div className="mt-4 text-sm text-gray-400 text-center">
-              processing wallet {Math.min(loadingProgress.currentProcessed + 1, loadingProgress.totalItems)} of {loadingProgress.totalItems}
-              {loadingProgress.currentProcessed > 0 && (
-                <span className="ml-2 text-gray-300 font-medium">
-                  ({Math.round((loadingProgress.currentProcessed / loadingProgress.totalItems) * 100)}%)
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Instructions Section */}
         <CollapsibleSection 
           title="instructions"
@@ -1726,6 +1947,31 @@ useEffect(() => {
             </button>
           </div>
 
+          {/* Loading Progress */}
+        {loadingProgress.isActive && (
+          <div className=" mobile-full-screen mb-6 bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl p-6">
+            <h3 className="text-lg font-semibold mb-4 flex items-center space-x-3">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-300"></div>
+              <span>analyzing wallets...</span>
+            </h3>
+            <LoadingBar
+              totalItems={loadingProgress.totalItems}
+              currentProcessed={loadingProgress.currentProcessed}
+              itemType={loadingProgress.itemType}
+              durationPerItem={3000}
+              className="mt-4"
+            />
+            <div className="mt-4 text-sm text-gray-400 text-center">
+              processing wallet {Math.min(loadingProgress.currentProcessed + 1, loadingProgress.totalItems)} of {loadingProgress.totalItems}
+              {loadingProgress.currentProcessed > 0 && (
+                <span className="ml-2 text-gray-300 font-medium">
+                  ({Math.round((loadingProgress.currentProcessed / loadingProgress.totalItems) * 100)}%)
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
           {/* Error/Success Messages */}
           {(error || csvUploadError) && (
             <div className={`p-4 rounded-xl border text-sm ${
@@ -1808,7 +2054,7 @@ useEffect(() => {
         {results.length > 0 && (
           <div className="space-y-6">
             {/* Performance Chart */}
-            <CollapsibleSection 
+            {/* <CollapsibleSection 
               title="performance" 
               defaultOpen={true}
               className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl"
@@ -1821,7 +2067,7 @@ useEffect(() => {
                 mode="multisig"
               />
             </CollapsibleSection>
-            
+             */}
             {/* Portfolio Analysis */}
             <CollapsibleSection 
               title="analysis"
@@ -2119,156 +2365,28 @@ useEffect(() => {
                 defaultOpen={true}
                 className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl overflow-hidden"
               >
-                <div className="overflow-x-auto mobile-scroll">
-                     <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleSelectAll(true)}
-                      className="text-xs bg-gray-500 hover:bg-gray-400 text-white px-3 py-2 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-95"
-                    >
-                      select all
-                    </button>
-                    <button
-                      onClick={() => handleSelectAll(false)}
-                      className="text-xs bg-gray-600 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-95"
-                    >
-                      clear all
-                    </button>
-                  </div>
-                  <table className="mt-2 w-full min-w-[800px]">
-                    <thead>
-                      <tr className="border-b border-gray-700/70 bg-gray-800/50 backdrop-blur-sm">
-                        <th className="text-left py-4 px-4 text-sm font-semibold text-gray-200 w-12">
-                        </th>
-                        <th 
-                          className="text-left py-4 px-4 text-sm font-semibold text-gray-200 cursor-pointer hover:bg-gray-700/50 rounded-lg transition-all duration-200 group"
-                          onClick={() => handleSort('symbol')}
-                        >
-                          <div className="flex items-center space-x-2">
-                            <span>token</span>
-                            <SortIcon field="symbol" sortField={sortField} sortDirection={sortDirection} />
-                          </div>
-                        </th>
-                        <th className="text-left py-4 px-4 text-sm font-semibold text-gray-200">
-                          source wallet
-                        </th>
-                        <th 
-                          className="text-right py-4 px-4 text-sm font-semibold text-gray-200 cursor-pointer hover:bg-gray-700/50 rounded-lg transition-all duration-200 group"
-                          onClick={() => handleSort('balance')}
-                        >
-                          <div className="flex items-center justify-end space-x-2">
-                            <span>balance</span>
-                            <SortIcon field="balance" sortField={sortField} sortDirection={sortDirection} />
-                          </div>
-                        </th>
-                        <th className="text-right py-4 px-4 text-sm font-semibold text-gray-200">price</th>
-                        <th 
-                          className="text-right py-4 px-4 text-sm font-semibold text-gray-200 cursor-pointer hover:bg-gray-700/50 rounded-lg transition-all duration-200 group"
-                          onClick={() => handleSort('value')}
-                        >
-                          <div className="flex items-center justify-end space-x-2">
-                            <span>value</span>
-                            <SortIcon field="value" sortField={sortField} sortDirection={sortDirection} />
-                          </div>
-                        </th>
-                        <th 
-                          className="text-right py-4 px-4 text-sm font-semibold text-gray-200 cursor-pointer hover:bg-gray-700/50 rounded-lg transition-all duration-200 group"
-                          onClick={() => handleSort('percentage')}
-                        >
-                          <div className="flex items-center justify-end space-x-2">
-                            <span>portfolio %</span>
-                            <SortIcon field="percentage" sortField={sortField} sortDirection={sortDirection} />
-                          </div>
-                        </th>
-                        {hasLiquidation && (
-                          <th className="text-right py-4 px-4 text-sm font-semibold text-green-400">
-                            swap amount
-                          </th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedTokens.map((token, index) => {
-                        const percentage = totalPortfolioValue > 0 ? ((token.value || 0) / totalPortfolioValue * 100) : 0;
-                        const proRataToken = proRataTokens.find(t => t.mint === token.mint);
-                        const isSelected = selectedTokens.has(token.mint);
-                        
-                        return (
-                          <tr 
-                            key={`${token.mint}-${token.sourceWallet}`} 
-                            className={`border-b border-gray-700/30 hover:bg-gray-700/40 transition-all duration-200 group ${
-                              isSelected ? 'bg-gray-500/10' : index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'
-                            }`}
-                          >
-                            <td className="py-4 px-4">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => handleTokenSelect(token.mint)}
-                                className="rounded-lg bg-gray-700 border-gray-600 text-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-4 h-4 transition-all duration-200"
-                              />
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="flex items-center space-x-3">
-                                {token.logoURI ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={token.logoURI}
-                                    alt={token.symbol}
-                                    className="w-8 h-8 rounded-full"
-                                  />
-                                ) : (
-                                  <div className="w-8 h-8 bg-gradient-to-br from-gray-500 to-gray-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                                    {token.symbol.slice(0, 3)}
-                                  </div>
-                                )}
-                                <div>
-                                  <div className="font-semibold text-sm text-white">{token.symbol}</div>
-                                  <div className="text-xs text-gray-400">{token.name}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="flex items-center space-x-2">
-                                <Wallet className="h-4 w-4 text-gray-400" />
-                                <span className="text-sm text-gray-300 max-w-[120px] truncate">
-                                  {token.sourceNickname}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="text-right py-4 px-4 text-sm font-mono text-gray-200">
-                              {token.uiAmount < 0.0001 ? token.uiAmount.toExponential(2) : token.uiAmount.toLocaleString()}
-                            </td>
-                            <td className="text-right py-4 px-4 text-sm font-mono text-gray-200">
-                              {token.price ? `$${token.price < 0.01 ? token.price.toExponential(2) : token.price.toLocaleString()}` : 'n/a'}
-                            </td>
-                            <td className="text-right py-4 px-4 text-sm font-mono font-semibold text-green-400">
-                              ${(token.value || 0).toLocaleString()}
-                            </td>
-                            <td className="text-right py-4 px-4 text-sm">
-                              <div className="flex items-center justify-end space-x-3">
-                                <div className="w-20 bg-gray-700 rounded-full h-2">
-                                  <div 
-                                    className="bg-gradient-to-r from-gray-400 to-gray-300 h-2 rounded-full transition-all duration-300" 
-                                    style={{ width: `${Math.min(percentage, 100)}%` }}
-                                  />
-                                </div>
-                                <span className="w-12 text-right font-medium text-gray-200">{percentage.toFixed(2)}%</span>
-                              </div>
-                            </td>
-                            {hasLiquidation && proRataToken && (
-                              <td className="text-right py-4 px-4 text-sm font-mono font-semibold text-green-400">
-                                {proRataToken.swapAmount > 0.0001 ? proRataToken.swapAmount.toLocaleString() : proRataToken.swapAmount.toExponential(2)}
-                                <div className="text-xs text-gray-400">
-                                  ${proRataToken.liquidationAmount.toLocaleString()}
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <TokenTable
+                tokens={sortedTokens.map(token => ({
+                  ...token,
+                  selected: selectedTokens.has(token.mint)
+                }))}
+                loading={analyzing}
+                onTokenSelect={(mint, selected) => handleTokenSelect(mint)}
+                onSelectAll={handleSelectAll}
+                selectedTokens={sortedTokens.filter(token => selectedTokens.has(token.mint))}
+                totalSelectedValue={selectedTokensValue}
+                onRefreshPrices={analyzeAllWallets}
+                processingProgress={loadingProgress.currentProcessed}
+                totalToProcess={loadingProgress.totalItems}
+                portfolioHistory={portfolioHistory}
+                excludeTokenMint={targetToken?.mint}
+                columns={columns}
+                onUpdateColumnWidth={updateColumnWidth}
+                onToggleColumnVisibility={toggleColumnVisibility}
+                onReorderColumns={reorderColumns}
+                onShowColumnPanel={() => setShowColumnPanel(true)}
+                resetColumns={resetColumns}
+              />
               </CollapsibleSection>
 
               {/* Portfolio Summary */}
@@ -2337,6 +2455,15 @@ useEffect(() => {
         )}
       </div>
     </div>
+     <ColumnCustomizationPanel
+      columns={columns}
+      onToggleVisibility={toggleColumnVisibility}
+      onReorder={reorderColumns}
+      onReset={resetColumns}
+      isOpen={showColumnPanel}
+      onClose={() => setShowColumnPanel(false)}
+      excludeColumns={['select']}
+    />
   </div>
 );
 }
