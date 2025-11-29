@@ -403,7 +403,6 @@ body {
   position: flex !important;
 }
 
-/* Add these to your existing CSS */
 .mobile-full-screen {
   width: 100vw;
   max-width: 100vw;
@@ -426,20 +425,17 @@ body {
   padding: 0;
 }
 
-/* Ensure no horizontal scroll */
 html, body {
   max-width: 100vw;
   overflow-x: hidden;
   position: relative;
 }
 
-/* Fix for header and main content */
 header, main, footer {
   max-width: 100vw !important;
   width: 100vw !important;
 }
 
-/* Remove any horizontal padding on mobile */
 @media (max-width: 768px) {
   .mobile-full-width {
     width: 100vw !important;

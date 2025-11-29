@@ -437,7 +437,6 @@ export function TokenTable({
   totalToProcess,
   portfolioHistory = [],
   excludeTokenMint,
-  // Add these to the destructuring
   columns,
   onUpdateColumnWidth,
   onToggleColumnVisibility,
