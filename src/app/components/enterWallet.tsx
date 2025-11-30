@@ -1736,7 +1736,7 @@ useEffect(() => {
   };
 
   return (
-  <div className="-mr-8 min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
+  <div className="-mr-12 -ml-4 min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
     <div className="relative z-10">
       <div className="container mx-auto px-4 py-6">
         {/* Enhanced Header */}
@@ -1803,7 +1803,7 @@ useEffect(() => {
           <CollapsibleSection 
             title="last total"
             defaultOpen={true}
-            className="bg-gray-800/30 rounded-xl border border-gray-700/30 mb-6"
+            className="bg-gray-800/30 rounded-xl -mx-4 border border-gray-700/30 mb-6"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -1835,7 +1835,7 @@ useEffect(() => {
         <CollapsibleSection 
           title="manage wallets"
           defaultOpen={true}
-          className="bg-gray-800/30 rounded-xl border border-gray-700/30 mb-6"
+          className="bg-gray-800/30 -mx-4 rounded-xl border border-gray-700/30 mb-6"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="md:col-span-2">
@@ -2048,7 +2048,7 @@ useEffect(() => {
 
         {/* Results Section */}
         {results.length > 0 && (
-          <div className="space-y-6">
+          <div className="space-y-6 -mx-4">
             {/* Analysis Section */}
             <CollapsibleSection 
               title="analysis"
@@ -2120,7 +2120,7 @@ useEffect(() => {
                 <CollapsibleSection 
                   title="liquidation amount"
                   defaultOpen={true}
-                  className="mb-6 bg-gray-700/20 rounded-lg border border-gray-600/30"
+                  className="mb-6 -mx-4 bg-gray-700/20 rounded-lg border border-gray-600/30"
                 >
                   <div className="flex flex-col sm:flex-row gap-4">
                     <div className="flex-1">
@@ -2176,7 +2176,7 @@ useEffect(() => {
                 <CollapsibleSection 
                   title="swap destination"
                   defaultOpen={true}
-                  className="mb-6 bg-gray-700/20 rounded-lg border border-gray-600/30"
+                  className="mb-6 -mx-6 bg-gray-700/20 rounded-lg border border-gray-600/30"
                 >
                   <div className="space-y-4">
                     <div>
@@ -2184,10 +2184,10 @@ useEffect(() => {
                         search token to swap to
                       </label>
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Search className="absolute ml-1 left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                         <input
                           type="text"
-                          placeholder="search by symbol or name (e.g., USDC, SOL, etc.)"
+                          placeholder="search symbol, name (e.g., USDC, SOL, etc.)"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="w-full pl-10 pr-4 py-3 bg-gray-600 border border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm"
@@ -2319,7 +2319,7 @@ useEffect(() => {
               <CollapsibleSection 
                 title={`tokens • ${allTokens.length} total`}
                 defaultOpen={true}
-                className="bg-gray-800/30 rounded-xl border border-gray-700/30 overflow-hidden"
+                className="bg-gray-800/30 -mx-8 rounded-xl border border-gray-700/30 overflow-hidden"
               >
                 <TokenTable
                   tokens={sortedTokens.map(token => ({

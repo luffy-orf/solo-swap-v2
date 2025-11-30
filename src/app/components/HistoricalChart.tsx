@@ -367,7 +367,7 @@ export function PortfolioChart({
       </div>
 
       {/* Chart */}
-      <div className="h-80">
+      <div className="h-80 -mx-4">
         {portfolioHistory.length > 0 ? (
           <Line data={getChartData()} options={chartOptions} />
         ) : (
@@ -383,7 +383,7 @@ export function PortfolioChart({
         )}
       </div>
 
-     {/* Summary Stats - Use Live Data */}
+     {/* Summary Stats */}
     {(livePortfolioValue !== undefined || portfolioHistory.length > 0) && (
       <div className="grid grid-cols-3 gap-2 md:gap-4 mt-4 md:mt-6 pt-4 md:pt-6 border-t border-gray-700">
         <div className="text-center">
