@@ -6,10 +6,11 @@ import { TokenService } from '../lib/api';
 import { ArrowUpDown, Search, Image, ChevronDown, ChevronUp, ChevronRight, RefreshCw, Settings, Eye, EyeOff, GripVertical, X } from 'lucide-react';
 import { LoadingBar } from './LoadingBar';
 import { PortfolioChart } from './HistoricalChart';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor, DragEndEvent } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor } from '@dnd-kit/core';
 import { SortableContext, useSortable, horizontalListSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ColumnConfig, SortField } from '../types/table';
+import { useColumnState } from '../hooks/useColumnState';
 
 interface TokenTableProps {
   tokens: TokenBalance[];
@@ -33,12 +34,6 @@ interface TokenTableProps {
     token: string;
   }>; 
   excludeTokenMint?: string;
-  columns: ColumnConfig[];
-  onUpdateColumnWidth: (columnId: string, width: number) => void;
-  onToggleColumnVisibility: (columnId: string) => void;
-  onReorderColumns: (oldIndex: number, newIndex: number) => void;
-  onShowColumnPanel: () => void;
-  resetColumns?: () => void;
 }
 
 type SortDirection = 'asc' | 'desc';
@@ -123,7 +118,7 @@ function CollapsibleSection({ title, children, defaultOpen = true, className = '
 }
 
 const defaultColumns: ColumnConfig[] = [
-  { id: 'select', label: '', width: 60, visible: true, sortable: false, resizable: false, field: 'symbol', configurable: false },
+  { id: 'select', label: '', width: 60, visible: true, sortable: false, resizable: false, field: 'symbol', configurable: true },
   { id: 'symbol', label: 'symbol', width: 120, visible: true, sortable: true, resizable: true, field: 'symbol' },
   { id: 'source', label: 'source', width: 120, visible: true, sortable: true, resizable: true, field: 'symbol' },
   { id: 'balance', label: 'quantity', width: 120, visible: true, sortable: true, resizable: true, field: 'balance' },
@@ -259,7 +254,6 @@ interface ColumnCustomizationPanelProps {
   onReset: () => void;
   isOpen: boolean;
   onClose: () => void;
-  excludeColumns?: string[];
 }
 
 function SortableColumnItem({ column, onToggleVisibility }: { column: ColumnConfig; onToggleVisibility: (id: string) => void }) {
@@ -322,110 +316,6 @@ const sortableKeyboardCoordinates = (event: any, args: any) => {
   }
 };
 
-function ColumnCustomizationPanel({
-  columns,
-  onToggleVisibility,
-  onReorder,
-  onReset,
-  isOpen,
-  onClose,
-  excludeColumns = []
-}: ColumnCustomizationPanelProps) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 3,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 150,
-        tolerance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      const oldIndex = columns.findIndex(col => col.id === active.id);
-      const newIndex = columns.findIndex(col => col.id === over.id);
-      onReorder(oldIndex, newIndex);
-    }
-  };
-
-  const filteredColumns = columns.filter(column => 
-    !excludeColumns.includes(column.id)
-  );
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full my-8">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">settings</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white p-2 rounded-lg transition-colors mobile-optimized"
-            style={{ touchAction: 'manipulation' }}
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        
-        <div className="space-y-3 mb-6">
-          <p className="text-sm text-gray-400">
-            drag to reorder columns, toggle visibility with the eye icon
-          </p>
-        </div>
-
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext 
-            items={filteredColumns.map(col => col.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="space-y-3">
-              {filteredColumns.map((column) => (
-                <SortableColumnItem
-                  key={column.id}
-                  column={column}
-                  onToggleVisibility={onToggleVisibility}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-
-        <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-700">
-          <button
-            onClick={onReset}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium mobile-optimized"
-            style={{ touchAction: 'manipulation' }}
-          >
-            reset
-          </button>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gradient-to-r from-gray-600 to-black-600 hover:from-gray-500 hover:to-black-500 rounded-lg transition-colors text-sm font-medium mobile-optimized"
-            style={{ touchAction: 'manipulation' }}
-          >
-            done
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function TokenTable({ 
   tokens,
   loading, 
@@ -436,13 +326,7 @@ export function TokenTable({
   processingProgress,
   totalToProcess,
   portfolioHistory = [],
-  excludeTokenMint,
-  columns,
-  onUpdateColumnWidth,
-  onToggleColumnVisibility,
-  onReorderColumns,
-  onShowColumnPanel,
-  resetColumns
+  excludeTokenMint
 }: TokenTableProps) {
   const [sortField, setSortField] = useState<SortField>('value');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -453,6 +337,14 @@ export function TokenTable({
   const [isMounted, setIsMounted] = useState(false);
   const [hideZeroValueTokens, setHideZeroValueTokens] = useState(true);
   
+const {
+    columns,
+    updateColumnWidth,
+    toggleColumnVisibility,
+    reorderColumns,
+    resetColumns,
+   } = useColumnState();
+
   const sensors = useSensors(
   useSensor(PointerSensor, {
     activationConstraint: {
@@ -565,13 +457,14 @@ export function TokenTable({
 
   const isRetryLoading = retryLoading && retryProgress.total > 0;
 
-  const handleHeaderDragEnd = (event: DragEndEvent) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleHeaderDragEnd = (event: any) => {
     const { active, over } = event;
 
-    if (over && active.id !== over.id) {
+    if (active.id !== over.id) {
       const oldIndex = columns.findIndex(col => col.id === active.id);
       const newIndex = columns.findIndex(col => col.id === over.id);
-      onReorderColumns(oldIndex, newIndex);
+      reorderColumns(oldIndex, newIndex);
     }
   };
 
@@ -654,12 +547,12 @@ export function TokenTable({
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 mobile-optimized relative z-10">
+    <div className="space-y-6 -mx-3">
       {portfolioHistory && portfolioHistory.length > 0 && (
         <CollapsibleSection 
           title="performance"
           defaultOpen={true}
-          className="bg-gray-900/30 rounded-2xl border border-gray-1000/30 shadow-xl relative z-10"
+          className="bg-gray-900/30 rounded-xl border border-gray-700/30"
         >
           <PortfolioChart 
             className="w-full"
@@ -675,18 +568,17 @@ export function TokenTable({
       <CollapsibleSection 
         title="search"
         defaultOpen={true}
-        className="bg-gray-900/30 rounded-2xl border border-gray-700/30 shadow-xl relative z-10"
+        className="bg-gray-800/30 rounded-xl border border-gray-700/30"
       >
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 sm:h-5 sm:w-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="text"
               placeholder="search tokens by name or symbol..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="lowercase w-full pl-10 pr-4 py-3 sm:py-3.5 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm sm:text-base placeholder-gray-400 transition-all duration-200 mobile-optimized"
-              style={{ touchAction: 'manipulation' }}
+              className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm placeholder-gray-400"
             />
           </div>
           
@@ -694,16 +586,15 @@ export function TokenTable({
             <button
               onClick={handleRetryFailedTokens}
               disabled={retryLoading}
-              className="px-4 py-3 sm:py-3.5 bg-gradient-to-r from-gray-600/80 to-black-600/80 border border-gray-500/50 rounded-xl hover:from-gray-600 hover:to-black-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-sm font-medium text-white shadow-lg hover:shadow-gray-500/25 mobile-optimized"
-              style={{ touchAction: 'manipulation' }}
+              className="px-4 py-3 bg-gray-600 hover:bg-gray-600 border border-gray-500 rounded-lg disabled:opacity-50 transition-colors text-sm font-medium text-white"
             >
               {retryLoading ? (
-                <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span className="text-xs sm:text-sm">retrying...</span>
+                  <span className="text-sm">retrying...</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4" />
                 </div>
               )}
@@ -712,15 +603,15 @@ export function TokenTable({
         </div>
 
         {selectedTokens.length > 0 && (
-          <div className="bg-gradient-to-r from-gray-700/20 to-gray-600/20 border border-gray-500/30 rounded-xl p-4 mt-4">
-            <div className="flex justify-between items-center text-sm sm:text-base">
+          <div className="bg-gray-700/20 border border-gray-500/30 rounded-lg p-4 mt-4">
+            <div className="flex justify-between items-center text-sm">
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-gradient-to-r from-gray-400 to-gray-400 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                 <span className="text-gray-200 font-medium">
                   {selectedTokens.length} token{selectedTokens.length !== 1 ? 's' : ''} selected
                 </span>
               </div>
-              <span className="text-green-500 font-bold text-lg">
+              <span className="text-green-400 font-bold">
                 ${totalSelectedValue.toFixed(2)}
               </span>
             </div>
@@ -731,7 +622,7 @@ export function TokenTable({
       <CollapsibleSection 
         title={`tokens • ${filteredAndSortedTokens.length} of ${tokens.length}`}
         defaultOpen={true}
-        className="bg-gray-900/30 rounded-2xl border border-gray-700/30 shadow-xl overflow-hidden relative z-10"
+        className="bg-gray-800/30 rounded-xl border border-gray-700/30 overflow-hidden"
       >
         <div className="flex items-center space-x-2">
           <button
@@ -772,7 +663,7 @@ export function TokenTable({
                         <ResizableTableHeader
                           key={column.id}
                           column={column}
-                          onResize={onUpdateColumnWidth}
+                          onResize={updateColumnWidth}
                           onSort={handleSort}
                           sortField={sortField}
                           sortDirection={sortDirection}
@@ -924,15 +815,72 @@ export function TokenTable({
 
       </CollapsibleSection>
 
-      <ColumnCustomizationPanel
-        columns={columns}
-        onToggleVisibility={onToggleColumnVisibility}
-        onReorder={onReorderColumns}
-        onReset={resetColumns || (() => {})}
-        isOpen={showColumnPanel}
-        onClose={() => setShowColumnPanel(false)}
-        excludeColumns={['select']}
-      />
+      {/* ADD THE COLUMN SETTINGS PANEL RIGHT HERE */}
+      {showColumnPanel && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">settings</h3>
+              <button
+                onClick={() => setShowColumnPanel(false)}
+                className="text-gray-400 hover:text-white p-2 rounded-lg transition-colors mobile-optimized"
+                style={{ touchAction: 'manipulation' }}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-3 mb-6">
+              <p className="text-sm text-gray-400">
+                drag to reorder columns, toggle visibility with the eye icon
+              </p>
+            </div>
+
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleHeaderDragEnd}
+            >
+              <SortableContext 
+                items={columns.map(col => col.id)} 
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3">
+                  {columns.map((column) => (
+                    <SortableColumnItem
+                      key={column.id}
+                      column={column}
+                      onToggleVisibility={toggleColumnVisibility}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+
+            <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-700">
+              <button
+                onClick={resetColumns}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium mobile-optimized"
+                style={{ touchAction: 'manipulation' }}
+              >
+                Reset to Default
+              </button>
+              <button
+                onClick={() => setShowColumnPanel(false)}
+                className="px-4 py-2 bg-gradient-to-r from-gray-600 to-black-600 hover:from-gray-500 hover:to-black-500 rounded-lg transition-colors text-sm font-medium mobile-optimized"
+                style={{ touchAction: 'manipulation' }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
     </div>
   );
+}
+
+function reorderColumns(oldIndex: number, newIndex: number) {
+  throw new Error('Function not implemented.');
 }

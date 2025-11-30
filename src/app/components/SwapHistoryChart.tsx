@@ -380,7 +380,7 @@ export function SwapHistoryChart({
             <div className="bg-gray-900 border border-gray-700 rounded-lg sm:rounded-xl p-3 sm:p-4 hover:border-green-500/50 transition-colors">
               <div className="flex items-center space-x-2 mb-2 sm:mb-3">
                 <Coins className="h-4 w-4 text-green-400" />
-                <span className="text-xs font-semibold text-gray-300 tracking-wide">liquidated to usdc</span>
+                <span className="text-xs font-semibold text-gray-300 tracking-wide">pro-rata to usdc</span>
               </div>
               <div className="text-lg sm:text-xl font-bold text-green-400">
                 ${combinedStats.totalLiquidated.toLocaleString(undefined, {
@@ -397,7 +397,7 @@ export function SwapHistoryChart({
             <div className="bg-gray-900 border border-gray-700 rounded-lg sm:rounded-xl p-3 sm:p-4 hover:border-blue-500/50 transition-colors">
               <div className="flex items-center space-x-2 mb-2 sm:mb-3">
                 <RefreshCw className="h-4 w-4 text-blue-400" />
-                <span className="text-xs font-semibold text-gray-300 tracking-wide">swapped pro-rata</span>
+                <span className="text-xs font-semibold text-gray-300 tracking-wide">pro-rata to other</span>
               </div>
               <div className="text-lg sm:text-xl font-bold text-blue-400">
                 ${combinedStats.totalSwapped.toLocaleString(undefined, {
@@ -413,7 +413,7 @@ export function SwapHistoryChart({
             <div className="bg-gray-900 border border-gray-700 rounded-lg sm:rounded-xl p-3 sm:p-4 hover:border-gray-500 transition-colors">
               <div className="flex items-center space-x-2 mb-2 sm:mb-3">
                 <ArrowRightLeft className="h-4 w-4 text-white" />
-                <span className="text-xs font-semibold text-gray-300 tracking-wide">total transactions</span>
+                <span className="text-xs font-semibold text-gray-300 tracking-wide">total txs</span>
               </div>
               <div className="text-lg sm:text-xl font-bold text-white">
                 {combinedStats.totalTransactions}
@@ -439,7 +439,7 @@ export function SwapHistoryChart({
                   <div className="p-2 bg-green-500/20 rounded-lg border border-green-500/30">
                     <Coins className="h-5 w-5 text-green-400" />
                   </div>
-                  <h3 className="text-base font-bold text-white">liquidated to USDC</h3>
+                  <h3 className="text-base font-bold text-white">pro-rata to usdc</h3>
                 </div>
                 <div className="h-64">
                   <Pie data={liquidationPieData} options={pieChartOptions} />
@@ -459,7 +459,7 @@ export function SwapHistoryChart({
                   <div className="p-2 bg-blue-500/20 rounded-lg border border-blue-500/30">
                     <RefreshCw className="h-5 w-5 text-blue-400" />
                   </div>
-                  <h3 className="text-base font-bold text-white">swapped pro-rata</h3>
+                  <h3 className="text-base font-bold text-white">pro-rata to other</h3>
                 </div>
                 <div className="h-64">
                   <Pie data={swapPieData} options={pieChartOptions} />

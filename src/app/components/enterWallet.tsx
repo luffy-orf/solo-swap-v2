@@ -506,7 +506,6 @@ function ColumnCustomizationPanel({
 
   return (
     <Portal>
-      {/* Remove the centered flex container and use fixed positioning */}
       <div 
         className="fixed inset-0 bg-black/50 z-50"
         style={{ top: 0, left: 0, right: 0, bottom: 0 }}
@@ -1737,15 +1736,12 @@ useEffect(() => {
   };
 
   return (
- <div className="min-h-screen text-white relative overflow-hidden">
-  {/* Keep the overlay but make it more transparent too */}
-  <div className="absolute inset-0 pointer-events-none" />
-  
-  <div className="relative z-10 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
+  <div className="-mr-8 min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
+    <div className="relative z-10">
+      <div className="container mx-auto px-4 py-6">
         {/* Enhanced Header */}
-        <div className="flex items-center justify-between mb-6 sm:mb-8 p-4 sm:p-5 bg-gray-800/30 rounded-2xl backdrop-blur-xl border border-gray-700/50 shadow-lg">
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-300 via-gray-200 to-gray-300 bg-clip-text text-transparent tracking-tight">
+        <div className="flex items-center justify-between mb-8 p-4 bg-gray-800/30 rounded-xl border border-gray-700/50">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-300 to-gray-100 bg-clip-text text-transparent">
             solo: shop
           </h1>
           <div className="w-20"></div>
@@ -1755,7 +1751,7 @@ useEffect(() => {
         <CollapsibleSection 
           title="instructions"
           defaultOpen={true}
-          className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl mb-6"
+          className="bg-gray-800/30 rounded-xl border border-gray-700/30 mb-6"
         >
           <div className="flex items-start justify-between">
             <p className="text-sm text-gray-300 flex-1 leading-relaxed">
@@ -1763,16 +1759,16 @@ useEffect(() => {
             </p>
             <button
               onClick={() => setShowHelp(!showHelp)}
-              className="ml-4 p-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-xl transition-all duration-200 active:scale-95"
+              className="ml-4 p-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg transition-colors"
             >
               <HelpCircle className="h-5 w-5 text-gray-400 hover:text-gray-300" />
             </button>
           </div>
           
           {showHelp && (
-            <div className="mt-4 p-4 bg-gradient-to-r from-gray-500/15 to-gray-400/15 border border-gray-500/30 rounded-xl backdrop-blur-sm">
+            <div className="mt-4 p-4 bg-gray-700/20 border border-gray-600/30 rounded-lg">
               <h4 className="font-semibold text-sm mb-3 text-gray-400">how to use:</h4>
-              <ul className="text-sm text-gray-300 space-y-2 lowercase">
+              <ul className="text-sm text-gray-300 space-y-2">
                 <li className="flex items-center space-x-2">
                   <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
                   <span>add individual wallets or upload a csv with multiple addresses</span>
@@ -1807,17 +1803,17 @@ useEffect(() => {
           <CollapsibleSection 
             title="last total"
             defaultOpen={true}
-            className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl mb-6"
+            className="bg-gray-800/30 rounded-xl border border-gray-700/30 mb-6"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gradient-to-br from-gray-500/20 to-gray-600/20 rounded-xl border border-gray-500/30">
+                <div className="p-2 bg-gray-600/20 rounded-lg border border-gray-500/30">
                   <Clock className="h-5 w-5 text-gray-400" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-sm text-gray-200">last loaded total</h3>
+                  <h3 className="font-medium text-sm text-gray-200">last total</h3>
                   <p className="text-xs text-gray-400">
-                    based on previous analysis of {savedWallets.length} wallet{savedWallets.length > 1 ? 's' : ''}
+                    {savedWallets.length} wallet{savedWallets.length > 1 ? 's' : ''}
                   </p>
                 </div>
               </div>
@@ -1839,7 +1835,7 @@ useEffect(() => {
         <CollapsibleSection 
           title="manage wallets"
           defaultOpen={true}
-          className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl mb-6"
+          className="bg-gray-800/30 rounded-xl border border-gray-700/30 mb-6"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="md:col-span-2">
@@ -1854,7 +1850,7 @@ useEffect(() => {
                   value={walletInput}
                   onChange={(e) => setWalletInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && addWallet()}
-                  className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm placeholder-gray-400 transition-all duration-200"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm placeholder-gray-400"
                 />
               </div>
               <div className="flex flex-wrap gap-2 mt-3">
@@ -1863,7 +1859,7 @@ useEffect(() => {
                   <button
                     key={domain}
                     onClick={() => setWalletInput(`example${domain}`)}
-                    className="text-xs text-gray-400 hover:text-gray-300 transition-colors px-2 py-1 bg-gray-500/10 hover:bg-gray-500/20 rounded-lg"
+                    className="text-xs text-gray-400 hover:text-gray-300 transition-colors px-2 py-1 bg-gray-500/10 hover:bg-gray-500/20 rounded"
                   >
                     {domain}
                   </button>
@@ -1879,7 +1875,7 @@ useEffect(() => {
                 placeholder="my treasury"
                 value={walletNickname}
                 onChange={(e) => setWalletNickname(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm transition-all duration-200"
+                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm"
               />
             </div>
           </div>
@@ -1890,7 +1886,7 @@ useEffect(() => {
             <button
               onClick={addWallet}
               disabled={addingWallet || analyzing || !walletInput.trim()}
-              className="flex items-center justify-center sm:justify-start space-x-2 bg-gradient-to-r from-gray-600 to-gray-500 hover:from-gray-500 hover:to-gray-400 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-3 rounded-2xl transition-transform duration-200 active:scale-95 text-sm font-semibold shadow-md hover:shadow-lg text-white w-full sm:w-auto"
+              className="flex items-center justify-center sm:justify-start space-x-2 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-3 rounded-lg transition-colors text-sm font-medium text-white w-full sm:w-auto"
             >
               {addingWallet ? (
                 <>
@@ -1909,7 +1905,7 @@ useEffect(() => {
             <button
               onClick={analyzeAllWallets}
               disabled={analyzing || savedWallets.length === 0 || loadingProgress.isActive}
-              className="flex items-center justify-center sm:justify-start space-x-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-500 hover:to-gray-600 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-3 rounded-2xl transition-transform duration-200 active:scale-95 text-sm font-semibold shadow-md hover:shadow-lg text-white w-full sm:w-auto"
+              className="flex items-center justify-center sm:justify-start space-x-2 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-3 rounded-lg transition-colors text-sm font-medium text-white w-full sm:w-auto"
             >
               {loadingProgress.isActive ? (
                 <>
@@ -1925,7 +1921,7 @@ useEffect(() => {
             </button>
 
             {/* Upload CSV */}
-            <label className="flex items-center justify-center sm:justify-start space-x-2 bg-gray-500 hover:bg-gray-400 px-5 py-3 rounded-2xl transition-transform duration-200 active:scale-95 text-sm font-medium shadow-sm hover:shadow-md text-gray-800 cursor-pointer w-full sm:w-auto">
+            <label className="flex items-center justify-center sm:justify-start space-x-2 bg-gray-500 hover:bg-gray-400 px-5 py-3 rounded-lg transition-colors text-sm font-medium text-gray-800 cursor-pointer w-full sm:w-auto">
               <Upload className="h-4 w-4" />
               <span>upload csv</span>
               <input
@@ -1940,7 +1936,7 @@ useEffect(() => {
             {/* Download Template */}
             <button
               onClick={downloadCsvTemplate}
-              className="flex items-center justify-center sm:justify-start space-x-2 bg-gray-500 hover:bg-gray-400 px-5 py-3 rounded-2xl transition-transform duration-200 active:scale-95 text-sm font-medium shadow-sm hover:shadow-md text-gray-800 cursor-pointer w-full sm:w-auto"
+              className="flex items-center justify-center sm:justify-start space-x-2 bg-gray-500 hover:bg-gray-400 px-5 py-3 rounded-lg transition-colors text-sm font-medium text-gray-800 cursor-pointer w-full sm:w-auto"
             >
               <FileText className="h-4 w-4" />
               <span>template</span>
@@ -1948,33 +1944,33 @@ useEffect(() => {
           </div>
 
           {/* Loading Progress */}
-        {loadingProgress.isActive && (
-          <div className=" mobile-full-screen mb-6 bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center space-x-3">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-300"></div>
-              <span>analyzing wallets...</span>
-            </h3>
-            <LoadingBar
-              totalItems={loadingProgress.totalItems}
-              currentProcessed={loadingProgress.currentProcessed}
-              itemType={loadingProgress.itemType}
-              durationPerItem={3000}
-              className="mt-4"
-            />
-            <div className="mt-4 text-sm text-gray-400 text-center">
-              processing wallet {Math.min(loadingProgress.currentProcessed + 1, loadingProgress.totalItems)} of {loadingProgress.totalItems}
-              {loadingProgress.currentProcessed > 0 && (
-                <span className="ml-2 text-gray-300 font-medium">
-                  ({Math.round((loadingProgress.currentProcessed / loadingProgress.totalItems) * 100)}%)
-                </span>
-              )}
+          {loadingProgress.isActive && (
+            <div className="mb-6 bg-gray-800/30 rounded-xl border border-gray-700/30 p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center space-x-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-300"></div>
+                <span>analyzing wallets...</span>
+              </h3>
+              <LoadingBar
+                totalItems={loadingProgress.totalItems}
+                currentProcessed={loadingProgress.currentProcessed}
+                itemType={loadingProgress.itemType}
+                durationPerItem={3000}
+                className="mt-4"
+              />
+              <div className="mt-4 text-sm text-gray-400 text-center">
+                processing wallet {Math.min(loadingProgress.currentProcessed + 1, loadingProgress.totalItems)} of {loadingProgress.totalItems}
+                {loadingProgress.currentProcessed > 0 && (
+                  <span className="ml-2 text-gray-300 font-medium">
+                    ({Math.round((loadingProgress.currentProcessed / loadingProgress.totalItems) * 100)}%)
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
           {/* Error/Success Messages */}
           {(error || csvUploadError) && (
-            <div className={`p-4 rounded-xl border text-sm ${
+            <div className={`p-4 rounded-lg border text-sm ${
               error.includes('✅') || csvUploadError.includes('successfully imported') || csvUploadError.includes('added') 
                 ? 'bg-green-500/20 border-green-500/50 text-green-200'
                 : 'bg-red-500/20 border-red-500/50 text-red-200'
@@ -1997,14 +1993,14 @@ useEffect(() => {
                 <Wallet className="h-4 w-4 text-gray-400" />
                 <span>saved wallets ({savedWallets.length})</span>
               </h4>
-              <div className="space-y-3 max-h-60 overflow-y-auto mobile-scroll pr-2 -mr-2">
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
                 {savedWallets.map((wallet) => (
                   <div
                     key={wallet.id}
-                    className="flex items-center justify-between p-4 bg-gray-700/30 rounded-xl border border-gray-600/50 hover:bg-gray-700/50 hover:border-gray-500/50 transition-all duration-200 group"
+                    className="flex items-center justify-between p-4 bg-gray-700/30 rounded-lg border border-gray-600/50 hover:bg-gray-700/50 transition-colors group"
                   >
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <div className="p-2 bg-gradient-to-br from-gray-500/20 to-gray-400/20 rounded-lg border border-gray-500/30">
+                      <div className="p-2 bg-gray-600/20 rounded border border-gray-500/30">
                         <Wallet className="h-4 w-4 text-gray-400" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -2022,7 +2018,7 @@ useEffect(() => {
                         )}
                         {wallet.lastAnalyzed && (
                           <div className="text-xs text-gray-500 flex items-center space-x-1 mt-1">
-                            <Clock className="h-3 w-3 lowercase" />
+                            <Clock className="h-3 w-3" />
                             <span>last analyzed: {formatTimestamp(wallet.lastAnalyzed)}</span>
                           </div>
                         )}
@@ -2032,13 +2028,13 @@ useEffect(() => {
                       <button
                         onClick={() => analyzeWallet(wallet.address, wallet.nickname, wallet.isDomain)}
                         disabled={analyzing}
-                        className="p-2 bg-gray-500/20 hover:bg-gray-400/30 border border-gray-500/30 hover:border-gray-400/50 rounded-lg transition-all duration-200 text-gray-300 hover:text-gray-100 disabled:opacity-50"
+                        className="p-2 bg-gray-500/20 hover:bg-gray-400/30 border border-gray-500/30 rounded transition-colors text-gray-300 hover:text-gray-100 disabled:opacity-50"
                       >
                         <Calculator className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => deleteWalletFromFirestore(wallet.id)}
-                        className="p-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 hover:border-red-500/50 rounded-lg transition-all duration-200 text-red-400 hover:text-red-300"
+                        className="p-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded transition-colors text-red-400 hover:text-red-300"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -2053,26 +2049,11 @@ useEffect(() => {
         {/* Results Section */}
         {results.length > 0 && (
           <div className="space-y-6">
-            {/* Performance Chart */}
-            {/* <CollapsibleSection 
-              title="performance" 
-              defaultOpen={true}
-              className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl"
-            >
-              <PortfolioChart 
-                portfolioHistory={portfolioHistory}
-                livePortfolioValue={totalPortfolioValue}
-                liveTokenCount={allTokens.length}
-                liveWalletCount={results.length}
-                mode="multisig"
-              />
-            </CollapsibleSection>
-             */}
-            {/* Portfolio Analysis */}
+            {/* Analysis Section */}
             <CollapsibleSection 
               title="analysis"
               defaultOpen={true}
-              className="mobile-full-screen bg-gray-800/30 backdrop-blur-sm border border-gray-700/30 shadow-xl"
+              className="bg-gray-800/30 border border-gray-700/30"
             >
               <div className="flex justify-between items-start mb-6">
                 <div>
@@ -2082,7 +2063,7 @@ useEffect(() => {
                       ${totalPortfolioValue.toLocaleString()}
                     </span>
                     {results[0]?.analyzedAt && (
-                      <span className="text-gray-400 ml-2 lowercase">
+                      <span className="text-gray-400 ml-2">
                         • updated: {formatTimestamp(results[0].analyzedAt)}
                       </span>
                     )}
@@ -2090,40 +2071,12 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* Portfolio History Summary */}
-              {/* {portfolioHistory.length > 0 && (
-                <div className="mb-6 p-4 bg-gradient-to-r from-gray-500/15 to-cyan-500/15 border border-gray-500/30 rounded-xl backdrop-blur-sm">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <Clock className="h-4 w-4 text-gray-400" />
-                    <h3 className="font-medium text-sm text-gray-400">portfolio history</h3>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <div className="text-gray-400 text-xs font-medium mb-1">records</div>
-                      <div className="text-gray-400 font-semibold">{portfolioHistory.length}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-400 text-xs font-medium mb-1">first record</div>
-                      <div className="text-gray-400 font-semibold lowercase">
-                        {formatTimestamp(portfolioHistory[0]?.timestamp)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gray-400 text-xs font-medium mb-1">refreshed on</div>
-                      <div className="text-gray-400 font-semibold lowercase">
-                        {formatTimestamp(portfolioHistory[portfolioHistory.length - 1]?.timestamp)}
-                      </div>
-                    </div>
-                  </div>
-                </div> */}
-              {/* )} */}
-
               {/* Wallet Cards Grid */}
-              <div className="mobile-full-screen grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 {results
                   .sort((a, b) => b.totalValue - a.totalValue)
                   .map((result) => (
-                    <div key={result.walletAddress} className="bg-gradient-to-br from-gray-700/30 to-gray-800/30 backdrop-blur-sm rounded-xl p-4 border border-gray-600/50 hover:border-gray-500/50 transition-all duration-200">
+                    <div key={result.walletAddress} className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/50 hover:border-gray-500/50 transition-colors">
                       <div className="flex justify-between items-start">
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium text-sm text-white truncate">
@@ -2152,7 +2105,7 @@ useEffect(() => {
               </div>
 
               {allTokens.length > 0 && (
-                <div className="mb-6 flex items-center justify-between p-4 bg-gray-700/30 rounded-xl border border-gray-600/50">
+                <div className="mb-6 flex items-center justify-between p-4 bg-gray-700/30 rounded-lg border border-gray-600/50">
                   <div className="flex items-center space-x-4">
                     {selectedTokens.size > 0 && (
                       <span className="text-sm text-gray-400 font-medium">
@@ -2160,23 +2113,23 @@ useEffect(() => {
                       </span>
                     )}
                   </div>
-               
                 </div>
               )}
+
               {selectedTokens.size > 0 && (
                 <CollapsibleSection 
                   title="liquidation amount"
                   defaultOpen={true}
-                  className="mb-6 bg-gray-700/20 rounded-xl border border-gray-600/30"
+                  className="mb-6 bg-gray-700/20 rounded-lg border border-gray-600/30"
                 >
                   <div className="flex flex-col sm:flex-row gap-4">
                     <div className="flex-1">
                       <div className="flex space-x-2 mb-3">
                         <button
                           onClick={() => setLiquidationType('percentage')}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                          className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                             liquidationType === 'percentage' 
-                              ? 'bg-gradient-to-r from-gray-600 to-gray-500 text-white shadow-lg shadow-gray-500/25' 
+                              ? 'bg-gray-600 text-white' 
                               : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                           }`}
                         >
@@ -2184,9 +2137,9 @@ useEffect(() => {
                         </button>
                         <button
                           onClick={() => setLiquidationType('dollar')}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                          className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                             liquidationType === 'dollar' 
-                              ? 'bg-gradient-to-r from-gray-600 to-gray-500 text-white shadow-lg shadow-gray-500/25' 
+                              ? 'bg-gray-600 text-white' 
                               : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                           }`}
                         >
@@ -2199,7 +2152,7 @@ useEffect(() => {
                           placeholder={liquidationType === 'percentage' ? 'enter percentage...' : 'enter dollar amount...'}
                           value={liquidationAmount}
                           onChange={(e) => setLiquidationAmount(e.target.value)}
-                          className="w-full pl-4 pr-12 py-3 bg-gray-600 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm transition-all duration-200"
+                          className="w-full pl-4 pr-12 py-3 bg-gray-600 border border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm"
                         />
                         <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
                           {liquidationType === 'percentage' ? '%' : '$'}
@@ -2218,13 +2171,14 @@ useEffect(() => {
                   </div>
                 </CollapsibleSection>
               )}
+
               {selectedTokens.size > 0 && (
                 <CollapsibleSection 
                   title="swap destination"
                   defaultOpen={true}
-                  className="mb-6 bg-gray-700/20 rounded-xl border border-gray-600/30"
+                  className="mb-6 bg-gray-700/20 rounded-lg border border-gray-600/30"
                 >
-                  <div className="space-y-4" data-search-area>
+                  <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium mb-2 text-gray-200">
                         search token to swap to
@@ -2236,7 +2190,7 @@ useEffect(() => {
                           placeholder="search by symbol or name (e.g., USDC, SOL, etc.)"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 bg-gray-600 border border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm transition-all duration-200"
+                          className="w-full pl-10 pr-4 py-3 bg-gray-600 border border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm"
                         />
                         {isSearching && (
                           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -2247,7 +2201,7 @@ useEffect(() => {
                       
                       {/* Search Results Dropdown */}
                       {searchResults.length > 0 && (
-                        <div className="mt-2 max-h-60 overflow-y-auto bg-gray-700 border border-gray-600 rounded-xl shadow-lg">
+                        <div className="mt-2 max-h-60 overflow-y-auto bg-gray-700 border border-gray-600 rounded-lg shadow-lg">
                           {searchResults.map((token) => (
                             <button
                               key={token.mint}
@@ -2256,7 +2210,7 @@ useEffect(() => {
                                 setSearchResults([]);
                                 setSearchQuery(token.symbol);
                               }}
-                              className="w-full flex items-center space-x-3 p-3 hover:bg-gray-600 transition-colors duration-200 text-left"
+                              className="w-full flex items-center space-x-3 p-3 hover:bg-gray-600 transition-colors text-left"
                             >
                               {token.logoURI ? (
                                 // eslint-disable-next-line @next/next/no-img-element
@@ -2266,7 +2220,7 @@ useEffect(() => {
                                   className="w-6 h-6 rounded-full"
                                 />
                               ) : (
-                                <div className="w-6 h-6 bg-gradient-to-br from-gray-500 to-gray-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
                                   {token.symbol.slice(0, 3)}
                                 </div>
                               )}
@@ -2282,51 +2236,53 @@ useEffect(() => {
                         </div>
                       )}
                     </div>
-                      {selectedTokens.size > 0 && (
-                        <CollapsibleSection 
-                          title="shopping list actions"
-                          defaultOpen={true}
-                          className="mb-6 mt-6 bg-gray-700/20 rounded-xl border border-gray-600/30"
-                        >
-                          <div className="flex flex-wrap gap-3">
-                            <button
-                              onClick={copyShoppingList}
-                              disabled={!selectedTokens.size}
-                              className="flex items-center space-x-2 bg-gradient-to-r from-gray-600 to-gray-500 hover:from-gray-500 hover:to-gray-400 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-sm font-medium shadow-lg hover:shadow-gray-500/25"
-                            >
-                              {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                              <span>{copied ? 'copied!' : 'copy shopping list'}</span>
-                            </button>
-                            <button
-                              onClick={downloadShoppingList}
-                              disabled={!selectedTokens.size}
-                              className="flex items-center space-x-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-500 hover:to-gray-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-95 text-sm font-medium shadow-lg hover:shadow-gray-500/25"
-                            >
-                              <Download className="h-4 w-4" />
-                              <span>download txt</span>
-                            </button>
-                          </div>
-                          
-                          {/* Preview of what will be included */}
-                          {selectedTokens.size > 0 && (
-                            <div className="mt-4 p-4 bg-gray-600/30 rounded-xl border border-gray-500/30">
-                              <h4 className="text-sm font-medium text-gray-200 mb-2">shopping list preview:</h4>
-                              <div className="text-xs text-gray-400 space-y-1">
-                                <div>• {selectedTokens.size} selected tokens from {results.length} wallets</div>
-                                <div>• total value: ${selectedTokensValue.toLocaleString()}</div>
-                                {targetToken && (
-                                  <div>• swapping to: {targetToken.symbol} ({targetToken.name})</div>
-                                )}
-                                {hasLiquidation && (
-                                  <div>• Liquidating: ${liquidationValue.toLocaleString()} ({((liquidationValue / selectedTokensValue) * 100).toFixed(1)}% of selected)</div>
-                                )}
-                              </div>
+
+                    {selectedTokens.size > 0 && (
+                      <CollapsibleSection 
+                        title="shopping list actions"
+                        defaultOpen={true}
+                        className="mb-6 mt-6 bg-gray-700/20 rounded-lg border border-gray-600/30"
+                      >
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            onClick={copyShoppingList}
+                            disabled={!selectedTokens.size}
+                            className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 rounded-lg transition-colors text-sm font-medium"
+                          >
+                            {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                            <span>{copied ? 'copied!' : 'copy shopping list'}</span>
+                          </button>
+                          <button
+                            onClick={downloadShoppingList}
+                            disabled={!selectedTokens.size}
+                            className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-3 rounded-lg transition-colors text-sm font-medium"
+                          >
+                            <Download className="h-4 w-4" />
+                            <span>download txt</span>
+                          </button>
+                        </div>
+                        
+                        {/* Preview of what will be included */}
+                        {selectedTokens.size > 0 && (
+                          <div className="mt-4 p-4 bg-gray-600/30 rounded-lg border border-gray-500/30">
+                            <h4 className="text-sm font-medium text-gray-200 mb-2">shopping list preview:</h4>
+                            <div className="text-xs text-gray-400 space-y-1">
+                              <div>• {selectedTokens.size} selected tokens from {results.length} wallets</div>
+                              <div>• total value: ${selectedTokensValue.toLocaleString()}</div>
+                              {targetToken && (
+                                <div>• swapping to: {targetToken.symbol} ({targetToken.name})</div>
+                              )}
+                              {hasLiquidation && (
+                                <div>• Liquidating: ${liquidationValue.toLocaleString()} ({((liquidationValue / selectedTokensValue) * 100).toFixed(1)}% of selected)</div>
+                              )}
                             </div>
-                          )}
-                        </CollapsibleSection>
-                      )}
+                          </div>
+                        )}
+                      </CollapsibleSection>
+                    )}
+
                     {targetToken && (
-                      <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-500/15 to-gray-400/15 border border-gray-500/30 rounded-xl">
+                      <div className="flex items-center justify-between p-3 bg-gray-600/20 border border-gray-500/30 rounded-lg">
                         <div className="flex items-center space-x-3">
                           {targetToken.logoURI ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -2336,7 +2292,7 @@ useEffect(() => {
                               className="w-8 h-8 rounded-full"
                             />
                           ) : (
-                            <div className="w-8 h-8 bg-gradient-to-br from-gray-500 to-gray-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                            <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
                               {targetToken.symbol.slice(0, 3)}
                             </div>
                           )}
@@ -2350,7 +2306,7 @@ useEffect(() => {
                             setTargetToken(null);
                             setSearchQuery('');
                           }}
-                          className="p-1 hover:bg-red-500/20 rounded-lg transition-colors duration-200"
+                          className="p-1 hover:bg-red-500/20 rounded transition-colors"
                         >
                           <Trash2 className="h-4 w-4 text-red-400" />
                         </button>
@@ -2363,30 +2319,24 @@ useEffect(() => {
               <CollapsibleSection 
                 title={`tokens • ${allTokens.length} total`}
                 defaultOpen={true}
-                className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl overflow-hidden"
+                className="bg-gray-800/30 rounded-xl border border-gray-700/30 overflow-hidden"
               >
                 <TokenTable
-                tokens={sortedTokens.map(token => ({
-                  ...token,
-                  selected: selectedTokens.has(token.mint)
-                }))}
-                loading={analyzing}
-                onTokenSelect={(mint, selected) => handleTokenSelect(mint)}
-                onSelectAll={handleSelectAll}
-                selectedTokens={sortedTokens.filter(token => selectedTokens.has(token.mint))}
-                totalSelectedValue={selectedTokensValue}
-                onRefreshPrices={analyzeAllWallets}
-                processingProgress={loadingProgress.currentProcessed}
-                totalToProcess={loadingProgress.totalItems}
-                portfolioHistory={portfolioHistory}
-                excludeTokenMint={targetToken?.mint}
-                columns={columns}
-                onUpdateColumnWidth={updateColumnWidth}
-                onToggleColumnVisibility={toggleColumnVisibility}
-                onReorderColumns={reorderColumns}
-                onShowColumnPanel={() => setShowColumnPanel(true)}
-                resetColumns={resetColumns}
-              />
+                  tokens={sortedTokens.map(token => ({
+                    ...token,
+                    selected: selectedTokens.has(token.mint)
+                  }))}
+                  loading={analyzing}
+                  onTokenSelect={(mint, selected) => handleTokenSelect(mint)}
+                  onSelectAll={handleSelectAll}
+                  selectedTokens={sortedTokens.filter(token => selectedTokens.has(token.mint))}
+                  totalSelectedValue={selectedTokensValue}
+                  onRefreshPrices={analyzeAllWallets}
+                  processingProgress={loadingProgress.currentProcessed}
+                  totalToProcess={loadingProgress.totalItems}
+                  portfolioHistory={portfolioHistory}
+                  excludeTokenMint={targetToken?.mint}
+                />
               </CollapsibleSection>
 
               {/* Portfolio Summary */}
@@ -2394,7 +2344,7 @@ useEffect(() => {
                 <CollapsibleSection 
                   title="portfolio summary"
                   defaultOpen={true}
-                  className="bg-gray-800/30 mt-6 backdrop-blur-sm rounded-2xl border border-gray-700/30 shadow-xl"
+                  className="bg-gray-800/30 mt-6 rounded-xl border border-gray-700/30"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div>
@@ -2438,15 +2388,15 @@ useEffect(() => {
             </CollapsibleSection>
 
             <HistoricalPortfolio 
-            mode="multisig"
-            currentPortfolioValue={totalPortfolioValue}
-          />
+              mode="multisig"
+              currentPortfolioValue={totalPortfolioValue}
+            />
           </div>
         )}
 
         {portfolioHistory.length === 0 && chartDataLoaded && (
           <div className="text-center py-12 text-gray-400">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 bg-gray-700/50 rounded-2xl flex items-center justify-center">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 bg-gray-700/50 rounded-xl flex items-center justify-center">
               <Clock className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400" />
             </div>
             <p className="text-sm sm:text-base font-medium">no portfolio history available yet</p>
@@ -2455,7 +2405,7 @@ useEffect(() => {
         )}
       </div>
     </div>
-     <ColumnCustomizationPanel
+    <ColumnCustomizationPanel
       columns={columns}
       onToggleVisibility={toggleColumnVisibility}
       onReorder={reorderColumns}

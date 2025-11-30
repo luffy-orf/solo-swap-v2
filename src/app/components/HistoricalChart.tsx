@@ -383,32 +383,32 @@ export function PortfolioChart({
         )}
       </div>
 
-      {/* Summary Stats - Use Live Data */}
-      {(livePortfolioValue !== undefined || portfolioHistory.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-700">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-500">
-              ${(livePortfolioValue !== undefined ? livePortfolioValue : portfolioHistory[portfolioHistory.length - 1]?.totalValue || 0).toLocaleString(undefined, { 
-                minimumFractionDigits: 2, 
-                maximumFractionDigits: 2 
-              })}
-            </div>
-            <div className="text-l text-gray-400">current value</div>
+     {/* Summary Stats - Use Live Data */}
+    {(livePortfolioValue !== undefined || portfolioHistory.length > 0) && (
+      <div className="grid grid-cols-3 gap-2 md:gap-4 mt-4 md:mt-6 pt-4 md:pt-6 border-t border-gray-700">
+        <div className="text-center">
+          <div className="text-lg md:text-2xl font-bold text-green-500">
+            ${(livePortfolioValue !== undefined ? livePortfolioValue : portfolioHistory[portfolioHistory.length - 1]?.totalValue || 0).toLocaleString(undefined, { 
+              minimumFractionDigits: 2, 
+              maximumFractionDigits: 2 
+            })}
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-400">
-              {liveWalletCount !== undefined ? liveWalletCount : (portfolioHistory[portfolioHistory.length - 1]?.walletCount || 1)}
-            </div>
-            <div className="text-l text-gray-400">wallets</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-gray-400">
-              {liveTokenCount !== undefined ? liveTokenCount : (portfolioHistory[portfolioHistory.length - 1]?.tokenCount || 0)}
-            </div>
-            <div className="text-l text-gray-400">tokens</div>
-          </div>
+          <div className="text-xs md:text-sm text-gray-400">current value</div>
         </div>
-      )}
+        <div className="text-center">
+          <div className="text-lg md:text-2xl font-bold text-gray-400">
+            {liveWalletCount !== undefined ? liveWalletCount : (portfolioHistory[portfolioHistory.length - 1]?.walletCount || 1)}
+          </div>
+          <div className="text-xs md:text-sm text-gray-400">wallets</div>
+        </div>
+        <div className="text-center">
+          <div className="text-lg md:text-2xl font-bold text-gray-400">
+            {liveTokenCount !== undefined ? liveTokenCount : (portfolioHistory[portfolioHistory.length - 1]?.tokenCount || 0)}
+          </div>
+          <div className="text-xs md:text-sm text-gray-400">tokens</div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

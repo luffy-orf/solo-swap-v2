@@ -880,7 +880,7 @@ export function SwapInterface({
   };
 
   return (
-  <div className="bg-gray-800/50 p-4 sm:p-6 backdrop-blur-sm border border-gray-700 h-fit mobile-optimized relative z-10">
+  <div className="bg-gray-900/50 p-4 -mr-8 sm:p-6 backdrop-blur-sm border border-gray-800 h-fit mobile-optimized relative z-10">
     
     <h2 className="text-m sm:text-l font-semibold mb-4 sm:mb-6 flex items-center space-x-2">
       <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
