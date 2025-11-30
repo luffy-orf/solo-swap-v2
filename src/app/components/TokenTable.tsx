@@ -478,7 +478,7 @@ const {
             type="checkbox"
             checked={token.selected}
             onChange={(e) => onTokenSelect(token.mint, e.target.checked)}
-            className="rounded-lg bg-gray-700 border-gray-600 text-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 mobile-optimized"
+            className="rounded-lg bg-gray-800 border-gray-700 text-gray-500 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-800 w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 mobile-optimized"
             style={{ touchAction: 'manipulation' }}
           />
         );
