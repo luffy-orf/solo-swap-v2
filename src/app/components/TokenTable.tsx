@@ -173,7 +173,7 @@ export function ResizableTableHeader({
     const handlePointerMove = (pe: PointerEvent) => {
       if (!isResizing.current) return;
       const deltaX = pe.clientX - startXRef.current;
-      const newWidth = Math.max(80, startWidthRef.current + deltaX);
+      const newWidth = Math.max(40, startWidthRef.current + deltaX);
       onResize(column.id, newWidth);
     };
 
