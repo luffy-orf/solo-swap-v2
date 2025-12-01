@@ -42,7 +42,7 @@ solo swap enables users to efficiently liquidate multiple solana tokens in a sin
 
 ## 🚧 planned features
 
-#### transaction enhancements
+#### transaction history
 - **jito bundler** to wrap swap instructions in bundles of 5 swaps per signature
 - **customizable columns** to allow users to organize how they wish
 - **mobile optimization** for text size and touch operability
