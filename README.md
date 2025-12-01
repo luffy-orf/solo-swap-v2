@@ -25,6 +25,7 @@ solo swap enables users to efficiently liquidate multiple solana tokens in a sin
 - **output token selection**: convert to usdc, usdt, or sol
 - **swap history tracking**: automatically logs each liquidation and draws sell indicators on the history chart (firebase required)
 - **multi-route quote comparison**: automatically fetches and compares multiple swap routes to ensure the best price
+- **token safety indicators**: color-coded badges (🟢 green, 🟡 yellow, 🟠 orange, 🔴 red) next to each token showing safety levels with hover tooltips for risk details (goplus api)
 
 ### 🔄 advanced rpc management
 - **load balancing**: automatic distribution across multiple rpc endpoints
@@ -41,9 +42,8 @@ solo swap enables users to efficiently liquidate multiple solana tokens in a sin
 
 ## 🚧 planned features
 
-#### transaction history
+#### transaction enhancements
 - **jito bundler** to wrap swap instructions in bundles of 5 swaps per signature
-- **token safety indicators** on search mechanisms (green, yellow, red warning levels)
 - **customizable columns** to allow users to organize how they wish
 - **mobile optimization** for text size and touch operability
 - **re-apply cron job** for periodic auto-fetch of portfolio values
@@ -112,6 +112,7 @@ environment configuration
     NEXT_PUBLIC_ENCRYPTION_SECRET=""
     NEXT_PUBLIC_HASH_SALT=""
     NEXT_PUBLIC_ENABLE_HISTORY="false" // change to "true"!
+    NEXT_PUBLIC_ENABLE_SAFETY_CHECKS="true" // token safety indicators (goplus api, no key required)
     ```
 
 ### transaction history setup

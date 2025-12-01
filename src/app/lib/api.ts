@@ -1,7 +1,8 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { TokenBalance, TokenInfo, PriceProgress } from '../types/token';
+import { tokenSafetyService } from './tokenSafety';
 
-const HELIUS_RPC_URL = process.env.NEXT_PUBLIC_HELIUS_API_KEY 
+const HELIUS_RPC_URL = process.env.NEXT_PUBLIC_HELIUS_API_KEY
   ? `https://mainnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY}`
   : 'https://mainnet.helius-rpc.com/';
 
@@ -54,7 +55,7 @@ interface HeliusAsset {
 const RPC_ENDPOINTS = [
   process.env.NEXT_PUBLIC_RPC_ENDPOINT_1,
   process.env.NEXT_PUBLIC_RPC_ENDPOINT_2,
-].filter(Boolean) as string[]; 
+].filter(Boolean) as string[];
 
 const FALLBACK_RPC_ENDPOINTS = [
   'https://api.mainnet-beta.solana.com',
@@ -82,23 +83,23 @@ class LoadBalancer {
     maxRetries: number = 3
   ): Promise<T> {
     let lastError: Error | null = null;
-    
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       const endpoint = await this.getNextEndpoint();
-      
+
       try {
         const result = await operation(endpoint);
         return result;
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'unknown error occurred';
         lastError = new Error(errorMessage);
-        
+
         if (errorMessage.includes('403') || errorMessage.includes('429') || errorMessage.includes('401')) {
           continue;
         }
       }
     }
-    
+
     throw new Error(`all rpc endpoints failed after ${maxRetries} attempts. last error: ${lastError?.message}`);
   }
 
@@ -145,16 +146,16 @@ export class TokenService {
 
     try {
       const response = await fetch('https://cache.jup.ag/tokens');
-      
+
       if (response.ok) {
         const tokens = await response.json();
-        
+
         tokens.forEach((token: TokenInfo) => {
           if (token.address) {
             this.tokenMap.set(token.address, token);
           }
         });
-        
+
         this.tokenListLoaded = true;
         return;
       }
@@ -192,7 +193,7 @@ export class TokenService {
     fallbackTokens.forEach(token => {
       this.tokenMap.set(token.address, token);
     });
-    
+
     this.tokenListLoaded = true;
   }
 
@@ -208,7 +209,7 @@ export class TokenService {
     return await rpcLoadBalancer.executeWithRetry(async (endpoint) => {
       const connection = this.createConnection(endpoint);
       const publicKey = new PublicKey(walletAddress);
-      
+
       const [tokenAccounts, solBalance] = await Promise.all([
         connection.getParsedTokenAccountsByOwner(
           publicKey,
@@ -257,11 +258,11 @@ export class TokenService {
           const accountInfo = account.account.data.parsed.info;
           const mint = accountInfo.mint;
           const tokenAmount = accountInfo.tokenAmount;
-          
+
           if (tokenAmount.uiAmount > 0) {
             const heliusMetadata = tokenMetadataMap.get(mint);
             const tokenInfo = this.tokenMap.get(mint);
-            
+
             tokens.push({
               mint: mint,
               symbol: heliusMetadata?.symbol || tokenInfo?.symbol || 'UNKNOWN',
@@ -284,7 +285,7 @@ export class TokenService {
 
   private async fetchTokenMetadataBatch(mintAddresses: string[]): Promise<Map<string, { symbol: string; name: string; logoURI: string | null }>> {
     const metadataMap = new Map<string, { symbol: string; name: string; logoURI: string | null }>();
-    
+
     if (mintAddresses.length === 0) return metadataMap;
 
     try {
@@ -309,7 +310,7 @@ export class TokenService {
               const symbol = asset.content?.metadata?.symbol || asset.content?.metadata?.name?.split(' ')[0] || 'UNKNOWN';
               const name = asset.content?.metadata?.name || 'Unknown Token';
               const logoURI = asset.content?.links?.image || asset.content?.files?.[0]?.uri || null;
-              
+
               metadataMap.set(asset.id, { symbol, name, logoURI });
             }
           });
@@ -323,10 +324,10 @@ export class TokenService {
   }
 
   async getTokenPrices(
-    tokens: TokenBalance[], 
+    tokens: TokenBalance[],
     onProgress?: (progress: PriceProgress) => void
   ): Promise<TokenBalance[]> {
-    
+
     if (tokens.length === 0) {
       return [];
     }
@@ -362,7 +363,7 @@ export class TokenService {
 
     try {
       const mintAddresses = tokensToFetch.map(t => t.mint);
-      
+
       const response = await fetch(HELIUS_RPC_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -381,28 +382,28 @@ export class TokenService {
       }
 
       const data: { result?: HeliusAsset[] } = await response.json();
-      
+
       if (Array.isArray(data.result)) {
         const priceMap = new Map<string, number>();
         const assetMap = new Map<string, HeliusAsset>();
-        
+
         data.result.forEach((asset) => {
           if (asset && asset.id) {
             assetMap.set(asset.id, asset);
           }
         });
-        
+
         tokensToFetch.forEach((token) => {
           const asset = assetMap.get(token.mint);
-          
+
           let price = 0;
 
           if (asset) {
             const priceInfo = asset.token_info?.price_info;
-            
+
             if (priceInfo && priceInfo.price_per_token) {
               price = priceInfo.price_per_token;
-              
+
               this.priceCache.set(token.mint, {
                 price,
                 timestamp: now
@@ -417,7 +418,7 @@ export class TokenService {
               if (priceInfo?.total_price && token.uiAmount > 0) {
                 price = priceInfo.total_price / token.uiAmount;
               }
-              
+
               if (price > 0) {
                 this.priceCache.set(token.mint, {
                   price,
@@ -447,7 +448,7 @@ export class TokenService {
         const fetchedResults = tokensToFetch.map(token => {
           const price = priceMap.get(token.mint) || 0;
           const value = price * token.uiAmount;
-          
+
           return {
             ...token,
             price,
@@ -456,14 +457,14 @@ export class TokenService {
         });
 
         const allResults = [...cachedResults, ...fetchedResults];
-        
+
         for (const result of fetchedResults) {
           const asset = data.result?.find((a) => a.id === result.mint);
           if (asset) {
             const symbol = asset.content?.metadata?.symbol || result.symbol;
             const name = asset.content?.metadata?.name || result.name;
             const logoURI = asset.content?.links?.image || asset.content?.files?.[0]?.uri || result.logoURI;
-            
+
             result.symbol = symbol;
             result.name = name;
             result.logoURI = logoURI;
@@ -477,8 +478,21 @@ export class TokenService {
             currentToken: 'complete'
           });
         }
-        
-        return allResults;
+
+        // Fetch safety information for all tokens
+        try {
+          const mints = allResults.map(t => t.mint);
+          const safetyMap = await tokenSafetyService.fetchSafetyBatch(mints);
+
+          const enrichedWithSafety = allResults.map(token => ({
+            ...token,
+            safetyInfo: safetyMap.get(token.mint),
+          }));
+
+          return enrichedWithSafety;
+        } catch (error) {
+          return allResults;
+        }
       } else {
         throw new Error('Invalid response from Helius API');
       }
@@ -493,7 +507,7 @@ export class TokenService {
   }
 
   async retryFailedTokens(
-    failedTokens: TokenBalance[], 
+    failedTokens: TokenBalance[],
     onProgress?: (progress: PriceProgress) => void
   ): Promise<TokenBalance[]> {
     if (failedTokens.length === 0) {

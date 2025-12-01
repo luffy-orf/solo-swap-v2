@@ -1,3 +1,5 @@
+import { TokenSafetyInfo } from './tokenSafety';
+
 export interface TokenBalance {
   mint: string;
   symbol: string;
@@ -9,6 +11,7 @@ export interface TokenBalance {
   value: number;
   selected: boolean;
   logoURI?: string | null;
+  safetyInfo?: TokenSafetyInfo;
 }
 
 export interface TokenInfo {

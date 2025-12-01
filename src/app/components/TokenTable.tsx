@@ -11,6 +11,7 @@ import { SortableContext, useSortable, horizontalListSortingStrategy, verticalLi
 import { CSS } from '@dnd-kit/utilities';
 import { ColumnConfig, SortField } from '../types/table';
 import { useColumnState } from '../hooks/useColumnState';
+import { TokenSafetyBadge } from './TokenSafetyBadge';
 
 interface TokenTableProps {
   tokens: TokenBalance[];
@@ -20,8 +21,8 @@ interface TokenTableProps {
   selectedTokens: TokenBalance[];
   totalSelectedValue: number;
   onRefreshPrices?: () => void;
-  processingProgress: number; 
-  totalToProcess: number; 
+  processingProgress: number;
+  totalToProcess: number;
   portfolioHistory?: Array<{
     timestamp: Date;
     totalValue: number;
@@ -32,7 +33,7 @@ interface TokenTableProps {
     timestamp: number | string
     valueUsd: number;
     token: string;
-  }>; 
+  }>;
   excludeTokenMint?: string;
 }
 
@@ -48,8 +49,8 @@ const SortIcon = ({ field, sortField, sortDirection }: SortIconProps) => {
   if (sortField !== field) {
     return <ArrowUpDown className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500" />;
   }
-  
-  return sortDirection === 'asc' 
+
+  return sortDirection === 'asc'
     ? <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />
     : <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />;
 };
@@ -60,10 +61,10 @@ interface TokenLogoProps {
 }
 
 const TokenLogo = ({ token, size = 8 }: TokenLogoProps) => {
-  const logoClasses = size === 6 
-    ? "w-6 h-6 sm:w-6 sm:h-6" 
+  const logoClasses = size === 6
+    ? "w-6 h-6 sm:w-6 sm:h-6"
     : "w-6 h-6 sm:w-8 sm:h-8";
-  
+
   if (token.logoURI) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -77,7 +78,7 @@ const TokenLogo = ({ token, size = 8 }: TokenLogoProps) => {
       />
     );
   }
-  
+
   return (
     <div className={`bg-gradient-to-br from-purple-600 to-gray-700 rounded-full ${logoClasses} flex items-center justify-center text-white text-xs sm:text-sm font-bold flex-shrink-0`}>
       {token.symbol.slice(0, 3)}
@@ -102,10 +103,9 @@ function CollapsibleSection({ title, children, defaultOpen = true, className = '
         className="w-full flex items-center justify-between p-4 sm:p-6 text-left hover:bg-gray-700/30 transition-colors rounded-xl mobile-optimized"
       >
         <h3 className="text-m font-semibold">{title}</h3>
-        <ChevronRight 
-          className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${
-            isOpen ? 'rotate-90' : ''
-          }`}
+        <ChevronRight
+          className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''
+            }`}
         />
       </button>
       {isOpen && (
@@ -203,7 +203,7 @@ export function ResizableTableHeader({
       key={column.id}
       style={{ width: `${column.width}px` }}
       className="relative py-3 sm:py-4 px-2 sm:px-4 bg-gray-800/50 group select-none"
-                     >
+    >
       <div className="flex items-center justify-between h-full">
 
         <div className="flex items-center space-x-2 flex-1 h-full">
@@ -316,11 +316,11 @@ const sortableKeyboardCoordinates = (event: any, args: any) => {
   }
 };
 
-export function TokenTable({ 
+export function TokenTable({
   tokens,
-  loading, 
-  onTokenSelect, 
-  selectedTokens, 
+  loading,
+  onTokenSelect,
+  selectedTokens,
   totalSelectedValue,
   onRefreshPrices,
   processingProgress,
@@ -336,44 +336,44 @@ export function TokenTable({
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [hideZeroValueTokens, setHideZeroValueTokens] = useState(true);
-  
-const {
+
+  const {
     columns,
     updateColumnWidth,
     toggleColumnVisibility,
     reorderColumns,
     resetColumns,
-   } = useColumnState();
+  } = useColumnState();
 
   const sensors = useSensors(
-  useSensor(PointerSensor, {
-    activationConstraint: {
-      distance: 3,
-    },
-  }),
-  useSensor(TouchSensor, {
-    activationConstraint: {
-      delay: 150,
-      tolerance: 8,
-    },
-  }),
-  useSensor(KeyboardSensor, {
-    coordinateGetter: sortableKeyboardCoordinates,
-  })
-);
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 3,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 150,
+        tolerance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  useEffect(() => {}, [loading, processingProgress, totalToProcess, tokens]);
+  useEffect(() => { }, [loading, processingProgress, totalToProcess, tokens]);
 
   const totalPortfolioValue = useMemo(() => {
     return tokens.reduce((total, token) => total + (token.value || 0), 0);
   }, [tokens]);
 
   const filteredAndSortedTokens = useMemo(() => {
-    let tokensToShow = excludeTokenMint 
+    let tokensToShow = excludeTokenMint
       ? tokens.filter(token => token.mint !== excludeTokenMint)
       : tokens;
 
@@ -410,12 +410,12 @@ const {
       }
 
       if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortDirection === 'asc' 
+        return sortDirection === 'asc'
           ? aValue.localeCompare(bValue)
           : bValue.localeCompare(aValue);
       }
 
-      return sortDirection === 'asc' 
+      return sortDirection === 'asc'
         ? (aValue as number) - (bValue as number)
         : (bValue as number) - (aValue as number);
     });
@@ -423,7 +423,7 @@ const {
     return filtered;
   }, [tokens, searchTerm, sortField, sortDirection, excludeTokenMint, hideZeroValueTokens]);
 
-  const failedTokens = useMemo(() => 
+  const failedTokens = useMemo(() =>
     tokens.filter(token => token.value === 0 && token.uiAmount > 0),
     [tokens]
   );
@@ -439,10 +439,10 @@ const {
 
   const handleRetryFailedTokens = async () => {
     if (failedTokens.length === 0 || retryLoading) return;
-    
+
     setRetryLoading(true);
     setRetryProgress({ current: 0, total: failedTokens.length });
-    
+
     try {
       if (onRefreshPrices) {
         onRefreshPrices();
@@ -482,43 +482,46 @@ const {
             style={{ touchAction: 'manipulation' }}
           />
         );
-      
+
       case 'symbol':
         return (
           <div className="flex items-center space-x-2 sm:space-x-3 lowercase">
             <TokenLogo token={token} size={8} />
             <div className="min-w-0 flex-1">
-              <div className="font-semibold text-sm sm:text-base text-white truncate">
-                {token.symbol}
+              <div className="flex items-center space-x-2">
+                <div className="font-semibold text-sm sm:text-base text-white truncate">
+                  {token.symbol}
+                </div>
+                {/* Token Safety Badge */}
+                <TokenSafetyBadge safetyInfo={token.safetyInfo} size="sm" />
               </div>
               <div className="text-xs text-gray-400 truncate">{token.name}</div>
             </div>
           </div>
         );
-      
+
       case 'balance':
         return (
           <div className="text-right text-xs sm:text-sm font-mono text-gray-200">
             {token.uiAmount < 0.0001 ? token.uiAmount.toExponential(2) : token.uiAmount.toFixed(4)}
           </div>
         );
-      
+
       case 'price':
         return (
           <div className="text-right text-xs sm:text-sm font-mono text-gray-200">
             {token.price ? `$${token.price < 0.01 ? token.price.toExponential(2) : token.price.toFixed(2)}` : '- -'}
           </div>
         );
-      
+
       case 'value':
         return (
-          <div className={`text-right text-xs sm:text-sm font-mono font-semibold ${
-            token.value > 0 ? 'text-green-400' : 'text-gray-400'
-          }`}>
+          <div className={`text-right text-xs sm:text-sm font-mono font-semibold ${token.value > 0 ? 'text-green-400' : 'text-gray-400'
+            }`}>
             {token.value ? `$${token.value.toFixed(2)}` : '$0.00'}
           </div>
         );
-      
+
       default:
         return null;
     }
@@ -534,7 +537,7 @@ const {
     return (
       <div className="mr-3 ml-3 flex flex-col items-center justify-center py-12 space-y-6">
         <div className="w-full max-w-md">
-          <LoadingBar 
+          <LoadingBar
             totalItems={currentTotal}
             currentProcessed={currentProgress}
             itemType="tokens"
@@ -549,12 +552,12 @@ const {
   return (
     <div className="space-y-6 -mx-3">
       {portfolioHistory && portfolioHistory.length > 0 && (
-        <CollapsibleSection 
+        <CollapsibleSection
           title="performance"
           defaultOpen={true}
           className="bg-gray-900/30 rounded-xl border border-gray-700/30"
         >
-          <PortfolioChart 
+          <PortfolioChart
             className="w-full"
             portfolioHistory={portfolioHistory}
             livePortfolioValue={totalPortfolioValue}
@@ -565,7 +568,7 @@ const {
         </CollapsibleSection>
       )}
 
-      <CollapsibleSection 
+      <CollapsibleSection
         title="search"
         defaultOpen={true}
         className="bg-gray-800/30 rounded-xl border border-gray-700/30"
@@ -581,7 +584,7 @@ const {
               className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent text-sm placeholder-gray-400"
             />
           </div>
-          
+
           {failedTokens.length > 0 && (
             <button
               onClick={handleRetryFailedTokens}
@@ -619,7 +622,7 @@ const {
         )}
       </CollapsibleSection>
 
-      <CollapsibleSection 
+      <CollapsibleSection
         title={`tokens • ${filteredAndSortedTokens.length} of ${tokens.length}`}
         defaultOpen={true}
         className="bg-gray-800/30 rounded-xl border border-gray-700/30 overflow-hidden"
@@ -632,24 +635,23 @@ const {
           >
             <span>show 0&apos;s & </span>
             <ChevronDown
-              className={`h-4 w-4 transition-transform duration-200 ${
-                hideZeroValueTokens ? 'rotate-180' : ''
-              }`}
+              className={`h-4 w-4 transition-transform duration-200 ${hideZeroValueTokens ? 'rotate-180' : ''
+                }`}
             />
           </button>
         </div>
-        
+
         {isMounted ? (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragEnd={handleHeaderDragEnd}
           >
-            <SortableContext 
-              items={visibleColumns.map(col => col.id)} 
+            <SortableContext
+              items={visibleColumns.map(col => col.id)}
               strategy={horizontalListSortingStrategy}
             >
-             <div className="overflow-x-auto mobile-scroll" style={{ touchAction: 'pan-x' }}>
+              <div className="overflow-x-auto mobile-scroll" style={{ touchAction: 'pan-x' }}>
                 <table className="w-full min-w-[500px] sm:min-w-full token-table-mobile" style={{ tableLayout: 'fixed' }}>
                   <colgroup>
                     {visibleColumns.map(col => (
@@ -670,7 +672,7 @@ const {
                         />
                       ))}
 
-                      <th className="py-3 sm:py-4 px-2 sm:px-4 w-12 bg-gray-800/50 relative z-20"> 
+                      <th className="py-3 sm:py-4 px-2 sm:px-4 w-12 bg-gray-800/50 relative z-20">
                         <div className="relative">
                           <button
                             onClick={() => setShowColumnPanel(!showColumnPanel)}
@@ -687,11 +689,10 @@ const {
 
                   <tbody>
                     {filteredAndSortedTokens.map((token, index) => (
-                      <tr 
-                        key={token.mint} 
-                        className={`border-b border-gray-700/30 hover:bg-gray-700/40 transition-all duration-200 group ${
-                          token.value === 0 && token.uiAmount > 0 ? 'opacity-70' : ''
-                        } ${index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'}`}
+                      <tr
+                        key={token.mint}
+                        className={`border-b border-gray-700/30 hover:bg-gray-700/40 transition-all duration-200 group ${token.value === 0 && token.uiAmount > 0 ? 'opacity-70' : ''
+                          } ${index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'}`}
                       >
                         {visibleColumns.map(column => (
                           <td
@@ -708,7 +709,7 @@ const {
                     ))}
                   </tbody>
                 </table>
-               </div>
+              </div>
             </SortableContext>
           </DndContext>
         ) : (
@@ -716,7 +717,7 @@ const {
             <table className="w-full min-w-[500px] sm:min-w-full token-table-mobile">
               <thead>
                 <tr className="border-b border-gray-700/70 bg-gray-800/50">
-                  
+
                   {visibleColumns.map((column) => (
                     <th
                       key={column.id}
@@ -729,14 +730,14 @@ const {
                             className="absolute left-0 top-0 bottom-0 w-4 cursor-col-resize hover:bg-gray-500 active:bg-gray-400 z-10 touch-manipulation"
                           />
                         )}
-                        
+
                         <div className="flex items-center space-x-2 flex-1 h-full">
                           {column.resizable && (
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                               <GripVertical className="h-4 w-4 text-gray-400" />
                             </div>
                           )}
-                          
+
                           <div
                             onClick={() => column.sortable && handleSort(column.field)}
                             className={`flex-1 h-full flex items-center ${column.sortable ? 'cursor-pointer hover:text-white mobile-optimized' : ''}`}
@@ -764,7 +765,7 @@ const {
                     </th>
                   ))}
 
-                  <th className="py-3 sm:py-4 px-2 sm:px-4 w-12 bg-gray-800/50 relative z-20"> 
+                  <th className="py-3 sm:py-4 px-2 sm:px-4 w-12 bg-gray-800/50 relative z-20">
                     <div className="relative">
                       <button
                         onClick={() => setShowColumnPanel(!showColumnPanel)}
@@ -781,14 +782,13 @@ const {
 
               <tbody>
                 {filteredAndSortedTokens.map((token, index) => (
-                  <tr 
-                    key={token.mint} 
-                    className={`border-b border-gray-700/30 hover:bg-gray-700/40 transition-all duration-200 group ${
-                      token.value === 0 && token.uiAmount > 0 ? 'opacity-70' : ''
-                    } ${index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'}`}
+                  <tr
+                    key={token.mint}
+                    className={`border-b border-gray-700/30 hover:bg-gray-700/40 transition-all duration-200 group ${token.value === 0 && token.uiAmount > 0 ? 'opacity-70' : ''
+                      } ${index % 2 === 0 ? 'bg-gray-800/20' : 'bg-gray-800/10'}`}
                   >
                     {visibleColumns.map(column => (
-                      <td 
+                      <td
                         key={column.id}
                         style={{ width: column.width }}
                         className="py-3 sm:py-4 px-2 sm:px-4"
@@ -796,7 +796,7 @@ const {
                         {renderTableCell(token, column.id)}
                       </td>
                     ))}
-                    
+
                     <td className="py-3 sm:py-4 px-2 sm:px-4"></td>
                   </tr>
                 ))}
@@ -805,7 +805,7 @@ const {
           </div>
         )}
 
-                <div className="sm:hidden text-center text-xs text-gray-500 pt-3 pb-2 border-t border-gray-700/30 mt-2">
+        <div className="sm:hidden text-center text-xs text-gray-500 pt-3 pb-2 border-t border-gray-700/30 mt-2">
           <div className="flex items-center justify-center space-x-2">
             <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
             <span>scroll horizontally to view all columns</span>
@@ -829,7 +829,7 @@ const {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="space-y-3 mb-6">
               <p className="text-sm text-gray-400">
                 drag to reorder columns, toggle visibility with the eye icon
@@ -841,8 +841,8 @@ const {
               collisionDetection={closestCenter}
               onDragEnd={handleHeaderDragEnd}
             >
-              <SortableContext 
-                items={columns.map(col => col.id)} 
+              <SortableContext
+                items={columns.map(col => col.id)}
                 strategy={verticalListSortingStrategy}
               >
                 <div className="space-y-3">
@@ -876,7 +876,7 @@ const {
           </div>
         </div>
       )}
-      
+
     </div>
   );
 }
